@@ -20,6 +20,8 @@ import java.util.Random;
  */
 public class StructureHelper {
 
+    private static final int SET_FLAGS = net.minecraft.block.Block.NOTIFY_LISTENERS; // Flag 2: no neighbor updates
+
     /**
      * Fill a 3D box with a block state.
      */
@@ -31,10 +33,11 @@ public class StructureHelper {
         int maxY = Math.max(corner1.getY(), corner2.getY());
         int maxZ = Math.max(corner1.getZ(), corner2.getZ());
 
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
                 for (int z = minZ; z <= maxZ; z++) {
-                    world.setBlockState(new BlockPos(x, y, z), state);
+                    world.setBlockState(mutable.set(x, y, z), state, SET_FLAGS);
                 }
             }
         }
@@ -51,12 +54,13 @@ public class StructureHelper {
         int maxY = Math.max(corner1.getY(), corner2.getY());
         int maxZ = Math.max(corner1.getZ(), corner2.getZ());
 
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
                 for (int z = minZ; z <= maxZ; z++) {
                     boolean isEdge = x == minX || x == maxX || z == minZ || z == maxZ;
                     if (isEdge) {
-                        world.setBlockState(new BlockPos(x, y, z), state);
+                        world.setBlockState(mutable.set(x, y, z), state, SET_FLAGS);
                     }
                 }
             }
@@ -72,9 +76,10 @@ public class StructureHelper {
         int maxX = Math.max(corner1.getX(), corner2.getX());
         int maxZ = Math.max(corner1.getZ(), corner2.getZ());
 
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
-                world.setBlockState(new BlockPos(x, y, z), state);
+                world.setBlockState(mutable.set(x, y, z), state, SET_FLAGS);
             }
         }
     }
@@ -83,17 +88,19 @@ public class StructureHelper {
      * Clear the interior of a box (replace with air).
      */
     public static void clearInterior(ServerWorld world, BlockPos corner1, BlockPos corner2) {
-        int minX = Math.min(corner1.getX(), corner2.getX()) + 1;
-        int minY = Math.min(corner1.getY(), corner2.getY()) + 1;
-        int minZ = Math.min(corner1.getZ(), corner2.getZ()) + 1;
-        int maxX = Math.max(corner1.getX(), corner2.getX()) - 1;
-        int maxY = Math.max(corner1.getY(), corner2.getY()) - 1;
-        int maxZ = Math.max(corner1.getZ(), corner2.getZ()) - 1;
+        int minX = Math.min(corner1.getX(), corner2.getX());
+        int minY = Math.min(corner1.getY(), corner2.getY());
+        int minZ = Math.min(corner1.getZ(), corner2.getZ());
+        int maxX = Math.max(corner1.getX(), corner2.getX());
+        int maxY = Math.max(corner1.getY(), corner2.getY());
+        int maxZ = Math.max(corner1.getZ(), corner2.getZ());
 
+        BlockState air = Blocks.AIR.getDefaultState();
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
         for (int x = minX; x <= maxX; x++) {
             for (int y = minY; y <= maxY; y++) {
                 for (int z = minZ; z <= maxZ; z++) {
-                    world.setBlockState(new BlockPos(x, y, z), Blocks.AIR.getDefaultState());
+                    world.setBlockState(mutable.set(x, y, z), air, SET_FLAGS);
                 }
             }
         }
@@ -199,7 +206,8 @@ public class StructureHelper {
      * Place a chest with loot table.
      */
     public static void placeChest(ServerWorld world, BlockPos pos, Direction facing, RegistryKey<LootTable> lootTable) {
-        world.setBlockState(pos, Blocks.CHEST.getDefaultState());
+        world.setBlockState(pos, Blocks.CHEST.getDefaultState()
+            .with(net.minecraft.block.HorizontalFacingBlock.FACING, facing));
         if (world.getBlockEntity(pos) instanceof ChestBlockEntity chest) {
             chest.setLootTable(lootTable, world.getRandom().nextLong());
         }

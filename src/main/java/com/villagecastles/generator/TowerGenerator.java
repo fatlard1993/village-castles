@@ -183,7 +183,7 @@ public class TowerGenerator {
 
         // Crenellations
         StructureHelper.addCrenellations(world, corner1.withY(center.getY() + height),
-            corner2.withY(center.getY() + height), height + 1, palette.getPrimaryWallState());
+            corner2.withY(center.getY() + height), center.getY() + height + 1, palette.getPrimaryWallState());
 
         // Lighting - place lanterns on floor (not hanging)
         // Floor lanterns sit on the floor block

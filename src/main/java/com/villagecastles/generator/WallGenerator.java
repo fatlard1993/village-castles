@@ -34,7 +34,7 @@ public class WallGenerator {
     public void generate(ServerWorld world, BlockPos start, BlockPos end) {
         int dx = end.getX() - start.getX();
         int dz = end.getZ() - start.getZ();
-        int length = (int) Math.sqrt(dx * dx + dz * dz);
+        int length = Math.max(Math.abs(dx), Math.abs(dz));
 
         if (length == 0) return;
 
@@ -107,7 +107,7 @@ public class WallGenerator {
     public void generateWithArrowSlits(ServerWorld world, BlockPos start, BlockPos end, int slitInterval) {
         int dx = end.getX() - start.getX();
         int dz = end.getZ() - start.getZ();
-        int length = (int) Math.sqrt(dx * dx + dz * dz);
+        int length = Math.max(Math.abs(dx), Math.abs(dz));
 
         if (length == 0) return;
 
@@ -173,7 +173,7 @@ public class WallGenerator {
 
         int dx = end.getX() - start.getX();
         int dz = end.getZ() - start.getZ();
-        int length = (int) Math.sqrt(dx * dx + dz * dz);
+        int length = Math.max(Math.abs(dx), Math.abs(dz));
 
         Direction facing;
         if (Math.abs(dx) > Math.abs(dz)) {

@@ -135,33 +135,40 @@ public class CastleGenerator {
     /**
      * Prepare the ground by flattening terrain and creating a foundation.
      */
+    private static final int SET_FLAGS = net.minecraft.block.Block.NOTIFY_LISTENERS; // Flag 2: no neighbor updates
+
     private void prepareGround(ServerWorld world, BlockPos center, int radius) {
         int baseY = center.getY();
         int ox = center.getX();
         int oz = center.getZ();
 
-        // Create a solid foundation platform
-        // Fill below ground level to ensure solid base
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        net.minecraft.block.BlockState cobble = Blocks.COBBLESTONE.getDefaultState();
+        net.minecraft.block.BlockState air = Blocks.AIR.getDefaultState();
+        net.minecraft.block.BlockState floorState = palette.getFloorState();
+
         for (int x = -radius - 2; x <= radius + 2; x++) {
             for (int z = -radius - 2; z <= radius + 2; z++) {
+                int wx = ox + x;
+                int wz = oz + z;
+
                 // Fill foundation from -5 to -1 below surface
                 for (int y = -5; y <= -1; y++) {
-                    world.setBlockState(new BlockPos(ox + x, baseY + y, oz + z), Blocks.COBBLESTONE.getDefaultState());
+                    mutable.set(wx, baseY + y, wz);
+                    world.setBlockState(mutable, cobble, SET_FLAGS);
                 }
 
-                // Ground level floor (grass path/cobblestone mix for courtyard)
+                // Ground level floor
+                mutable.set(wx, baseY, wz);
                 boolean isInner = Math.abs(x) < radius - 8 && Math.abs(z) < radius - 8;
-                if (isInner) {
-                    // Interior courtyard - use palette floor
-                    world.setBlockState(new BlockPos(ox + x, baseY, oz + z), palette.getFloorState());
-                } else {
-                    // Outer area - cobblestone
-                    world.setBlockState(new BlockPos(ox + x, baseY, oz + z), Blocks.COBBLESTONE.getDefaultState());
-                }
+                world.setBlockState(mutable, isInner ? floorState : cobble, SET_FLAGS);
 
-                // Clear air above ground level (remove trees, terrain bumps, etc.)
+                // Clear air above ground level - skip blocks already air
                 for (int y = 1; y <= 40; y++) {
-                    world.setBlockState(new BlockPos(ox + x, baseY + y, oz + z), Blocks.AIR.getDefaultState());
+                    mutable.set(wx, baseY + y, wz);
+                    if (!world.getBlockState(mutable).isAir()) {
+                        world.setBlockState(mutable, air, SET_FLAGS);
+                    }
                 }
             }
         }

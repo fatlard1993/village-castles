@@ -9,6 +9,9 @@ import com.villagecastles.generator.BiomePalette;
 import com.villagecastles.generator.CastleGenerator;
 import com.villagecastles.generator.VillageWallGenerator;
 import net.minecraft.command.CommandSource;
+import net.minecraft.command.permission.Permission;
+import net.minecraft.command.permission.PermissionCheck;
+import net.minecraft.command.permission.PermissionLevel;
 import net.minecraft.util.math.Direction;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
@@ -31,6 +34,10 @@ import java.util.Arrays;
  *   /villagecastles generate snowy
  */
 public class GenerateCastleCommand {
+
+    private static final java.util.function.Predicate<ServerCommandSource> REQUIRES_OP =
+        CommandManager.requirePermissionLevel(
+            new PermissionCheck.Require(new Permission.Level(PermissionLevel.GAMEMASTERS)));
 
     private static final SuggestionProvider<ServerCommandSource> BIOME_SUGGESTIONS =
         (context, builder) -> CommandSource.suggestMatching(
@@ -55,6 +62,7 @@ public class GenerateCastleCommand {
             CommandManager.literal("villagecastles")
                 .requires(ServerCommandSource::isExecutedByPlayer) // Player only
                 .then(CommandManager.literal("generate")
+                    .requires(REQUIRES_OP)
                     .then(CommandManager.argument("biome", StringArgumentType.word())
                         .suggests(BIOME_SUGGESTIONS)
                         .executes(ctx -> executeGenerate(ctx, "large")) // Default to large
@@ -66,6 +74,7 @@ public class GenerateCastleCommand {
                     )
                 )
                 .then(CommandManager.literal("wall")
+                    .requires(REQUIRES_OP)
                     .then(CommandManager.argument("biome", StringArgumentType.word())
                         .suggests(BIOME_SUGGESTIONS)
                         .executes(ctx -> executeWall(ctx, "straight")) // Default to straight
@@ -77,6 +86,7 @@ public class GenerateCastleCommand {
                     )
                 )
                 .then(CommandManager.literal("walls")
+                    .requires(REQUIRES_OP)
                     .then(CommandManager.argument("biome", StringArgumentType.word())
                         .suggests(BIOME_SUGGESTIONS)
                         .executes(GenerateCastleCommand::executeWallShowcase)
@@ -119,6 +129,13 @@ public class GenerateCastleCommand {
         BlockPos playerPos = BlockPos.ofFloored(source.getPosition());
         ServerWorld world = source.getWorld();
 
+        // Validate Y range -- castles need headroom and foundation
+        if (playerPos.getY() < -50 || playerPos.getY() > 300) {
+            source.sendError(Text.literal("Position too extreme (Y=" + playerPos.getY() +
+                "). Move to a reasonable altitude."));
+            return 0;
+        }
+
         // Generate slightly in front of player, at ground level
         BlockPos generatePos = playerPos.north(size.diameter / 2 + 10);
 
@@ -142,7 +159,8 @@ public class GenerateCastleCommand {
 
         } catch (Exception e) {
             VillageCastles.LOGGER.error("Failed to generate castle", e);
-            source.sendError(Text.literal("Failed to generate castle: " + e.getMessage()));
+            String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            source.sendError(Text.literal("Failed to generate castle: " + msg));
             return 0;
         }
     }

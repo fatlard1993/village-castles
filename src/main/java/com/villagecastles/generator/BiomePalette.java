@@ -252,7 +252,7 @@ public enum BiomePalette {
                 return palette;
             }
         }
-        return PLAINS; // Default fallback
+        return null;
     }
 
     /**
