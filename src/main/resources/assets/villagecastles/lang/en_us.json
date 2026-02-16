@@ -1,0 +1,11 @@
+{
+  "structure.villagecastles.plains_castle": "Plains Castle",
+  "structure.villagecastles.desert_castle": "Desert Citadel",
+  "structure.villagecastles.savanna_castle": "Savanna Stronghold",
+  "structure.villagecastles.taiga_castle": "Nordic Fortress",
+  "structure.villagecastles.snowy_castle": "Ice Keep",
+  "commands.villagecastles.generate.success": "Generated %s castle at your location",
+  "commands.villagecastles.generate.failed": "Failed to generate castle: %s",
+  "commands.villagecastles.export.success": "Exported structure as %s",
+  "commands.villagecastles.export.failed": "Failed to export structure: %s"
+}

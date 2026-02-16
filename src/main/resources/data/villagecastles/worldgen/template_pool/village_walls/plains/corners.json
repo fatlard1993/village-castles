@@ -1,0 +1,14 @@
+{
+  "fallback": "minecraft:empty",
+  "elements": [
+    {
+      "weight": 1,
+      "element": {
+        "element_type": "minecraft:single_pool_element",
+        "location": "villagecastles:village_walls/plains/wall_corner",
+        "projection": "terrain_matching",
+        "processors": "villagecastles:castle_aging"
+      }
+    }
+  ]
+}
