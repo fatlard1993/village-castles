@@ -1549,6 +1549,8 @@ public class CastleGenerator {
      */
     private CastleBounds generateDesertCompound(ServerWorld world, BlockPos center, int radius,
                                                   int keepHalfWidth, int keepHalfDepth) {
+        VillageCastles.LOGGER.info("Generating fortified caravanserai palace at {}", center.toShortString());
+
         int baseY = center.getY();
         int ox = center.getX();
         int oz = center.getZ();
@@ -1556,74 +1558,620 @@ public class CastleGenerator {
         int wallThickness = 2;
         BlockPos.Mutable mutable = new BlockPos.Mutable();
 
-        // Thick rectangular sandstone outer walls
+        // Block palette
+        BlockState sandstone = palette.getPrimaryWallState();
+        BlockState cutSandstone = Blocks.CUT_SANDSTONE.getDefaultState();
+        BlockState smoothSandstone = Blocks.SMOOTH_SANDSTONE.getDefaultState();
+        BlockState chiseledSandstone = Blocks.CHISELED_SANDSTONE.getDefaultState();
+        BlockState orangeTerracotta = Blocks.ORANGE_TERRACOTTA.getDefaultState();
+        BlockState soulLantern = Blocks.SOUL_LANTERN.getDefaultState().with(LanternBlock.HANGING, true);
+        BlockState floorLantern = Blocks.SOUL_LANTERN.getDefaultState().with(LanternBlock.HANGING, false);
+        BlockState wallBlock = palette.wall.getDefaultState();
+        BlockState ironBars = Blocks.IRON_BARS.getDefaultState();
+        BlockState water = Blocks.WATER.getDefaultState();
+        BlockState air = Blocks.AIR.getDefaultState();
+        BlockState acaciaSlab = palette.woodSlab.getDefaultState();
+        BlockState carpet = palette.getCarpetState();
+        BlockState bedFoot = palette.bed.getDefaultState()
+            .with(BedBlock.PART, BedPart.FOOT);
+        BlockState bedHead = palette.bed.getDefaultState()
+            .with(BedBlock.PART, BedPart.HEAD);
+
+        // Compound dimensions - rectangular, longer north-south
+        int halfW = radius;          // east-west half width
+        int halfD = radius + 5;      // north-south half depth (longer)
+
+        // ================================================================
+        // Step 1: Thick outer walls (2-block thick SANDSTONE), flat roof
+        // ================================================================
         // North/South walls
-        for (int x = -radius; x <= radius; x++) {
+        for (int x = -halfW; x <= halfW; x++) {
             for (int t = 0; t < wallThickness; t++) {
                 for (int y = 0; y < wallHeight; y++) {
-                    mutable.set(ox + x, baseY + y, oz - radius + t);
-                    world.setBlockState(mutable, palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
-                    mutable.set(ox + x, baseY + y, oz + radius - t);
-                    world.setBlockState(mutable, palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
+                    mutable.set(ox + x, baseY + y, oz - halfD + t);
+                    world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
+                    mutable.set(ox + x, baseY + y, oz + halfD - t);
+                    world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
                 }
             }
         }
         // East/West walls
-        for (int z = -radius; z <= radius; z++) {
+        for (int z = -halfD; z <= halfD; z++) {
             for (int t = 0; t < wallThickness; t++) {
                 for (int y = 0; y < wallHeight; y++) {
-                    mutable.set(ox - radius + t, baseY + y, oz + z);
-                    world.setBlockState(mutable, palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
-                    mutable.set(ox + radius - t, baseY + y, oz + z);
-                    world.setBlockState(mutable, palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
+                    mutable.set(ox - halfW + t, baseY + y, oz + z);
+                    world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
+                    mutable.set(ox + halfW - t, baseY + y, oz + z);
+                    world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
                 }
             }
         }
 
-        // Crenellations on top
-        BlockPos wallMin = center.add(-radius, 0, -radius);
-        BlockPos wallMax = center.add(radius, 0, radius);
-        StructureHelper.addCrenellations(world, wallMin, wallMax, baseY + wallHeight, palette.getPrimaryWallState());
+        // Flat walkable roof on outer walls
+        for (int x = -halfW; x <= halfW; x++) {
+            for (int t = 0; t < wallThickness; t++) {
+                mutable.set(ox + x, baseY + wallHeight, oz - halfD + t);
+                world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+                mutable.set(ox + x, baseY + wallHeight, oz + halfD - t);
+                world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+            }
+        }
+        for (int z = -halfD; z <= halfD; z++) {
+            for (int t = 0; t < wallThickness; t++) {
+                mutable.set(ox - halfW + t, baseY + wallHeight, oz + z);
+                world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+                mutable.set(ox + halfW - t, baseY + wallHeight, oz + z);
+                world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+            }
+        }
 
-        // Corner bastions (slightly wider, taller protrusions)
-        int bastionSize = 3;
-        int bastionHeight = wallHeight + 2;
-        int[][] corners = {{-radius, -radius}, {radius, -radius}, {-radius, radius}, {radius, radius}};
-        for (int[] c : corners) {
-            BlockPos bastionCenter = new BlockPos(ox + c[0], baseY, oz + c[1]);
-            StructureHelper.buildCylinder(world, bastionCenter, bastionSize, bastionHeight,
-                palette.getSecondaryWallState(), true);
-            StructureHelper.addCircularCrenellations(world, bastionCenter, bastionSize,
-                baseY + bastionHeight, palette.getSecondaryWallState());
+        // SANDSTONE_WALL parapet on roof edges
+        for (int x = -halfW; x <= halfW; x++) {
+            mutable.set(ox + x, baseY + wallHeight + 1, oz - halfD);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + x, baseY + wallHeight + 1, oz + halfD);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+        }
+        for (int z = -halfD; z <= halfD; z++) {
+            mutable.set(ox - halfW, baseY + wallHeight + 1, oz + z);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + halfW, baseY + wallHeight + 1, oz + z);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+        }
+
+        // Iron bar mashrabiya windows on exterior walls (every 4 blocks, at y+3 and y+4)
+        for (int x = -halfW + 4; x <= halfW - 4; x += 4) {
+            for (int wy = 3; wy <= 4; wy++) {
+                mutable.set(ox + x, baseY + wy, oz - halfD);
+                world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
+                mutable.set(ox + x, baseY + wy, oz + halfD);
+                world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
+            }
+        }
+        for (int z = -halfD + 4; z <= halfD - 4; z += 4) {
+            for (int wy = 3; wy <= 4; wy++) {
+                mutable.set(ox - halfW, baseY + wy, oz + z);
+                world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
+                mutable.set(ox + halfW, baseY + wy, oz + z);
+                world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
+            }
         }
 
         // Clear interior
         StructureHelper.clearInterior(world,
-            center.add(-radius + wallThickness, 0, -radius + wallThickness),
-            center.add(radius - wallThickness, wallHeight + 2, radius - wallThickness));
+            center.add(-halfW + wallThickness, 0, -halfD + wallThickness),
+            center.add(halfW - wallThickness, wallHeight + 2, halfD - wallThickness));
 
-        // Interior floor
+        // ================================================================
+        // Step 2: Interior floor - base smooth sandstone
+        // ================================================================
         StructureHelper.fillBox(world,
-            center.add(-radius + wallThickness, 0, -radius + wallThickness),
-            center.add(radius - wallThickness, 0, radius - wallThickness),
-            palette.getFloorState());
+            center.add(-halfW + wallThickness, 0, -halfD + wallThickness),
+            center.add(halfW - wallThickness, 0, halfD - wallThickness),
+            smoothSandstone);
 
-        // Central keep
-        int keepHeight = keepGenerator.generate(world, center);
+        // ================================================================
+        // Step 3: Internal partition walls dividing rooms around courtyards
+        // ================================================================
+        // Layout (south = +Z):
+        //   North edge rooms: Lord's chambers (center), connecting passage
+        //   Main courtyard: center-south area
+        //   Private courtyard: center-north area (smaller)
+        //   East rooms: Guard quarters
+        //   West rooms: Kitchen/stores
+        //   South rooms: Audience hall
 
-        // Courtyard features (cistern, archery range)
-        courtyardGenerator.generate(world, center, radius - wallThickness,
-            keepHalfWidth, keepHalfDepth, size);
+        int innerW = halfW - wallThickness;   // Inner usable half-width
+        int innerD = halfD - wallThickness;   // Inner usable half-depth
 
-        // South gate entrance
-        gateGenerator.generate(world, center.south(radius - 2), Direction.SOUTH);
+        // Dividing wall between private courtyard (north) and main courtyard (south)
+        // This wall runs east-west at oz - 4
+        int divideZ = oz - 4;
+        int roomWallHeight = 5; // Internal walls shorter than outer walls
+        for (int x = -innerW; x <= innerW; x++) {
+            for (int y = 1; y <= roomWallHeight; y++) {
+                mutable.set(ox + x, baseY + y, divideZ);
+                world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
+            }
+        }
 
-        placeJigsawConnectors(world, center, radius);
+        // Room partition walls along east side (guard quarters) - Z from divideZ to south wall
+        int eastRoomX = ox + innerW - 7; // East room is 7 blocks wide
+        for (int z = divideZ + 1; z <= oz + innerD; z++) {
+            for (int y = 1; y <= roomWallHeight; y++) {
+                mutable.set(eastRoomX, baseY + y, oz + z);
+                world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
+            }
+        }
 
-        VillageCastles.LOGGER.info("Desert compound generation complete!");
+        // Room partition walls along west side (kitchen) - Z from divideZ to south wall
+        int westRoomX = ox - innerW + 7; // West room is 7 blocks wide
+        for (int z = divideZ + 1; z <= oz + innerD; z++) {
+            for (int y = 1; y <= roomWallHeight; y++) {
+                mutable.set(westRoomX, baseY + y, oz + z);
+                world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
+            }
+        }
+
+        // South audience hall partition (separates audience hall from main courtyard)
+        int audienceZ = oz + innerD - 6; // Audience hall is 6 blocks deep at south
+        for (int x = westRoomX; x <= eastRoomX; x++) {
+            for (int y = 1; y <= roomWallHeight; y++) {
+                mutable.set(ox + x, baseY + y, audienceZ);
+                world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
+            }
+        }
+
+        // Lord's chambers partition (north side, between private courtyard and north wall)
+        int lordZ = oz - innerD + 6; // Lord's chambers 6 blocks deep at north
+        for (int x = -innerW; x <= innerW; x++) {
+            for (int y = 1; y <= roomWallHeight; y++) {
+                mutable.set(ox + x, baseY + y, lordZ);
+                world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
+            }
+        }
+
+        // Doorways in partition walls (3-wide, 3-tall openings)
+        // Divide wall: central passage between courtyards
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = 1; dy <= 3; dy++) {
+                mutable.set(ox + dx, baseY + dy, divideZ);
+                world.setBlockState(mutable, air, StructureHelper.SET_FLAGS);
+            }
+        }
+        // East room doorway
+        for (int dy = 1; dy <= 3; dy++) {
+            mutable.set(eastRoomX, baseY + dy, divideZ + 4);
+            world.setBlockState(mutable, air, StructureHelper.SET_FLAGS);
+            mutable.set(eastRoomX, baseY + dy, divideZ + 5);
+            world.setBlockState(mutable, air, StructureHelper.SET_FLAGS);
+        }
+        // West room doorway
+        for (int dy = 1; dy <= 3; dy++) {
+            mutable.set(westRoomX, baseY + dy, divideZ + 4);
+            world.setBlockState(mutable, air, StructureHelper.SET_FLAGS);
+            mutable.set(westRoomX, baseY + dy, divideZ + 5);
+            world.setBlockState(mutable, air, StructureHelper.SET_FLAGS);
+        }
+        // Audience hall doorway (from courtyard)
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = 1; dy <= 3; dy++) {
+                mutable.set(ox + dx, baseY + dy, audienceZ);
+                world.setBlockState(mutable, air, StructureHelper.SET_FLAGS);
+            }
+        }
+        // Lord's chambers doorway (from private courtyard)
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = 1; dy <= 3; dy++) {
+                mutable.set(ox + dx, baseY + dy, lordZ);
+                world.setBlockState(mutable, air, StructureHelper.SET_FLAGS);
+            }
+        }
+
+        // ================================================================
+        // Step 4: Main courtyard (larger, south-center area)
+        // ================================================================
+        // Courtyard bounds: westRoomX+1 to eastRoomX-1, divideZ+1 to audienceZ-1
+        int cyMinX = westRoomX + 1;
+        int cyMaxX = eastRoomX - 1;
+        int cyMinZ = divideZ + 1;
+        int cyMaxZ = audienceZ - 1;
+
+        // Checkerboard floor: CUT_SANDSTONE + ORANGE_TERRACOTTA
+        for (int x = cyMinX; x <= cyMaxX; x++) {
+            for (int z = cyMinZ; z <= cyMaxZ; z++) {
+                BlockState floorBlock = ((x + z) % 2 == 0) ? cutSandstone : orangeTerracotta;
+                mutable.set(ox + x, baseY, oz + z);
+                world.setBlockState(mutable, floorBlock, StructureHelper.SET_FLAGS);
+            }
+        }
+
+        // Central fountain pool (3x3 water, bordered with CUT_SANDSTONE)
+        int fountainX = ox;
+        int fountainZ = oz + (cyMinZ + cyMaxZ) / 2;
+        // Border (5x5 cut sandstone frame, 1 block high)
+        for (int fx = -2; fx <= 2; fx++) {
+            for (int fz = -2; fz <= 2; fz++) {
+                if (Math.abs(fx) == 2 || Math.abs(fz) == 2) {
+                    mutable.set(fountainX + fx, baseY, fountainZ + fz);
+                    world.setBlockState(mutable, cutSandstone, StructureHelper.SET_FLAGS);
+                    mutable.set(fountainX + fx, baseY + 1, fountainZ + fz);
+                    world.setBlockState(mutable, cutSandstone, StructureHelper.SET_FLAGS);
+                }
+            }
+        }
+        // Water pool (3x3, sunken 1 block)
+        for (int fx = -1; fx <= 1; fx++) {
+            for (int fz = -1; fz <= 1; fz++) {
+                mutable.set(fountainX + fx, baseY, fountainZ + fz);
+                world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
+            }
+        }
+        // Central column with water cascading
+        mutable.set(fountainX, baseY + 1, fountainZ);
+        world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+        mutable.set(fountainX, baseY + 2, fountainZ);
+        world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+        mutable.set(fountainX, baseY + 3, fountainZ);
+        world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
+
+        // Colonnade walkways around main courtyard (pillars + shade roof every 2 blocks)
+        for (int x = cyMinX; x <= cyMaxX; x += 2) {
+            // North colonnade (along divideZ+1)
+            mutable.set(ox + x, baseY + 1, oz + cyMinZ);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + x, baseY + 2, oz + cyMinZ);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + x, baseY + 3, oz + cyMinZ);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + x, baseY + 4, oz + cyMinZ);
+            world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
+            // Shade roof extends one block into courtyard
+            mutable.set(ox + x, baseY + 4, oz + cyMinZ + 1);
+            world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
+
+            // South colonnade (along audienceZ-1)
+            mutable.set(ox + x, baseY + 1, oz + cyMaxZ);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + x, baseY + 2, oz + cyMaxZ);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + x, baseY + 3, oz + cyMaxZ);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + x, baseY + 4, oz + cyMaxZ);
+            world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
+            mutable.set(ox + x, baseY + 4, oz + cyMaxZ - 1);
+            world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
+        }
+        for (int z = cyMinZ; z <= cyMaxZ; z += 2) {
+            // East colonnade
+            mutable.set(ox + cyMaxX, baseY + 1, oz + z);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + cyMaxX, baseY + 2, oz + z);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + cyMaxX, baseY + 3, oz + z);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + cyMaxX, baseY + 4, oz + z);
+            world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
+            mutable.set(ox + cyMaxX - 1, baseY + 4, oz + z);
+            world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
+
+            // West colonnade
+            mutable.set(ox + cyMinX, baseY + 1, oz + z);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + cyMinX, baseY + 2, oz + z);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + cyMinX, baseY + 3, oz + z);
+            world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
+            mutable.set(ox + cyMinX, baseY + 4, oz + z);
+            world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
+            mutable.set(ox + cyMinX + 1, baseY + 4, oz + z);
+            world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
+        }
+
+        // Water channels (chahar bagh layout) - from fountain to courtyard corners
+        // North channel
+        for (int z = cyMinZ + 1; z < fountainZ - 2; z++) {
+            mutable.set(fountainX, baseY, z);
+            world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
+            mutable.set(fountainX - 1, baseY, z);
+            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+            mutable.set(fountainX + 1, baseY, z);
+            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+        }
+        // South channel
+        for (int z = fountainZ + 3; z <= oz + cyMaxZ - 1; z++) {
+            mutable.set(fountainX, baseY, z);
+            world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
+            mutable.set(fountainX - 1, baseY, z);
+            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+            mutable.set(fountainX + 1, baseY, z);
+            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+        }
+        // East channel
+        for (int x = fountainX + 3; x <= ox + cyMaxX - 1; x++) {
+            mutable.set(x, baseY, fountainZ);
+            world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
+            mutable.set(x, baseY - 1, fountainZ);
+            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+            // Border blocks on sides
+            mutable.set(x, baseY, fountainZ - 1);
+            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+            mutable.set(x, baseY, fountainZ + 1);
+            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+        }
+        // West channel
+        for (int x = ox + cyMinX + 1; x < fountainX - 2; x++) {
+            mutable.set(x, baseY, fountainZ);
+            world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
+            mutable.set(x, baseY - 1, fountainZ);
+            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+            mutable.set(x, baseY, fountainZ - 1);
+            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+            mutable.set(x, baseY, fountainZ + 1);
+            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+        }
+
+        // Bell in main courtyard
+        mutable.set(fountainX + 3, baseY + 1, fountainZ + 3);
+        world.setBlockState(mutable, palette.fence.getDefaultState(), StructureHelper.SET_FLAGS);
+        mutable.set(fountainX + 3, baseY + 2, fountainZ + 3);
+        world.setBlockState(mutable, Blocks.BELL.getDefaultState(), StructureHelper.SET_FLAGS);
+
+        // Soul lanterns throughout main courtyard (hanging from colonnade slabs)
+        for (int x = cyMinX + 1; x <= cyMaxX - 1; x += 3) {
+            mutable.set(ox + x, baseY + 3, oz + cyMinZ + 1);
+            world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
+            mutable.set(ox + x, baseY + 3, oz + cyMaxZ - 1);
+            world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
+        }
+
+        // ================================================================
+        // Step 5: Private courtyard (smaller, north area between lordZ and divideZ)
+        // ================================================================
+        int pcMinZ = lordZ + 1;
+        int pcMaxZ = divideZ - 1;
+        int pcMinX = -innerW + 2;
+        int pcMaxX = innerW - 2;
+
+        // Small pool in private courtyard (2x2)
+        int pcCenterX = ox;
+        int pcCenterZ = oz + (pcMinZ + pcMaxZ) / 2;
+        for (int fx = 0; fx <= 1; fx++) {
+            for (int fz = 0; fz <= 1; fz++) {
+                mutable.set(pcCenterX + fx, baseY, pcCenterZ + fz);
+                world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
+            }
+        }
+        // Pool border
+        for (int fx = -1; fx <= 2; fx++) {
+            mutable.set(pcCenterX + fx, baseY, pcCenterZ - 1);
+            world.setBlockState(mutable, cutSandstone, StructureHelper.SET_FLAGS);
+            mutable.set(pcCenterX + fx, baseY, pcCenterZ + 2);
+            world.setBlockState(mutable, cutSandstone, StructureHelper.SET_FLAGS);
+        }
+        for (int fz = 0; fz <= 1; fz++) {
+            mutable.set(pcCenterX - 1, baseY, pcCenterZ + fz);
+            world.setBlockState(mutable, cutSandstone, StructureHelper.SET_FLAGS);
+            mutable.set(pcCenterX + 2, baseY, pcCenterZ + fz);
+            world.setBlockState(mutable, cutSandstone, StructureHelper.SET_FLAGS);
+        }
+
+        // Decorated pots in private courtyard corners
+        mutable.set(ox + pcMinX + 1, baseY + 1, oz + pcMinZ + 1);
+        world.setBlockState(mutable, Blocks.DECORATED_POT.getDefaultState(), StructureHelper.SET_FLAGS);
+        mutable.set(ox + pcMaxX - 1, baseY + 1, oz + pcMinZ + 1);
+        world.setBlockState(mutable, Blocks.DECORATED_POT.getDefaultState(), StructureHelper.SET_FLAGS);
+
+        // Soul lanterns in private courtyard
+        mutable.set(ox + pcMinX + 1, baseY + 4, oz + pcMinZ + 1);
+        world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
+        mutable.set(ox + pcMaxX - 1, baseY + 4, oz + pcMaxZ - 1);
+        world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
+
+        // ================================================================
+        // Step 6: Audience hall (south room, between audienceZ and south wall)
+        // ================================================================
+        int ahFloorZ = audienceZ + 1;
+        int ahBackZ = oz + innerD;
+
+        // Throne (SANDSTONE_STAIRS facing north - seated player faces north toward courtyard)
+        world.setBlockState(new BlockPos(ox, baseY + 1, ahBackZ - 1),
+            Blocks.SANDSTONE_STAIRS.getDefaultState()
+                .with(StairsBlock.FACING, Direction.NORTH)
+                .with(StairsBlock.HALF, BlockHalf.BOTTOM),
+            StructureHelper.SET_FLAGS);
+        // Throne back
+        world.setBlockState(new BlockPos(ox, baseY + 1, ahBackZ),
+            chiseledSandstone, StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(ox, baseY + 2, ahBackZ),
+            chiseledSandstone, StructureHelper.SET_FLAGS);
+
+        // Yellow carpet runner from door to throne
+        for (int z = ahFloorZ; z <= ahBackZ - 2; z++) {
+            mutable.set(ox, baseY + 1, oz + z);
+            world.setBlockState(mutable, carpet, StructureHelper.SET_FLAGS);
+        }
+
+        // Chiseled sandstone pillar accents (2 on each side of carpet)
+        for (int pz = ahFloorZ + 1; pz <= ahBackZ - 2; pz += 3) {
+            for (int py = 1; py <= roomWallHeight; py++) {
+                mutable.set(ox - 2, baseY + py, oz + pz);
+                world.setBlockState(mutable, chiseledSandstone, StructureHelper.SET_FLAGS);
+                mutable.set(ox + 2, baseY + py, oz + pz);
+                world.setBlockState(mutable, chiseledSandstone, StructureHelper.SET_FLAGS);
+            }
+        }
+
+        // Soul lanterns in audience hall
+        mutable.set(ox - 2, baseY + roomWallHeight, oz + ahFloorZ + 2);
+        world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
+        mutable.set(ox + 2, baseY + roomWallHeight, oz + ahFloorZ + 2);
+        world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
+
+        // ================================================================
+        // Step 7: Guard quarters (east room)
+        // ================================================================
+        int gqMinX = eastRoomX + 1;
+        int gqMaxX = ox + innerW;
+        int gqMinZ = divideZ + 1;
+        int gqCenterX = (gqMinX + gqMaxX) / 2;
+
+        // 3 beds along east wall (facing SOUTH: foot at z, head at z+1)
+        for (int b = 0; b < 3; b++) {
+            int bedX = gqMinX + 1 + b * 2;
+            if (bedX >= gqMaxX) break;
+            int bedZ = gqMinZ + 1;
+            world.setBlockState(new BlockPos(ox + bedX, baseY + 1, oz + bedZ),
+                bedFoot.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + bedX, baseY + 1, oz + bedZ + 1),
+                bedHead.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+        }
+
+        // Chests for guards
+        StructureHelper.placeChest(world, new BlockPos(ox + gqMaxX - 1, baseY + 1, oz + gqMinZ + 4),
+            Direction.WEST, LootTables.VILLAGE_DESERT_HOUSE_CHEST);
+        StructureHelper.placeChest(world, new BlockPos(ox + gqMaxX - 1, baseY + 1, oz + gqMinZ + 6),
+            Direction.WEST, LootTables.VILLAGE_DESERT_HOUSE_CHEST);
+
+        // Soul lantern
+        mutable.set(ox + gqCenterX, baseY + roomWallHeight, oz + gqMinZ + 3);
+        world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
+
+        // ================================================================
+        // Step 8: Kitchen/stores (west room)
+        // ================================================================
+        int ktMinX = ox - innerW;
+        int ktMaxX = westRoomX - 1;
+        int ktMinZ = divideZ + 1;
+
+        // Smoker
+        mutable.set(ktMinX + 1, baseY + 1, oz + ktMinZ + 1);
+        world.setBlockState(mutable, Blocks.SMOKER.getDefaultState()
+            .with(HorizontalFacingBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+
+        // Crafting table
+        mutable.set(ktMinX + 3, baseY + 1, oz + ktMinZ + 1);
+        world.setBlockState(mutable, Blocks.CRAFTING_TABLE.getDefaultState(), StructureHelper.SET_FLAGS);
+
+        // Barrels
+        mutable.set(ktMinX + 1, baseY + 1, oz + ktMinZ + 3);
+        world.setBlockState(mutable, Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
+        mutable.set(ktMinX + 1, baseY + 2, oz + ktMinZ + 3);
+        world.setBlockState(mutable, Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
+        mutable.set(ktMinX + 2, baseY + 1, oz + ktMinZ + 3);
+        world.setBlockState(mutable, Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
+
+        // Cauldron
+        mutable.set(ktMinX + 4, baseY + 1, oz + ktMinZ + 1);
+        world.setBlockState(mutable, Blocks.CAULDRON.getDefaultState(), StructureHelper.SET_FLAGS);
+
+        // Soul lantern
+        mutable.set(ktMinX + 3, baseY + roomWallHeight, oz + ktMinZ + 2);
+        world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
+
+        // ================================================================
+        // Step 9: Lord's chambers (north, between north wall and lordZ)
+        // ================================================================
+        int lcMinZ = oz - innerD;
+        int lcMaxZ = lordZ - 1;
+        int lcCenterZ = (lcMinZ + lcMaxZ) / 2;
+
+        // 2 beds (facing SOUTH)
+        world.setBlockState(new BlockPos(ox - 3, baseY + 1, lcCenterZ),
+            bedFoot.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(ox - 3, baseY + 1, lcCenterZ + 1),
+            bedHead.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(ox + 3, baseY + 1, lcCenterZ),
+            bedFoot.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(ox + 3, baseY + 1, lcCenterZ + 1),
+            bedHead.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+
+        // Bookshelf
+        mutable.set(ox - 2, baseY + 1, lcMinZ + 1);
+        world.setBlockState(mutable, Blocks.BOOKSHELF.getDefaultState(), StructureHelper.SET_FLAGS);
+        mutable.set(ox - 1, baseY + 1, lcMinZ + 1);
+        world.setBlockState(mutable, Blocks.BOOKSHELF.getDefaultState(), StructureHelper.SET_FLAGS);
+        mutable.set(ox - 2, baseY + 2, lcMinZ + 1);
+        world.setBlockState(mutable, Blocks.BOOKSHELF.getDefaultState(), StructureHelper.SET_FLAGS);
+
+        // Personal chest
+        StructureHelper.placeChest(world, new BlockPos(ox + 2, baseY + 1, lcMinZ + 1),
+            Direction.SOUTH, LootTables.VILLAGE_DESERT_HOUSE_CHEST);
+
+        // Decorated pot
+        mutable.set(ox + 4, baseY + 1, lcMinZ + 1);
+        world.setBlockState(mutable, Blocks.DECORATED_POT.getDefaultState(), StructureHelper.SET_FLAGS);
+
+        // Soul lanterns
+        mutable.set(ox, baseY + roomWallHeight, lcCenterZ);
+        world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
+
+        // ================================================================
+        // Step 10: Entrance - recessed doorway on south wall
+        // ================================================================
+        // Carve entrance (3 wide, 4 tall) through south wall
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = 1; dy <= 4; dy++) {
+                mutable.set(ox + dx, baseY + dy, oz + halfD);
+                world.setBlockState(mutable, air, StructureHelper.SET_FLAGS);
+                mutable.set(ox + dx, baseY + dy, oz + halfD - 1);
+                world.setBlockState(mutable, air, StructureHelper.SET_FLAGS);
+            }
+        }
+        // Chiseled sandstone door frame
+        for (int dy = 1; dy <= 4; dy++) {
+            mutable.set(ox - 2, baseY + dy, oz + halfD);
+            world.setBlockState(mutable, chiseledSandstone, StructureHelper.SET_FLAGS);
+            mutable.set(ox + 2, baseY + dy, oz + halfD);
+            world.setBlockState(mutable, chiseledSandstone, StructureHelper.SET_FLAGS);
+        }
+        // Arch top
+        for (int dx = -2; dx <= 2; dx++) {
+            mutable.set(ox + dx, baseY + 5, oz + halfD);
+            world.setBlockState(mutable, chiseledSandstone, StructureHelper.SET_FLAGS);
+        }
+
+        // ================================================================
+        // Step 11: Ladder access to roof (interior, east side near entrance)
+        // ================================================================
+        int ladderX = ox + innerW;
+        int ladderZ = oz + innerD - 1;
+        for (int ly = 1; ly <= wallHeight; ly++) {
+            mutable.set(ladderX, baseY + ly, ladderZ);
+            world.setBlockState(mutable, Blocks.LADDER.getDefaultState()
+                .with(HorizontalFacingBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
+        }
+
+        // ================================================================
+        // Step 12: Room ceilings (smooth sandstone slabs over rooms)
+        // ================================================================
+        // Ceiling over audience hall
+        StructureHelper.fillBox(world,
+            new BlockPos(ox + westRoomX + 1, baseY + roomWallHeight + 1, oz + ahFloorZ),
+            new BlockPos(ox + eastRoomX - 1, baseY + roomWallHeight + 1, ahBackZ),
+            smoothSandstone);
+        // Ceiling over guard quarters
+        StructureHelper.fillBox(world,
+            new BlockPos(ox + gqMinX, baseY + roomWallHeight + 1, oz + gqMinZ),
+            new BlockPos(ox + gqMaxX, baseY + roomWallHeight + 1, oz + audienceZ - 1),
+            smoothSandstone);
+        // Ceiling over kitchen
+        StructureHelper.fillBox(world,
+            new BlockPos(ktMinX, baseY + roomWallHeight + 1, oz + ktMinZ),
+            new BlockPos(ox + ktMaxX, baseY + roomWallHeight + 1, oz + audienceZ - 1),
+            smoothSandstone);
+        // Ceiling over lord's chambers
+        StructureHelper.fillBox(world,
+            new BlockPos(ox - innerW, baseY + roomWallHeight + 1, lcMinZ),
+            new BlockPos(ox + innerW, baseY + roomWallHeight + 1, oz + lcMaxZ),
+            smoothSandstone);
+
+        placeJigsawConnectors(world, center, Math.max(halfW, halfD));
+
+        VillageCastles.LOGGER.info("Fortified caravanserai palace generation complete!");
         return new CastleBounds(
-            center.add(-radius - 2, 0, -radius - 2),
-            center.add(radius + 2, keepHeight + 10, radius + 2)
+            center.add(-halfW - 2, 0, -halfD - 2),
+            center.add(halfW + 2, wallHeight + 4, halfD + 2)
         );
     }
 
@@ -2794,13 +3342,13 @@ public class CastleGenerator {
     // ========================================================================
 
     /**
-     * Generate a massive Mesoamerican/Egyptian-inspired stepped pyramid.
-     * 4 tiers with battered (inward-sloping) walls, decorative bands, recessed niches,
-     * a grand 8-wide south-face staircase, open-air summit temple with columns,
-     * interior ring corridors, treasure room, and sandstone pillar guardians.
+     * DESERT LARGE — Citadel Palace with Ziggurat Tower and Underground Pool.
+     * An inhabited stepped citadel: 4 tiers each inset 3 blocks, grand staircase on south face,
+     * tiered rooms (ground: throne hall + barracks + kitchen; tier 2: lord's quarters + pergola;
+     * tier 3: garden terrace; tier 4: open-air throne pavilion), plus underground pool chamber.
      */
     private CastleBounds generateDesertPyramid(ServerWorld world, BlockPos center, int radius) {
-        VillageCastles.LOGGER.info("Generating desert stepped pyramid at {}", center.toShortString());
+        VillageCastles.LOGGER.info("Generating desert citadel palace at {}", center.toShortString());
 
         int baseY = center.getY();
         int ox = center.getX();
@@ -2810,748 +3358,664 @@ public class CastleGenerator {
 
         // Block palette
         BlockState sandstone = palette.getPrimaryWallState();
-        BlockState cutSandstone = palette.getSecondaryWallState();
-        BlockState smoothSandstone = palette.getAccentWallState();
+        BlockState cutSandstone = Blocks.CUT_SANDSTONE.getDefaultState();
+        BlockState smoothSandstone = Blocks.SMOOTH_SANDSTONE.getDefaultState();
         BlockState air = Blocks.AIR.getDefaultState();
         BlockState soulLantern = Blocks.SOUL_LANTERN.getDefaultState().with(LanternBlock.HANGING, true);
         BlockState floorLantern = Blocks.SOUL_LANTERN.getDefaultState().with(LanternBlock.HANGING, false);
         BlockState orangeTerracotta = Blocks.ORANGE_TERRACOTTA.getDefaultState();
-        BlockState redTerracotta = Blocks.RED_TERRACOTTA.getDefaultState();
         BlockState chiseledSandstone = Blocks.CHISELED_SANDSTONE.getDefaultState();
         BlockState carpet = palette.getCarpetState();
+        BlockState wallBlock = palette.wall.getDefaultState();
+        BlockState prismarine = Blocks.PRISMARINE.getDefaultState();
+        BlockState acaciaLog = palette.log.getDefaultState();
+        BlockState acaciaSlab = palette.woodSlab.getDefaultState();
+        BlockState acaciaFence = palette.fence.getDefaultState();
+        BlockState bedFoot = palette.bed.getDefaultState().with(BedBlock.PART, BedPart.FOOT);
+        BlockState bedHead = palette.bed.getDefaultState().with(BedBlock.PART, BedPart.HEAD);
 
-        BlockPos.Mutable pyramidMutable = new BlockPos.Mutable();
+        BlockPos.Mutable m = new BlockPos.Mutable();
 
         // Tier parameters
         int tierCount = 4;
-        int tierHeight = 9;
-        int tierInset = 7;
+        int tierInset = 3;
         int baseHalf = radius;
 
+        // Tier heights: each tier is 6 blocks tall (5 usable + 1 floor/ceiling)
+        int tierHeight = 6;
+
         // ================================================================
-        // Step 1: Build solid tier masses with battered (sloped) exterior
+        // Step 1: Build solid tier masses
         // ================================================================
         for (int tier = 0; tier < tierCount; tier++) {
             int half = baseHalf - (tier * tierInset);
-            int yStart = baseY + 1 + (tier * tierHeight);
+            int yStart = baseY + (tier * tierHeight);
 
             if (half < 4) break;
 
-            // Build each row of the tier, narrowing by 1 block every 3 rows for batter
-            for (int row = 0; row < tierHeight; row++) {
-                int y = yStart + row;
-                int batter = row / 3; // Inward slope: 1 block inset per 3 vertical blocks
-                int rowHalf = half - batter;
-                if (rowHalf < 3) break;
-
-                // Fill the solid shell for this row (hollow interior done later)
-                StructureHelper.fillBox(world,
-                    new BlockPos(ox - rowHalf, y, oz - rowHalf),
-                    new BlockPos(ox + rowHalf, y, oz + rowHalf),
-                    sandstone);
-
-                // Exterior stair batter on each face -- place sandstone stairs on the
-                // outermost ring when the wall steps inward
-                if (batter > 0 && row % 3 == 0) {
-                    int prevHalf = rowHalf + 1;
-                    // North face stairs (facing SOUTH, outward)
-                    for (int sx = -prevHalf; sx <= prevHalf; sx++) {
-                        pyramidMutable.set(ox + sx, y, oz - prevHalf);
-                        world.setBlockState(pyramidMutable,
-                            Blocks.SANDSTONE_STAIRS.getDefaultState()
-                                .with(StairsBlock.FACING, Direction.SOUTH)
-                                .with(StairsBlock.HALF, BlockHalf.BOTTOM),
-                            StructureHelper.SET_FLAGS);
-                    }
-                    // South face stairs (facing NORTH, outward)
-                    for (int sx = -prevHalf; sx <= prevHalf; sx++) {
-                        pyramidMutable.set(ox + sx, y, oz + prevHalf);
-                        world.setBlockState(pyramidMutable,
-                            Blocks.SANDSTONE_STAIRS.getDefaultState()
-                                .with(StairsBlock.FACING, Direction.NORTH)
-                                .with(StairsBlock.HALF, BlockHalf.BOTTOM),
-                            StructureHelper.SET_FLAGS);
-                    }
-                    // East face stairs (facing WEST, outward)
-                    for (int sz = -prevHalf; sz <= prevHalf; sz++) {
-                        pyramidMutable.set(ox + prevHalf, y, oz + sz);
-                        world.setBlockState(pyramidMutable,
-                            Blocks.SANDSTONE_STAIRS.getDefaultState()
-                                .with(StairsBlock.FACING, Direction.WEST)
-                                .with(StairsBlock.HALF, BlockHalf.BOTTOM),
-                            StructureHelper.SET_FLAGS);
-                    }
-                    // West face stairs (facing EAST, outward)
-                    for (int sz = -prevHalf; sz <= prevHalf; sz++) {
-                        pyramidMutable.set(ox - prevHalf, y, oz + sz);
-                        world.setBlockState(pyramidMutable,
-                            Blocks.SANDSTONE_STAIRS.getDefaultState()
-                                .with(StairsBlock.FACING, Direction.EAST)
-                                .with(StairsBlock.HALF, BlockHalf.BOTTOM),
-                            StructureHelper.SET_FLAGS);
-                    }
-                }
-            }
-
-            // Base trim: smooth sandstone at the bottom row of each tier
-            int trimHalf = half;
+            // Solid fill for each tier
             StructureHelper.fillBox(world,
-                new BlockPos(ox - trimHalf, yStart, oz - trimHalf),
-                new BlockPos(ox + trimHalf, yStart, oz + trimHalf),
+                new BlockPos(ox - half, yStart, oz - half),
+                new BlockPos(ox + half, yStart + tierHeight, oz + half),
+                sandstone);
+
+            // Smooth sandstone floor on terrace
+            StructureHelper.fillBox(world,
+                new BlockPos(ox - half, yStart + tierHeight, oz - half),
+                new BlockPos(ox + half, yStart + tierHeight, oz + half),
                 smoothSandstone);
 
-            VillageCastles.LOGGER.debug("Pyramid tier {} built: half={}, y={}-{}",
-                tier, half, yStart, yStart + tierHeight - 1);
+            // Sandstone wall railings on terrace edges
+            if (tier > 0) {
+                for (int ex = -half; ex <= half; ex++) {
+                    m.set(ox + ex, yStart + tierHeight + 1, oz - half);
+                    world.setBlockState(m, wallBlock, StructureHelper.SET_FLAGS);
+                    m.set(ox + ex, yStart + tierHeight + 1, oz + half);
+                    world.setBlockState(m, wallBlock, StructureHelper.SET_FLAGS);
+                }
+                for (int ez = -half + 1; ez <= half - 1; ez++) {
+                    m.set(ox - half, yStart + tierHeight + 1, oz + ez);
+                    world.setBlockState(m, wallBlock, StructureHelper.SET_FLAGS);
+                    m.set(ox + half, yStart + tierHeight + 1, oz + ez);
+                    world.setBlockState(m, wallBlock, StructureHelper.SET_FLAGS);
+                }
+            }
+
+            VillageCastles.LOGGER.debug("Citadel tier {} built: half={}, y={}-{}",
+                tier, half, yStart, yStart + tierHeight);
         }
 
         // ================================================================
-        // Step 2: Decorative bands on each tier exterior
-        // ================================================================
-        for (int tier = 0; tier < tierCount; tier++) {
-            int half = baseHalf - (tier * tierInset);
-            int yStart = baseY + 1 + (tier * tierHeight);
-            if (half < 4) break;
-
-            // Band at mid-height of each tier (row 4)
-            int bandRow = 4;
-            int bandBatter = bandRow / 3;
-            int bandHalf = half - bandBatter;
-            int bandY = yStart + bandRow;
-
-            // Alternate: even tiers get chiseled sandstone, odd tiers get terracotta
-            BlockState bandBlock = (tier % 2 == 0) ? chiseledSandstone : orangeTerracotta;
-            BlockState accentBlock = (tier % 2 == 0) ? redTerracotta : chiseledSandstone;
-
-            // North and south faces
-            for (int bx = -bandHalf; bx <= bandHalf; bx++) {
-                BlockState b = (Math.abs(bx) % 3 == 0) ? accentBlock : bandBlock;
-                pyramidMutable.set(ox + bx, bandY, oz - bandHalf);
-                world.setBlockState(pyramidMutable, b, StructureHelper.SET_FLAGS);
-                pyramidMutable.set(ox + bx, bandY, oz + bandHalf);
-                world.setBlockState(pyramidMutable, b, StructureHelper.SET_FLAGS);
-            }
-            // East and west faces
-            for (int bz = -bandHalf + 1; bz <= bandHalf - 1; bz++) {
-                BlockState b = (Math.abs(bz) % 3 == 0) ? accentBlock : bandBlock;
-                pyramidMutable.set(ox + bandHalf, bandY, oz + bz);
-                world.setBlockState(pyramidMutable, b, StructureHelper.SET_FLAGS);
-                pyramidMutable.set(ox - bandHalf, bandY, oz + bz);
-                world.setBlockState(pyramidMutable, b, StructureHelper.SET_FLAGS);
-            }
-
-            // Top cap: cut sandstone at the topmost row of each tier
-            int topRow = tierHeight - 1;
-            int topBatter = topRow / 3;
-            int topHalf = half - topBatter;
-            int topY = yStart + topRow;
-            for (int tx = -topHalf; tx <= topHalf; tx++) {
-                pyramidMutable.set(ox + tx, topY, oz - topHalf);
-                world.setBlockState(pyramidMutable, cutSandstone, StructureHelper.SET_FLAGS);
-                pyramidMutable.set(ox + tx, topY, oz + topHalf);
-                world.setBlockState(pyramidMutable, cutSandstone, StructureHelper.SET_FLAGS);
-            }
-            for (int tz = -topHalf + 1; tz <= topHalf - 1; tz++) {
-                pyramidMutable.set(ox + topHalf, topY, oz + tz);
-                world.setBlockState(pyramidMutable, cutSandstone, StructureHelper.SET_FLAGS);
-                pyramidMutable.set(ox - topHalf, topY, oz + tz);
-                world.setBlockState(pyramidMutable, cutSandstone, StructureHelper.SET_FLAGS);
-            }
-        }
-
-        // ================================================================
-        // Step 3: Recessed niches with soul lanterns on exterior faces
-        // ================================================================
-        for (int tier = 0; tier < tierCount - 1; tier++) {
-            int half = baseHalf - (tier * tierInset);
-            int yStart = baseY + 1 + (tier * tierHeight);
-            if (half < 6) break;
-
-            // Niches at row 2 and row 6, every 5 blocks along each face
-            int[] nicheRows = {2, 6};
-            for (int nicheRow : nicheRows) {
-                int nicheBatter = nicheRow / 3;
-                int nicheHalf = half - nicheBatter;
-                int nicheY = yStart + nicheRow;
-
-                // North face niches
-                for (int nx = -nicheHalf + 3; nx <= nicheHalf - 3; nx += 5) {
-                    // Carve 1-deep niche (1 wide, 2 tall)
-                    pyramidMutable.set(ox + nx, nicheY, oz - nicheHalf);
-                    world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                    pyramidMutable.set(ox + nx, nicheY + 1, oz - nicheHalf);
-                    world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                    // Chiseled sandstone frame above niche
-                    pyramidMutable.set(ox + nx, nicheY + 2, oz - nicheHalf);
-                    world.setBlockState(pyramidMutable, chiseledSandstone, StructureHelper.SET_FLAGS);
-                    // Soul lantern inside niche (every other niche)
-                    if (Math.abs(nx) % 10 < 5) {
-                        pyramidMutable.set(ox + nx, nicheY, oz - nicheHalf + 1);
-                        world.setBlockState(pyramidMutable, floorLantern, StructureHelper.SET_FLAGS);
-                    }
-                }
-                // South face niches
-                for (int nx = -nicheHalf + 3; nx <= nicheHalf - 3; nx += 5) {
-                    pyramidMutable.set(ox + nx, nicheY, oz + nicheHalf);
-                    world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                    pyramidMutable.set(ox + nx, nicheY + 1, oz + nicheHalf);
-                    world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                    pyramidMutable.set(ox + nx, nicheY + 2, oz + nicheHalf);
-                    world.setBlockState(pyramidMutable, chiseledSandstone, StructureHelper.SET_FLAGS);
-                    if (Math.abs(nx) % 10 < 5) {
-                        pyramidMutable.set(ox + nx, nicheY, oz + nicheHalf - 1);
-                        world.setBlockState(pyramidMutable, floorLantern, StructureHelper.SET_FLAGS);
-                    }
-                }
-                // East face niches
-                for (int nz = -nicheHalf + 3; nz <= nicheHalf - 3; nz += 5) {
-                    pyramidMutable.set(ox + nicheHalf, nicheY, oz + nz);
-                    world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                    pyramidMutable.set(ox + nicheHalf, nicheY + 1, oz + nz);
-                    world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                    pyramidMutable.set(ox + nicheHalf, nicheY + 2, oz + nz);
-                    world.setBlockState(pyramidMutable, chiseledSandstone, StructureHelper.SET_FLAGS);
-                    if (Math.abs(nz) % 10 < 5) {
-                        pyramidMutable.set(ox + nicheHalf - 1, nicheY, oz + nz);
-                        world.setBlockState(pyramidMutable, floorLantern, StructureHelper.SET_FLAGS);
-                    }
-                }
-                // West face niches
-                for (int nz = -nicheHalf + 3; nz <= nicheHalf - 3; nz += 5) {
-                    pyramidMutable.set(ox - nicheHalf, nicheY, oz + nz);
-                    world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                    pyramidMutable.set(ox - nicheHalf, nicheY + 1, oz + nz);
-                    world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                    pyramidMutable.set(ox - nicheHalf, nicheY + 2, oz + nz);
-                    world.setBlockState(pyramidMutable, chiseledSandstone, StructureHelper.SET_FLAGS);
-                    if (Math.abs(nz) % 10 < 5) {
-                        pyramidMutable.set(ox - nicheHalf + 1, nicheY, oz + nz);
-                        world.setBlockState(pyramidMutable, floorLantern, StructureHelper.SET_FLAGS);
-                    }
-                }
-            }
-        }
-
-        // ================================================================
-        // Step 4: Interior ring corridors (3-wide) with rooms, per tier
-        // ================================================================
-        for (int tier = 0; tier < tierCount - 1; tier++) {
-            int half = baseHalf - (tier * tierInset);
-            int yStart = baseY + 1 + (tier * tierHeight);
-            int corridorFloorY = yStart + 1;
-            int corridorCeilY = corridorFloorY + 3; // 3 blocks headroom
-
-            int wallThickness = 5;
-            int innerHalf = half - wallThickness;
-
-            if (innerHalf < 3) continue;
-
-            int corridorWidth = 3; // 3-wide corridors
-
-            // North corridor
-            StructureHelper.clearInterior(world,
-                new BlockPos(ox - innerHalf, corridorFloorY, oz - innerHalf),
-                new BlockPos(ox + innerHalf, corridorCeilY, oz - innerHalf + corridorWidth - 1));
-            // South corridor
-            StructureHelper.clearInterior(world,
-                new BlockPos(ox - innerHalf, corridorFloorY, oz + innerHalf - corridorWidth + 1),
-                new BlockPos(ox + innerHalf, corridorCeilY, oz + innerHalf));
-            // East corridor
-            StructureHelper.clearInterior(world,
-                new BlockPos(ox + innerHalf - corridorWidth + 1, corridorFloorY, oz - innerHalf),
-                new BlockPos(ox + innerHalf, corridorCeilY, oz + innerHalf));
-            // West corridor
-            StructureHelper.clearInterior(world,
-                new BlockPos(ox - innerHalf, corridorFloorY, oz - innerHalf),
-                new BlockPos(ox - innerHalf + corridorWidth - 1, corridorCeilY, oz + innerHalf));
-
-            // Smooth sandstone floors in corridors
-            StructureHelper.fillFloor(world,
-                new BlockPos(ox - innerHalf, 0, oz - innerHalf),
-                new BlockPos(ox + innerHalf, 0, oz + innerHalf),
-                corridorFloorY - 1, smoothSandstone);
-
-            // Central room on each tier
-            int roomHalf = Math.min(innerHalf - 4, 6);
-            if (roomHalf >= 3) {
-                StructureHelper.clearInterior(world,
-                    new BlockPos(ox - roomHalf, corridorFloorY, oz - roomHalf),
-                    new BlockPos(ox + roomHalf, corridorCeilY, oz + roomHalf));
-                StructureHelper.fillFloor(world,
-                    new BlockPos(ox - roomHalf, 0, oz - roomHalf),
-                    new BlockPos(ox + roomHalf, 0, oz + roomHalf),
-                    corridorFloorY - 1, smoothSandstone);
-            }
-
-            // Soul lanterns in corridors every 5 blocks
-            for (int lx = -innerHalf + 2; lx <= innerHalf - 2; lx += 5) {
-                pyramidMutable.set(ox + lx, corridorCeilY, oz - innerHalf + 1);
-                world.setBlockState(pyramidMutable, soulLantern, StructureHelper.SET_FLAGS);
-                pyramidMutable.set(ox + lx, corridorCeilY, oz + innerHalf - 1);
-                world.setBlockState(pyramidMutable, soulLantern, StructureHelper.SET_FLAGS);
-            }
-            for (int lz = -innerHalf + 2; lz <= innerHalf - 2; lz += 5) {
-                pyramidMutable.set(ox + innerHalf - 1, corridorCeilY, oz + lz);
-                world.setBlockState(pyramidMutable, soulLantern, StructureHelper.SET_FLAGS);
-                pyramidMutable.set(ox - innerHalf + 1, corridorCeilY, oz + lz);
-                world.setBlockState(pyramidMutable, soulLantern, StructureHelper.SET_FLAGS);
-            }
-
-            // Internal spiral staircase connecting to next tier (NE corner)
-            if (tier < tierCount - 2) {
-                int stairX = ox + innerHalf - 2;
-                int stairZ = oz - innerHalf + 2;
-                pyramidBuildSpiralStairs(world, stairX, corridorFloorY, stairZ,
-                    tierHeight, sandstone, smoothSandstone);
-            }
-        }
-
-        // ================================================================
-        // Step 5: Treasure room in base tier
+        // Step 2: Grand staircase on south face (5-wide)
         // ================================================================
         {
-            int half = baseHalf;
-            int yFloor = baseY + 2;
-            int innerHalf = half - 5;
-            int treasureX = ox - innerHalf + 2;
-            int treasureZ = oz - innerHalf + 2;
-
-            // Carve treasure chamber (NW corner of tier 0)
-            StructureHelper.clearInterior(world,
-                new BlockPos(treasureX, yFloor, treasureZ),
-                new BlockPos(treasureX + 6, yFloor + 3, treasureZ + 6));
-
-            // Smooth sandstone floor
-            for (int tx = treasureX; tx <= treasureX + 6; tx++) {
-                for (int tz = treasureZ; tz <= treasureZ + 6; tz++) {
-                    pyramidMutable.set(tx, yFloor - 1, tz);
-                    world.setBlockState(pyramidMutable, smoothSandstone, StructureHelper.SET_FLAGS);
-                }
-            }
-
-            // Floor accent pattern -- orange terracotta cross
-            world.setBlockState(new BlockPos(treasureX + 3, yFloor - 1, treasureZ + 3),
-                orangeTerracotta, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(treasureX + 2, yFloor - 1, treasureZ + 3),
-                redTerracotta, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(treasureX + 4, yFloor - 1, treasureZ + 3),
-                redTerracotta, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(treasureX + 3, yFloor - 1, treasureZ + 2),
-                redTerracotta, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(treasureX + 3, yFloor - 1, treasureZ + 4),
-                redTerracotta, StructureHelper.SET_FLAGS);
-
-            // Treasure chests
-            StructureHelper.placeChest(world, new BlockPos(treasureX + 1, yFloor, treasureZ + 1),
-                Direction.SOUTH, LootTables.DESERT_PYRAMID_CHEST);
-            StructureHelper.placeChest(world, new BlockPos(treasureX + 5, yFloor, treasureZ + 1),
-                Direction.SOUTH, LootTables.DESERT_PYRAMID_CHEST);
-            StructureHelper.placeChest(world, new BlockPos(treasureX + 3, yFloor, treasureZ),
-                Direction.SOUTH, LootTables.DESERT_PYRAMID_CHEST);
-
-            // Lanterns in treasure room
-            world.setBlockState(new BlockPos(treasureX + 2, yFloor + 3, treasureZ + 3),
-                soulLantern, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(treasureX + 4, yFloor + 3, treasureZ + 3),
-                soulLantern, StructureHelper.SET_FLAGS);
-
-            // No traps in village castles — these are inhabited structures.
-            // TNT traps belong in ruins variants only (DecayEngine/RuinsGenerator).
-
-            VillageCastles.LOGGER.debug("Treasure room placed at tier 0");
-        }
-
-        // ================================================================
-        // Step 6: Grand staircase on the south face (8 blocks wide)
-        // ================================================================
-        {
-            int stairHalfWidth = 4; // 8 blocks total (from -4 to +3)
-            int wallWidth = 2; // Flanking solid walls
+            int stairHalfWidth = 2; // 5 blocks total (-2 to +2)
+            BlockState stairBlock = Blocks.SANDSTONE_STAIRS.getDefaultState()
+                .with(StairsBlock.FACING, Direction.NORTH)
+                .with(StairsBlock.HALF, BlockHalf.BOTTOM);
 
             for (int tier = 0; tier < tierCount; tier++) {
                 int half = baseHalf - (tier * tierInset);
-                int tierBaseY = baseY + 1 + (tier * tierHeight);
+                int tierBaseY = baseY + (tier * tierHeight);
 
                 if (half < 4) break;
 
-                // Build stairs ascending the south face
+                // Build stairs ascending the south face of this tier
                 for (int step = 0; step < tierHeight; step++) {
                     int stepY = tierBaseY + step;
                     int stepZ = oz + half - step;
 
-                    // Stair blocks (facing NORTH)
-                    for (int sx = -stairHalfWidth; sx <= stairHalfWidth - 1; sx++) {
-                        pyramidMutable.set(ox + sx, stepY, stepZ);
-                        world.setBlockState(pyramidMutable,
-                            Blocks.SANDSTONE_STAIRS.getDefaultState()
-                                .with(StairsBlock.FACING, Direction.NORTH)
-                                .with(StairsBlock.HALF, BlockHalf.BOTTOM),
-                            StructureHelper.SET_FLAGS);
+                    // Stair blocks (facing NORTH = ascending northward)
+                    for (int sx = -stairHalfWidth; sx <= stairHalfWidth; sx++) {
+                        m.set(ox + sx, stepY, stepZ);
+                        world.setBlockState(m, stairBlock, StructureHelper.SET_FLAGS);
 
                         // Clear headroom above steps
                         for (int clearY = 1; clearY <= 4; clearY++) {
-                            pyramidMutable.set(ox + sx, stepY + clearY, stepZ);
-                            world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
+                            m.set(ox + sx, stepY + clearY, stepZ);
+                            world.setBlockState(m, air, StructureHelper.SET_FLAGS);
                         }
                     }
 
-                    // Solid flanking walls (not just railings)
-                    for (int wy = 0; wy <= 2; wy++) {
-                        for (int ww = 0; ww < wallWidth; ww++) {
-                            pyramidMutable.set(ox - stairHalfWidth - 1 - ww, stepY + wy, stepZ);
-                            world.setBlockState(pyramidMutable, sandstone, StructureHelper.SET_FLAGS);
-                            pyramidMutable.set(ox + stairHalfWidth + ww, stepY + wy, stepZ);
-                            world.setBlockState(pyramidMutable, sandstone, StructureHelper.SET_FLAGS);
-                        }
-                    }
-                    // Cut sandstone cap on flanking walls
-                    world.setBlockState(
-                        new BlockPos(ox - stairHalfWidth - 1, stepY + 2, stepZ),
-                        cutSandstone, StructureHelper.SET_FLAGS);
-                    world.setBlockState(
-                        new BlockPos(ox + stairHalfWidth, stepY + 2, stepZ),
-                        cutSandstone, StructureHelper.SET_FLAGS);
+                    // SANDSTONE_WALL balustrades on both sides
+                    m.set(ox - stairHalfWidth - 1, stepY + 1, stepZ);
+                    world.setBlockState(m, wallBlock, StructureHelper.SET_FLAGS);
+                    m.set(ox + stairHalfWidth + 1, stepY + 1, stepZ);
+                    world.setBlockState(m, wallBlock, StructureHelper.SET_FLAGS);
+                    // Solid support under balustrades
+                    m.set(ox - stairHalfWidth - 1, stepY, stepZ);
+                    world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
+                    m.set(ox + stairHalfWidth + 1, stepY, stepZ);
+                    world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
 
-                    // Soul lanterns every 4 steps on the wall tops
+                    // Soul lanterns every 4 steps on balustrade
                     if (step % 4 == 0) {
-                        world.setBlockState(
-                            new BlockPos(ox - stairHalfWidth - 1, stepY + 3, stepZ),
-                            floorLantern, StructureHelper.SET_FLAGS);
-                        world.setBlockState(
-                            new BlockPos(ox + stairHalfWidth, stepY + 3, stepZ),
-                            floorLantern, StructureHelper.SET_FLAGS);
+                        m.set(ox - stairHalfWidth - 1, stepY + 2, stepZ);
+                        world.setBlockState(m, floorLantern, StructureHelper.SET_FLAGS);
+                        m.set(ox + stairHalfWidth + 1, stepY + 2, stepZ);
+                        world.setBlockState(m, floorLantern, StructureHelper.SET_FLAGS);
                     }
                 }
 
-                // Landing platform between tiers
+                // ACACIA_LOG columns at each landing (top of tier staircase)
                 int landingY = tierBaseY + tierHeight;
-                int landingZ = oz + half - tierHeight;
-                for (int sx = -stairHalfWidth - wallWidth; sx <= stairHalfWidth + wallWidth - 1; sx++) {
-                    for (int sz = 0; sz < 3; sz++) {
-                        pyramidMutable.set(ox + sx, landingY, landingZ - sz);
-                        world.setBlockState(pyramidMutable, smoothSandstone, StructureHelper.SET_FLAGS);
-                        for (int clearY = 1; clearY <= 5; clearY++) {
-                            pyramidMutable.set(ox + sx, landingY + clearY, landingZ - sz);
-                            world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                        }
-                    }
+                int landingZ = oz + half - tierHeight + 1;
+                for (int ly = 0; ly <= 3; ly++) {
+                    m.set(ox - stairHalfWidth - 1, landingY + ly, landingZ);
+                    world.setBlockState(m, acaciaLog, StructureHelper.SET_FLAGS);
+                    m.set(ox + stairHalfWidth + 1, landingY + ly, landingZ);
+                    world.setBlockState(m, acaciaLog, StructureHelper.SET_FLAGS);
                 }
             }
         }
 
         // ================================================================
-        // Step 7: Entrance archway at base of south staircase
+        // Step 3: Tier 1 (ground) — Carve interior rooms
         // ================================================================
         {
-            int stairHalfWidth = 4;
-            int entranceY = baseY + 1;
-            int entranceZ = oz + baseHalf;
+            int t1Half = baseHalf;
+            int t1Floor = baseY + 1;           // Floor surface
+            int t1Ceil = baseY + tierHeight - 1; // Ceiling
+            int wallThick = 3;                  // Wall thickness for rooms
+            int innerHalf = t1Half - wallThick;
 
-            // Carve entrance passage (4 wide, 4 tall, 3 deep into base tier)
-            for (int ex = -2; ex <= 1; ex++) {
-                for (int ey = 0; ey <= 3; ey++) {
-                    for (int ez = -3; ez <= 0; ez++) {
-                        pyramidMutable.set(ox + ex, entranceY + ey, entranceZ + ez);
-                        world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                    }
+            // Central hall — large open space
+            StructureHelper.clearInterior(world,
+                new BlockPos(ox - innerHalf, t1Floor, oz - innerHalf),
+                new BlockPos(ox + innerHalf, t1Ceil, oz + innerHalf));
+            StructureHelper.fillBox(world,
+                new BlockPos(ox - innerHalf, t1Floor - 1, oz - innerHalf),
+                new BlockPos(ox + innerHalf, t1Floor - 1, oz + innerHalf),
+                smoothSandstone);
+
+            // CHISELED_SANDSTONE pillars in throne hall (every 4 blocks along center)
+            for (int pz = -innerHalf + 2; pz <= innerHalf - 2; pz += 4) {
+                for (int py = t1Floor; py <= t1Ceil; py++) {
+                    m.set(ox - 4, py, oz + pz);
+                    world.setBlockState(m, chiseledSandstone, StructureHelper.SET_FLAGS);
+                    m.set(ox + 4, py, oz + pz);
+                    world.setBlockState(m, chiseledSandstone, StructureHelper.SET_FLAGS);
                 }
             }
 
-            // Archway frame: chiseled sandstone arch over the entrance
-            for (int ex = -3; ex <= 2; ex++) {
-                world.setBlockState(new BlockPos(ox + ex, entranceY + 4, entranceZ),
-                    chiseledSandstone, StructureHelper.SET_FLAGS);
-            }
-            // Arch sides
-            for (int ey = 0; ey <= 4; ey++) {
-                world.setBlockState(new BlockPos(ox - 3, entranceY + ey, entranceZ),
-                    cutSandstone, StructureHelper.SET_FLAGS);
-                world.setBlockState(new BlockPos(ox + 2, entranceY + ey, entranceZ),
-                    cutSandstone, StructureHelper.SET_FLAGS);
-            }
+            // Throne at north wall (facing SOUTH — seated player faces south toward entrance)
+            world.setBlockState(new BlockPos(ox, t1Floor, oz - innerHalf + 1),
+                Blocks.SANDSTONE_STAIRS.getDefaultState()
+                    .with(StairsBlock.FACING, Direction.SOUTH)
+                    .with(StairsBlock.HALF, BlockHalf.BOTTOM),
+                StructureHelper.SET_FLAGS);
+            // Throne back
+            world.setBlockState(new BlockPos(ox, t1Floor, oz - innerHalf),
+                chiseledSandstone, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox, t1Floor + 1, oz - innerHalf),
+                chiseledSandstone, StructureHelper.SET_FLAGS);
 
-            // Sandstone pillar guardians flanking the entrance
-            // Left guardian
-            int guardX1 = ox - stairHalfWidth - 3;
-            int guardX2 = ox + stairHalfWidth + 2;
-            for (int side : new int[]{guardX1, guardX2}) {
-                // 2x2 base
-                for (int gx = 0; gx <= 1; gx++) {
-                    for (int gz = 0; gz <= 1; gz++) {
-                        pyramidMutable.set(side + gx, entranceY, entranceZ + gz);
-                        world.setBlockState(pyramidMutable, sandstone, StructureHelper.SET_FLAGS);
-                        pyramidMutable.set(side + gx, entranceY + 1, entranceZ + gz);
-                        world.setBlockState(pyramidMutable, sandstone, StructureHelper.SET_FLAGS);
-                        pyramidMutable.set(side + gx, entranceY + 2, entranceZ + gz);
-                        world.setBlockState(pyramidMutable, chiseledSandstone, StructureHelper.SET_FLAGS);
-                    }
-                }
-                // Soul lantern on top
-                world.setBlockState(new BlockPos(side, entranceY + 3, entranceZ),
-                    floorLantern, StructureHelper.SET_FLAGS);
+            // YELLOW_CARPET runner to throne
+            for (int cz = -innerHalf + 2; cz <= innerHalf; cz++) {
+                m.set(ox, t1Floor, oz + cz);
+                world.setBlockState(m, carpet, StructureHelper.SET_FLAGS);
             }
 
-            VillageCastles.LOGGER.debug("Entrance archway and pillar guardians placed");
-        }
-
-        // ================================================================
-        // Step 8: Summit temple (open-air, columned, with overhanging roof)
-        // ================================================================
-        {
-            int topTier = tierCount - 1;
-            int topHalf = baseHalf - (topTier * tierInset);
-            int topY = baseY + 1 + (topTier * tierHeight);
-
-            if (topHalf >= 4) {
-                // Smooth sandstone floor
-                StructureHelper.fillFloor(world,
-                    new BlockPos(ox - topHalf, 0, oz - topHalf),
-                    new BlockPos(ox + topHalf, 0, oz + topHalf),
-                    topY, smoothSandstone);
-
-                // Clear temple interior
-                StructureHelper.clearInterior(world,
-                    new BlockPos(ox - topHalf + 1, topY + 1, oz - topHalf + 1),
-                    new BlockPos(ox + topHalf - 1, topY + 7, oz + topHalf - 1));
-
-                // 2x2 columns, 6 blocks tall, at corners and midpoints
-                int colInset = 2;
-                int[][] colPositions = {
-                    {-topHalf + colInset, -topHalf + colInset},
-                    { topHalf - colInset - 1, -topHalf + colInset},
-                    {-topHalf + colInset,  topHalf - colInset - 1},
-                    { topHalf - colInset - 1,  topHalf - colInset - 1},
-                };
-                // Add midpoint columns if temple is large enough
-                if (topHalf > 8) {
-                    colPositions = new int[][]{
-                        {-topHalf + colInset, -topHalf + colInset},
-                        { topHalf - colInset - 1, -topHalf + colInset},
-                        {-topHalf + colInset,  topHalf - colInset - 1},
-                        { topHalf - colInset - 1,  topHalf - colInset - 1},
-                        {0, -topHalf + colInset},
-                        {0,  topHalf - colInset - 1},
-                        {-topHalf + colInset, 0},
-                        { topHalf - colInset - 1, 0},
-                    };
+            // East wing: guard barracks (partitioned off east side)
+            int barrackX = ox + innerHalf - 6;
+            // Partition wall
+            for (int bz = -innerHalf; bz <= innerHalf; bz++) {
+                for (int by = t1Floor; by <= t1Ceil; by++) {
+                    m.set(barrackX, by, oz + bz);
+                    world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
                 }
+            }
+            // Doorway in partition
+            for (int dy = t1Floor; dy <= t1Floor + 2; dy++) {
+                m.set(barrackX, dy, oz);
+                world.setBlockState(m, air, StructureHelper.SET_FLAGS);
+            }
+            // 4 beds (facing SOUTH: foot at z, head at z+1)
+            for (int b = 0; b < 4; b++) {
+                int bedX = barrackX + 2 + (b % 2) * 3;
+                int bedZ = oz - innerHalf + 2 + (b / 2) * 4;
+                if (bedX <= ox + innerHalf - 1) {
+                    world.setBlockState(new BlockPos(bedX, t1Floor, bedZ),
+                        bedFoot.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+                    world.setBlockState(new BlockPos(bedX, t1Floor, bedZ + 1),
+                        bedHead.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+                }
+            }
+            // Guard chests
+            StructureHelper.placeChest(world, new BlockPos(ox + innerHalf - 1, t1Floor, oz - innerHalf + 1),
+                Direction.SOUTH, LootTables.VILLAGE_DESERT_HOUSE_CHEST);
+            StructureHelper.placeChest(world, new BlockPos(ox + innerHalf - 1, t1Floor, oz + innerHalf - 1),
+                Direction.NORTH, LootTables.VILLAGE_DESERT_HOUSE_CHEST);
 
-                for (int[] col : colPositions) {
-                    for (int cy = 1; cy <= 6; cy++) {
-                        // 2x2 column base
-                        for (int cdx = 0; cdx <= 1; cdx++) {
-                            for (int cdz = 0; cdz <= 1; cdz++) {
-                                BlockState colBlock = (cy == 1 || cy == 6) ? chiseledSandstone : cutSandstone;
-                                pyramidMutable.set(ox + col[0] + cdx, topY + cy, oz + col[1] + cdz);
-                                world.setBlockState(pyramidMutable, colBlock, StructureHelper.SET_FLAGS);
-                            }
-                        }
+            // West wing: kitchen + stores (partitioned off west side)
+            int kitchenX = ox - innerHalf + 6;
+            for (int bz = -innerHalf; bz <= innerHalf; bz++) {
+                for (int by = t1Floor; by <= t1Ceil; by++) {
+                    m.set(kitchenX, by, oz + bz);
+                    world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
+                }
+            }
+            // Doorway
+            for (int dy = t1Floor; dy <= t1Floor + 2; dy++) {
+                m.set(kitchenX, dy, oz);
+                world.setBlockState(m, air, StructureHelper.SET_FLAGS);
+            }
+            // Smokers
+            world.setBlockState(new BlockPos(ox - innerHalf + 1, t1Floor, oz - innerHalf + 1),
+                Blocks.SMOKER.getDefaultState().with(HorizontalFacingBlock.FACING, Direction.SOUTH),
+                StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox - innerHalf + 2, t1Floor, oz - innerHalf + 1),
+                Blocks.SMOKER.getDefaultState().with(HorizontalFacingBlock.FACING, Direction.SOUTH),
+                StructureHelper.SET_FLAGS);
+            // Barrels
+            world.setBlockState(new BlockPos(ox - innerHalf + 1, t1Floor, oz - innerHalf + 3),
+                Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox - innerHalf + 1, t1Floor + 1, oz - innerHalf + 3),
+                Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox - innerHalf + 2, t1Floor, oz - innerHalf + 3),
+                Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
+            // Crafting table
+            world.setBlockState(new BlockPos(ox - innerHalf + 4, t1Floor, oz - innerHalf + 1),
+                Blocks.CRAFTING_TABLE.getDefaultState(), StructureHelper.SET_FLAGS);
+
+            // South: main entrance hall — carve entrance through south wall
+            for (int ex = -2; ex <= 2; ex++) {
+                for (int ey = t1Floor; ey <= t1Floor + 3; ey++) {
+                    for (int ez = 0; ez < wallThick; ez++) {
+                        m.set(ox + ex, ey, oz + t1Half - ez);
+                        world.setBlockState(m, air, StructureHelper.SET_FLAGS);
                     }
                 }
+            }
+            // Chiseled sandstone entrance frame
+            for (int ey = t1Floor; ey <= t1Floor + 4; ey++) {
+                m.set(ox - 3, ey, oz + t1Half);
+                world.setBlockState(m, chiseledSandstone, StructureHelper.SET_FLAGS);
+                m.set(ox + 3, ey, oz + t1Half);
+                world.setBlockState(m, chiseledSandstone, StructureHelper.SET_FLAGS);
+            }
+            for (int ex = -3; ex <= 3; ex++) {
+                m.set(ox + ex, t1Floor + 4, oz + t1Half);
+                world.setBlockState(m, chiseledSandstone, StructureHelper.SET_FLAGS);
+            }
 
-                // Overhanging roof: cut sandstone, extends 1 block beyond the tier
-                int roofY = topY + 7;
-                int roofOverhang = 1;
-                StructureHelper.fillBox(world,
-                    new BlockPos(ox - topHalf - roofOverhang, roofY, oz - topHalf - roofOverhang),
-                    new BlockPos(ox + topHalf + roofOverhang, roofY, oz + topHalf + roofOverhang),
-                    cutSandstone);
-                // Second roof layer (inner, raised) for depth
-                StructureHelper.fillBox(world,
-                    new BlockPos(ox - topHalf + 2, roofY + 1, oz - topHalf + 2),
-                    new BlockPos(ox + topHalf - 2, roofY + 1, oz + topHalf - 2),
-                    sandstone);
+            // Soul lanterns throughout tier 1
+            for (int lx = -innerHalf + 2; lx <= innerHalf - 2; lx += 4) {
+                m.set(ox + lx, t1Ceil, oz);
+                world.setBlockState(m, soulLantern, StructureHelper.SET_FLAGS);
+            }
+            for (int lz = -innerHalf + 2; lz <= innerHalf - 2; lz += 4) {
+                m.set(ox, t1Ceil, oz + lz);
+                world.setBlockState(m, soulLantern, StructureHelper.SET_FLAGS);
+            }
 
-                // Roof edge trim: terracotta border
-                for (int rx = -topHalf - roofOverhang; rx <= topHalf + roofOverhang; rx++) {
-                    pyramidMutable.set(ox + rx, roofY, oz - topHalf - roofOverhang);
-                    world.setBlockState(pyramidMutable, orangeTerracotta, StructureHelper.SET_FLAGS);
-                    pyramidMutable.set(ox + rx, roofY, oz + topHalf + roofOverhang);
-                    world.setBlockState(pyramidMutable, orangeTerracotta, StructureHelper.SET_FLAGS);
-                }
-                for (int rz = -topHalf - roofOverhang + 1; rz <= topHalf + roofOverhang - 1; rz++) {
-                    pyramidMutable.set(ox - topHalf - roofOverhang, roofY, oz + rz);
-                    world.setBlockState(pyramidMutable, orangeTerracotta, StructureHelper.SET_FLAGS);
-                    pyramidMutable.set(ox + topHalf + roofOverhang, roofY, oz + rz);
-                    world.setBlockState(pyramidMutable, orangeTerracotta, StructureHelper.SET_FLAGS);
-                }
-
-                // Altar/throne area in the center
-                // Raised platform (2x3, 1 block high)
-                for (int ax = -1; ax <= 1; ax++) {
-                    for (int az = -1; az <= 0; az++) {
-                        pyramidMutable.set(ox + ax, topY + 1, oz + az);
-                        world.setBlockState(pyramidMutable, smoothSandstone, StructureHelper.SET_FLAGS);
-                    }
-                }
-                // Throne (sandstone stairs facing south)
-                world.setBlockState(new BlockPos(ox, topY + 2, oz),
-                    Blocks.SANDSTONE_STAIRS.getDefaultState()
-                        .with(StairsBlock.FACING, Direction.SOUTH)
-                        .with(StairsBlock.HALF, BlockHalf.BOTTOM),
-                    StructureHelper.SET_FLAGS);
-                // Throne back
-                world.setBlockState(new BlockPos(ox, topY + 2, oz - 1),
-                    chiseledSandstone, StructureHelper.SET_FLAGS);
-                world.setBlockState(new BlockPos(ox, topY + 3, oz - 1),
-                    chiseledSandstone, StructureHelper.SET_FLAGS);
-                // Arm rests
-                world.setBlockState(new BlockPos(ox - 1, topY + 2, oz),
+            // Stairs descending to underground pool (NE corner of tier 1)
+            int poolStairX = ox + innerHalf - 2;
+            int poolStairZ = oz - innerHalf + 2;
+            int poolDepth = Math.min(6, baseY + 63);
+            for (int step = 0; step < poolDepth; step++) {
+                m.set(poolStairX, t1Floor - 1 - step, poolStairZ);
+                world.setBlockState(m,
                     Blocks.SANDSTONE_STAIRS.getDefaultState()
                         .with(StairsBlock.FACING, Direction.EAST)
                         .with(StairsBlock.HALF, BlockHalf.BOTTOM),
                     StructureHelper.SET_FLAGS);
-                world.setBlockState(new BlockPos(ox + 1, topY + 2, oz),
-                    Blocks.SANDSTONE_STAIRS.getDefaultState()
-                        .with(StairsBlock.FACING, Direction.WEST)
-                        .with(StairsBlock.HALF, BlockHalf.BOTTOM),
-                    StructureHelper.SET_FLAGS);
-
-                // Carpet leading to throne from south entrance
-                for (int cz = 2; cz <= topHalf - 2; cz++) {
-                    pyramidMutable.set(ox, topY + 1, oz + cz);
-                    world.setBlockState(pyramidMutable, carpet, StructureHelper.SET_FLAGS);
+                // Clear headroom
+                for (int ch = 1; ch <= 3; ch++) {
+                    m.set(poolStairX, t1Floor - 1 - step + ch, poolStairZ);
+                    world.setBlockState(m, air, StructureHelper.SET_FLAGS);
                 }
-
-                // Hanging soul lanterns from roof
-                world.setBlockState(new BlockPos(ox - 3, roofY - 1, oz), soulLantern, StructureHelper.SET_FLAGS);
-                world.setBlockState(new BlockPos(ox + 3, roofY - 1, oz), soulLantern, StructureHelper.SET_FLAGS);
-                world.setBlockState(new BlockPos(ox, roofY - 1, oz - 3), soulLantern, StructureHelper.SET_FLAGS);
-                world.setBlockState(new BlockPos(ox, roofY - 1, oz + 3), soulLantern, StructureHelper.SET_FLAGS);
-                // Additional lanterns at column positions
-                for (int[] col : colPositions) {
-                    world.setBlockState(
-                        new BlockPos(ox + col[0], roofY - 1, oz + col[1] + 1),
-                        soulLantern, StructureHelper.SET_FLAGS);
-                }
+                // Side walls
+                m.set(poolStairX, t1Floor - 1 - step, poolStairZ - 1);
+                world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
+                m.set(poolStairX, t1Floor - 1 - step, poolStairZ + 1);
+                world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
             }
+
+            // Bell on tier 1 (near entrance)
+            world.setBlockState(new BlockPos(ox + 5, t1Floor, oz + innerHalf - 1),
+                acaciaFence, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + 5, t1Floor + 1, oz + innerHalf - 1),
+                Blocks.BELL.getDefaultState(), StructureHelper.SET_FLAGS);
         }
 
         // ================================================================
-        // Step 9: False corridors (dead-end tomb deterrents) in lower tiers
+        // Step 4: Tier 2 — Residential terrace
         // ================================================================
-        for (int tier = 0; tier < Math.min(2, tierCount - 1); tier++) {
-            int half = baseHalf - (tier * tierInset);
-            int yStart = baseY + 1 + (tier * tierHeight);
-            int corridorFloorY = yStart + 1;
-            int innerHalf = half - 5;
+        {
+            int t2Half = baseHalf - tierInset;
+            int t2Floor = baseY + tierHeight + 1;
+            int t2Ceil = baseY + (2 * tierHeight) - 1;
+            int wallThick = 2;
+            int innerHalf = t2Half - wallThick;
 
-            if (innerHalf < 3) continue;
+            // Carve interior for lord's bedchamber (enclosed room on north side)
+            int chamberHalf = Math.min(innerHalf, 6);
+            StructureHelper.clearInterior(world,
+                new BlockPos(ox - chamberHalf, t2Floor, oz - innerHalf),
+                new BlockPos(ox + chamberHalf, t2Ceil, oz - innerHalf + 5));
+            StructureHelper.fillBox(world,
+                new BlockPos(ox - chamberHalf, t2Floor - 1, oz - innerHalf),
+                new BlockPos(ox + chamberHalf, t2Floor - 1, oz - innerHalf + 5),
+                smoothSandstone);
 
-            int tunnelDepth = 5;
-            int tunnelHeight = 3;
-            int tunnelCount = 2 + (tier == 0 ? 1 : 0);
-            int spacing = Math.max(4, (innerHalf * 2) / (tunnelCount + 1));
+            // Lord's beds (2, facing SOUTH)
+            world.setBlockState(new BlockPos(ox - 2, t2Floor, oz - innerHalf + 1),
+                bedFoot.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox - 2, t2Floor, oz - innerHalf + 2),
+                bedHead.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + 2, t2Floor, oz - innerHalf + 1),
+                bedFoot.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + 2, t2Floor, oz - innerHalf + 2),
+                bedHead.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
 
-            int eastWallX = ox + innerHalf;
-            int westWallX = ox - innerHalf;
+            // Bookshelves against north wall
+            for (int bx = -chamberHalf + 1; bx <= -chamberHalf + 3; bx++) {
+                for (int by = t2Floor; by <= t2Floor + 1; by++) {
+                    m.set(ox + bx, by, oz - innerHalf);
+                    world.setBlockState(m, Blocks.BOOKSHELF.getDefaultState(), StructureHelper.SET_FLAGS);
+                }
+            }
 
-            for (int t = 0; t < tunnelCount; t++) {
-                int tunnelZ = oz - innerHalf + spacing * (t + 1);
+            // Personal chest
+            StructureHelper.placeChest(world, new BlockPos(ox + chamberHalf - 1, t2Floor, oz - innerHalf + 1),
+                Direction.WEST, LootTables.VILLAGE_DESERT_HOUSE_CHEST);
 
-                // East false tunnel
-                for (int d = 1; d <= tunnelDepth; d++) {
-                    for (int w = 0; w < 2; w++) {
-                        for (int h = 0; h < tunnelHeight; h++) {
-                            pyramidMutable.set(eastWallX + d, corridorFloorY + h, tunnelZ + w);
-                            world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                        }
-                        pyramidMutable.set(eastWallX + d, corridorFloorY - 1, tunnelZ + w);
-                        world.setBlockState(pyramidMutable, smoothSandstone, StructureHelper.SET_FLAGS);
+            // Doorway from chamber to terrace
+            for (int dy = t2Floor; dy <= t2Floor + 2; dy++) {
+                m.set(ox, dy, oz - innerHalf + 5);
+                world.setBlockState(m, air, StructureHelper.SET_FLAGS);
+            }
+
+            // Open terrace with shade pergola (south side of tier 2)
+            // Pergola: ACACIA_LOG posts + ACACIA_SLAB roof + ACACIA_FENCE railing
+            int pergolaMinZ = oz - innerHalf + 6;
+            int pergolaMaxZ = oz + innerHalf;
+            int pergolaMinX = ox - chamberHalf;
+            int pergolaMaxX = ox + chamberHalf;
+
+            // Posts at corners and midpoints
+            for (int px = pergolaMinX; px <= pergolaMaxX; px += 4) {
+                for (int pz = pergolaMinZ; pz <= pergolaMaxZ; pz += 4) {
+                    for (int py = t2Floor; py <= t2Floor + 3; py++) {
+                        m.set(px, py, pz);
+                        world.setBlockState(m, acaciaLog, StructureHelper.SET_FLAGS);
                     }
                 }
-                // West false tunnel
-                for (int d = 1; d <= tunnelDepth; d++) {
-                    for (int w = 0; w < 2; w++) {
-                        for (int h = 0; h < tunnelHeight; h++) {
-                            pyramidMutable.set(westWallX - d, corridorFloorY + h, tunnelZ + w);
-                            world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                        }
-                        pyramidMutable.set(westWallX - d, corridorFloorY - 1, tunnelZ + w);
-                        world.setBlockState(pyramidMutable, smoothSandstone, StructureHelper.SET_FLAGS);
+            }
+            // Slab roof over pergola
+            for (int rx = pergolaMinX; rx <= pergolaMaxX; rx++) {
+                for (int rz = pergolaMinZ; rz <= pergolaMaxZ; rz++) {
+                    m.set(rx, t2Floor + 4, rz);
+                    world.setBlockState(m, acaciaSlab, StructureHelper.SET_FLAGS);
+                }
+            }
+            // Fence railing around terrace edge
+            for (int rx = pergolaMinX; rx <= pergolaMaxX; rx++) {
+                m.set(rx, t2Floor + 1, pergolaMaxZ);
+                world.setBlockState(m, acaciaFence, StructureHelper.SET_FLAGS);
+            }
+            for (int rz = pergolaMinZ; rz <= pergolaMaxZ; rz++) {
+                m.set(pergolaMinX, t2Floor + 1, rz);
+                world.setBlockState(m, acaciaFence, StructureHelper.SET_FLAGS);
+                m.set(pergolaMaxX, t2Floor + 1, rz);
+                world.setBlockState(m, acaciaFence, StructureHelper.SET_FLAGS);
+            }
+
+            // Water channel along terrace edge
+            for (int wx = pergolaMinX + 1; wx <= pergolaMaxX - 1; wx++) {
+                m.set(wx, t2Floor - 1, pergolaMaxZ - 1);
+                world.setBlockState(m, Blocks.WATER.getDefaultState(), StructureHelper.SET_FLAGS);
+            }
+
+            // Soul lanterns
+            m.set(ox - 2, t2Ceil, oz - innerHalf + 3);
+            world.setBlockState(m, soulLantern, StructureHelper.SET_FLAGS);
+            m.set(ox + 2, t2Ceil, oz - innerHalf + 3);
+            world.setBlockState(m, soulLantern, StructureHelper.SET_FLAGS);
+            m.set(ox, t2Floor + 3, oz + innerHalf - 2);
+            world.setBlockState(m, soulLantern, StructureHelper.SET_FLAGS);
+        }
+
+        // ================================================================
+        // Step 5: Tier 3 — Garden terrace
+        // ================================================================
+        {
+            int t3Half = baseHalf - (2 * tierInset);
+            int t3Floor = baseY + (2 * tierHeight);
+
+            // Open air — just railing, pavilion, pool, pots
+            // ACACIA_FENCE railings around the edge (on top of the terrace floor)
+            for (int rx = -t3Half; rx <= t3Half; rx++) {
+                m.set(ox + rx, t3Floor + 1, oz - t3Half);
+                world.setBlockState(m, acaciaFence, StructureHelper.SET_FLAGS);
+                m.set(ox + rx, t3Floor + 1, oz + t3Half);
+                world.setBlockState(m, acaciaFence, StructureHelper.SET_FLAGS);
+            }
+            for (int rz = -t3Half + 1; rz <= t3Half - 1; rz++) {
+                m.set(ox - t3Half, t3Floor + 1, oz + rz);
+                world.setBlockState(m, acaciaFence, StructureHelper.SET_FLAGS);
+                m.set(ox + t3Half, t3Floor + 1, oz + rz);
+                world.setBlockState(m, acaciaFence, StructureHelper.SET_FLAGS);
+            }
+
+            // Small shade pavilion (center of tier 3)
+            // 4 posts, slab roof
+            int pavHalf = 2;
+            for (int[] corner : new int[][]{{-pavHalf, -pavHalf}, {pavHalf, -pavHalf}, {-pavHalf, pavHalf}, {pavHalf, pavHalf}}) {
+                for (int py = t3Floor + 1; py <= t3Floor + 3; py++) {
+                    m.set(ox + corner[0], py, oz + corner[1]);
+                    world.setBlockState(m, acaciaLog, StructureHelper.SET_FLAGS);
+                }
+            }
+            for (int sx = -pavHalf; sx <= pavHalf; sx++) {
+                for (int sz = -pavHalf; sz <= pavHalf; sz++) {
+                    m.set(ox + sx, t3Floor + 4, oz + sz);
+                    world.setBlockState(m, acaciaSlab, StructureHelper.SET_FLAGS);
+                }
+            }
+
+            // Water pool feature (off to one side)
+            for (int wx = -1; wx <= 1; wx++) {
+                for (int wz = -1; wz <= 1; wz++) {
+                    m.set(ox + t3Half - 3 + wx, t3Floor, oz + wz);
+                    world.setBlockState(m, Blocks.WATER.getDefaultState(), StructureHelper.SET_FLAGS);
+                }
+            }
+
+            // Decorated pots and flower pots
+            world.setBlockState(new BlockPos(ox - t3Half + 2, t3Floor + 1, oz - t3Half + 2),
+                Blocks.DECORATED_POT.getDefaultState(), StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + t3Half - 2, t3Floor + 1, oz - t3Half + 2),
+                Blocks.DECORATED_POT.getDefaultState(), StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox - t3Half + 2, t3Floor + 1, oz + t3Half - 2),
+                Blocks.FLOWER_POT.getDefaultState(), StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + t3Half - 2, t3Floor + 1, oz + t3Half - 2),
+                Blocks.FLOWER_POT.getDefaultState(), StructureHelper.SET_FLAGS);
+
+            // Soul lanterns on pavilion
+            m.set(ox, t3Floor + 3, oz);
+            world.setBlockState(m, soulLantern, StructureHelper.SET_FLAGS);
+        }
+
+        // ================================================================
+        // Step 6: Tier 4 (summit) — Open-air throne pavilion
+        // ================================================================
+        {
+            int t4Half = baseHalf - (3 * tierInset);
+            int t4Floor = baseY + (3 * tierHeight);
+
+            // Ensure at least 7x7 platform
+            int platHalf = Math.max(t4Half, 3);
+
+            // 7x7 SMOOTH_SANDSTONE platform (re-lay on top of existing tier)
+            StructureHelper.fillBox(world,
+                new BlockPos(ox - platHalf, t4Floor, oz - platHalf),
+                new BlockPos(ox + platHalf, t4Floor, oz + platHalf),
+                smoothSandstone);
+
+            // ORANGE_TERRACOTTA accent floor border
+            for (int bx = -platHalf; bx <= platHalf; bx++) {
+                m.set(ox + bx, t4Floor, oz - platHalf);
+                world.setBlockState(m, orangeTerracotta, StructureHelper.SET_FLAGS);
+                m.set(ox + bx, t4Floor, oz + platHalf);
+                world.setBlockState(m, orangeTerracotta, StructureHelper.SET_FLAGS);
+            }
+            for (int bz = -platHalf + 1; bz <= platHalf - 1; bz++) {
+                m.set(ox - platHalf, t4Floor, oz + bz);
+                world.setBlockState(m, orangeTerracotta, StructureHelper.SET_FLAGS);
+                m.set(ox + platHalf, t4Floor, oz + bz);
+                world.setBlockState(m, orangeTerracotta, StructureHelper.SET_FLAGS);
+            }
+
+            // Clear air above platform
+            StructureHelper.clearInterior(world,
+                new BlockPos(ox - platHalf, t4Floor + 1, oz - platHalf),
+                new BlockPos(ox + platHalf, t4Floor + 5, oz + platHalf));
+
+            // CHISELED_SANDSTONE columns at corners
+            int[][] summitCorners = {
+                {-platHalf, -platHalf}, {platHalf, -platHalf},
+                {-platHalf, platHalf}, {platHalf, platHalf}
+            };
+            for (int[] c : summitCorners) {
+                for (int cy = 1; cy <= 4; cy++) {
+                    m.set(ox + c[0], t4Floor + cy, oz + c[1]);
+                    world.setBlockState(m, chiseledSandstone, StructureHelper.SET_FLAGS);
+                }
+                // SOUL_LANTERN on each column
+                m.set(ox + c[0], t4Floor + 5, oz + c[1]);
+                world.setBlockState(m, floorLantern, StructureHelper.SET_FLAGS);
+            }
+
+            // Throne (SANDSTONE_STAIRS facing SOUTH — overlooking everything)
+            world.setBlockState(new BlockPos(ox, t4Floor + 1, oz - platHalf + 1),
+                Blocks.SANDSTONE_STAIRS.getDefaultState()
+                    .with(StairsBlock.FACING, Direction.SOUTH)
+                    .with(StairsBlock.HALF, BlockHalf.BOTTOM),
+                StructureHelper.SET_FLAGS);
+            // Throne back
+            world.setBlockState(new BlockPos(ox, t4Floor + 1, oz - platHalf),
+                chiseledSandstone, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox, t4Floor + 2, oz - platHalf),
+                chiseledSandstone, StructureHelper.SET_FLAGS);
+        }
+
+        // ================================================================
+        // Step 7: Underground pool (beneath tier 1)
+        // ================================================================
+        {
+            int poolDepth = Math.min(6, baseY + 63);
+            int poolFloorY = baseY - poolDepth;
+            int poolChamberHalf = 5; // 11x11 chamber
+            int poolHalf = 2;        // 5x5 pool
+            int poolCeilY = baseY - 1;
+
+            // Carve the chamber
+            StructureHelper.clearInterior(world,
+                new BlockPos(ox - poolChamberHalf, poolFloorY, oz - poolChamberHalf),
+                new BlockPos(ox + poolChamberHalf, poolCeilY, oz + poolChamberHalf));
+
+            // SMOOTH_SANDSTONE walkway floor
+            StructureHelper.fillBox(world,
+                new BlockPos(ox - poolChamberHalf, poolFloorY, oz - poolChamberHalf),
+                new BlockPos(ox + poolChamberHalf, poolFloorY, oz + poolChamberHalf),
+                smoothSandstone);
+
+            // Sandstone walls around chamber
+            for (int wx = -poolChamberHalf; wx <= poolChamberHalf; wx++) {
+                for (int wy = poolFloorY; wy <= poolCeilY; wy++) {
+                    m.set(ox + wx, wy, oz - poolChamberHalf);
+                    world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
+                    m.set(ox + wx, wy, oz + poolChamberHalf);
+                    world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
+                }
+            }
+            for (int wz = -poolChamberHalf + 1; wz <= poolChamberHalf - 1; wz++) {
+                for (int wy = poolFloorY; wy <= poolCeilY; wy++) {
+                    m.set(ox - poolChamberHalf, wy, oz + wz);
+                    world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
+                    m.set(ox + poolChamberHalf, wy, oz + wz);
+                    world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
+                }
+            }
+            // Ceiling
+            StructureHelper.fillBox(world,
+                new BlockPos(ox - poolChamberHalf, poolCeilY + 1, oz - poolChamberHalf),
+                new BlockPos(ox + poolChamberHalf, poolCeilY + 1, oz + poolChamberHalf),
+                sandstone);
+
+            // PRISMARINE accent border around pool on floor
+            for (int px = -poolHalf - 1; px <= poolHalf + 1; px++) {
+                m.set(ox + px, poolFloorY, oz - poolHalf - 1);
+                world.setBlockState(m, prismarine, StructureHelper.SET_FLAGS);
+                m.set(ox + px, poolFloorY, oz + poolHalf + 1);
+                world.setBlockState(m, prismarine, StructureHelper.SET_FLAGS);
+            }
+            for (int pz = -poolHalf; pz <= poolHalf; pz++) {
+                m.set(ox - poolHalf - 1, poolFloorY, oz + pz);
+                world.setBlockState(m, prismarine, StructureHelper.SET_FLAGS);
+                m.set(ox + poolHalf + 1, poolFloorY, oz + pz);
+                world.setBlockState(m, prismarine, StructureHelper.SET_FLAGS);
+            }
+
+            // Pool: 5x5, 2 blocks deep, PRISMARINE at bottom
+            for (int px = -poolHalf; px <= poolHalf; px++) {
+                for (int pz = -poolHalf; pz <= poolHalf; pz++) {
+                    // Dig pool 2 deep
+                    m.set(ox + px, poolFloorY - 1, oz + pz);
+                    world.setBlockState(m, prismarine, StructureHelper.SET_FLAGS);
+                    m.set(ox + px, poolFloorY, oz + pz);
+                    world.setBlockState(m, Blocks.WATER.getDefaultState(), StructureHelper.SET_FLAGS);
+                    m.set(ox + px, poolFloorY + 1, oz + pz);
+                    world.setBlockState(m, Blocks.WATER.getDefaultState(), StructureHelper.SET_FLAGS);
+                }
+            }
+
+            // SANDSTONE_WALL column ring around pool
+            int colDist = poolHalf + 2;
+            int[][] poolCols = {
+                {-colDist, -colDist}, {colDist, -colDist},
+                {-colDist, colDist}, {colDist, colDist},
+                {0, -colDist}, {0, colDist},
+                {-colDist, 0}, {colDist, 0}
+            };
+            for (int[] col : poolCols) {
+                for (int cy = poolFloorY + 1; cy <= poolCeilY; cy++) {
+                    m.set(ox + col[0], cy, oz + col[1]);
+                    world.setBlockState(m, wallBlock, StructureHelper.SET_FLAGS);
+                }
+            }
+
+            // SOUL_LANTERN in wall niches (recessed 1 block into walls)
+            for (int nx = -poolChamberHalf + 3; nx <= poolChamberHalf - 3; nx += 3) {
+                // North wall niches
+                m.set(ox + nx, poolFloorY + 2, oz - poolChamberHalf + 1);
+                world.setBlockState(m, air, StructureHelper.SET_FLAGS);
+                m.set(ox + nx, poolFloorY + 2, oz - poolChamberHalf);
+                world.setBlockState(m, air, StructureHelper.SET_FLAGS);
+                m.set(ox + nx, poolFloorY + 1, oz - poolChamberHalf + 1);
+                world.setBlockState(m, floorLantern, StructureHelper.SET_FLAGS);
+                // South wall niches
+                m.set(ox + nx, poolFloorY + 2, oz + poolChamberHalf - 1);
+                world.setBlockState(m, air, StructureHelper.SET_FLAGS);
+                m.set(ox + nx, poolFloorY + 2, oz + poolChamberHalf);
+                world.setBlockState(m, air, StructureHelper.SET_FLAGS);
+                m.set(ox + nx, poolFloorY + 1, oz + poolChamberHalf - 1);
+                world.setBlockState(m, floorLantern, StructureHelper.SET_FLAGS);
+            }
+
+            // 1x1 light shafts in ceiling (air blocks for zenithal light)
+            for (int lx = -2; lx <= 2; lx += 2) {
+                for (int lz = -2; lz <= 2; lz += 2) {
+                    for (int ly = poolCeilY + 1; ly <= baseY + 1; ly++) {
+                        m.set(ox + lx, ly, oz + lz);
+                        world.setBlockState(m, air, StructureHelper.SET_FLAGS);
                     }
                 }
             }
 
-            VillageCastles.LOGGER.debug("False corridors placed in tier {} ({} per side)", tier, tunnelCount);
+            VillageCastles.LOGGER.debug("Underground pool chamber placed at y={}", poolFloorY);
         }
 
         // ================================================================
-        // Step 10: Village bell + Jigsaw connectors and return bounds
+        // Step 8: Chests throughout + Jigsaw connectors + Return bounds
         // ================================================================
-        // Bell near the base of the grand staircase — required for villager gathering and raids
-        world.setBlockState(new BlockPos(ox + 7, baseY + 2, oz + baseHalf),
-            Blocks.ACACIA_FENCE.getDefaultState(), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(ox + 7, baseY + 3, oz + baseHalf),
-            Blocks.BELL.getDefaultState(), StructureHelper.SET_FLAGS);
+        // Additional chests in tier 1 throne hall
+        StructureHelper.placeChest(world, new BlockPos(ox - 3, baseY + 1, oz - baseHalf + 4),
+            Direction.SOUTH, LootTables.VILLAGE_DESERT_HOUSE_CHEST);
 
         placeJigsawConnectors(world, center, radius);
 
-        int totalHeight = (tierCount * tierHeight) + 9; // +9 for temple columns, roof, and raised cap
+        int totalHeight = (tierCount * tierHeight) + 6;
 
-        VillageCastles.LOGGER.info("Desert stepped pyramid generation complete! {} tiers, height={}",
+        VillageCastles.LOGGER.info("Desert citadel palace generation complete! {} tiers, height={}",
             tierCount, totalHeight);
 
         return new CastleBounds(
-            center.add(-baseHalf - 4, 0, -baseHalf - 4),
+            center.add(-baseHalf - 4, -8, -baseHalf - 4),
             center.add(baseHalf + 4, totalHeight + 5, baseHalf + 4)
         );
-    }
-
-    /**
-     * Build a spiral staircase connecting one pyramid tier to the next.
-     * Rotates through 4 directions, placing steps with cleared headroom.
-     */
-    private void pyramidBuildSpiralStairs(ServerWorld world, int startX, int startY,
-                                           int startZ, int height,
-                                           BlockState wallBlock, BlockState stepBlock) {
-        BlockState pyramidAir = Blocks.AIR.getDefaultState();
-        BlockPos.Mutable spiralMutable = new BlockPos.Mutable();
-
-        // Carve the stairwell shaft (3x3)
-        StructureHelper.clearInterior(world,
-            new BlockPos(startX - 1, startY, startZ - 1),
-            new BlockPos(startX + 2, startY + height + 2, startZ + 2));
-
-        // Spiral pattern: N, E, S, W offsets for each quarter turn
-        // Facing direction: the stair faces the direction the player walks up toward
-        int[][] spiral = {
-            {0, -1},  // North offset -> player walks south, stair faces SOUTH
-            {1, 0},   // East offset  -> player walks west,  stair faces WEST
-            {0, 1},   // South offset -> player walks north, stair faces NORTH
-            {-1, 0},  // West offset  -> player walks east,  stair faces EAST
-        };
-        Direction[] spiralFacing = {
-            Direction.SOUTH,
-            Direction.WEST,
-            Direction.NORTH,
-            Direction.EAST,
-        };
-        BlockState sandstoneStairs = Blocks.SANDSTONE_STAIRS.getDefaultState();
-
-        for (int step = 0; step < height; step++) {
-            int stepY = startY + step;
-            int dir = step % 4;
-            int stepX = startX + spiral[dir][0];
-            int stepZ = startZ + spiral[dir][1];
-
-            // Place stair block with correct facing instead of full block
-            spiralMutable.set(stepX, stepY, stepZ);
-            world.setBlockState(spiralMutable, sandstoneStairs.with(StairsBlock.FACING, spiralFacing[dir]), StructureHelper.SET_FLAGS);
-            // Support underneath
-            spiralMutable.set(stepX, stepY - 1, stepZ);
-            world.setBlockState(spiralMutable, wallBlock, StructureHelper.SET_FLAGS);
-            // Clear headroom
-            for (int clearY = 1; clearY <= 3; clearY++) {
-                spiralMutable.set(stepX, stepY + clearY, stepZ);
-                world.setBlockState(spiralMutable, pyramidAir, StructureHelper.SET_FLAGS);
-            }
-        }
-
-        // Central pillar for the spiral
-        for (int py = startY; py < startY + height; py++) {
-            spiralMutable.set(startX, py, startZ);
-            world.setBlockState(spiralMutable, wallBlock, StructureHelper.SET_FLAGS);
-        }
     }
 
     /**
