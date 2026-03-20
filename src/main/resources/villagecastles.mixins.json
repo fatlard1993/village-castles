@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.villagecastles.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "StructurePoolAccessor",
+    "VillageCastleAttachmentMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

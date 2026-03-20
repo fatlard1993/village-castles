@@ -3,10 +3,11 @@ package com.villagecastles.generator;
 import com.villagecastles.util.StructureHelper;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.block.HorizontalFacingBlock;
 import net.minecraft.block.LadderBlock;
 import net.minecraft.block.LanternBlock;
 import net.minecraft.block.StairsBlock;
+import net.minecraft.block.enums.BlockHalf;
+import net.minecraft.loot.LootTables;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
@@ -19,13 +20,21 @@ import java.util.Random;
  * - Corner towers (larger, cylindrical)
  * - Wall towers (medium, square)
  * - Watch towers (small, for walls)
+ *
+ * Tower tops vary by biome:
+ * - PLAINS: Classic conical roof
+ * - DESERT: Flat top with parapet lip and small dome
+ * - TAIGA: Tall steep spire with finial
+ * - SNOWY: Steep cone with snow accumulation
+ * - SAVANNA: Low flat cap with terracotta edge
  */
 public class TowerGenerator {
 
     public enum TowerType {
-        CORNER(5, 20, true),    // Large cylindrical corner towers
-        WALL(4, 16, false),     // Medium square wall towers
-        WATCH(3, 12, false);    // Small square watch towers
+        CORNER(5, 20, true),      // Large cylindrical corner towers
+        WALL(4, 16, false),       // Medium square wall towers
+        WATCH(3, 12, false),      // Small square watch towers
+        GATEHOUSE(3, 14, true);   // Cylindrical flanking towers for gatehouses
 
         public final int radius;
         public final int height;
@@ -48,6 +57,7 @@ public class TowerGenerator {
 
     /**
      * Generate a tower at the specified position.
+     * Tower dimensions are adjusted by biome for architectural variety.
      */
     public void generate(ServerWorld world, BlockPos center, TowerType type) {
         if (type.cylindrical) {
@@ -57,28 +67,61 @@ public class TowerGenerator {
         }
     }
 
+    /**
+     * Get biome-adjusted tower height.
+     * Taiga/Snowy towers are taller; Desert towers are shorter and wider at base.
+     */
+    private int adjustedHeight(TowerType type) {
+        return switch (palette) {
+            case TAIGA -> type.height + 3;
+            case SNOWY -> type.height + 2;
+            case DESERT -> type.height - 2;
+            default -> type.height;
+        };
+    }
+
+    /**
+     * Get the biome-adjusted radius for a tower type. Public for wall/tower positioning.
+     */
+    public int getAdjustedRadius(TowerType type) {
+        return adjustedRadius(type);
+    }
+
+    private int adjustedRadius(TowerType type) {
+        return switch (palette) {
+            case DESERT -> type.radius + 1;  // Wider base for desert towers
+            case SAVANNA -> type.radius + 1;
+            default -> type.radius;
+        };
+    }
+
     private void generateCylindricalTower(ServerWorld world, BlockPos center, TowerType type) {
-        int radius = type.radius;
-        int height = type.height;
+        int radius = adjustedRadius(type);
+        int height = adjustedHeight(type);
+        int radiusSq = radius * radius;
+        double innerSq = (radius - 1.5) * (radius - 1.5);
+        int floorThreshSq = (radius - 1) * (radius - 1);
 
         // Foundation
         StructureHelper.buildCylinder(world, center.down(2), radius + 1, 3, Blocks.COBBLESTONE.getDefaultState(), false);
 
         // Main tower walls
+        BlockPos.Mutable mutable = new BlockPos.Mutable();
+        int cx = center.getX(), cy = center.getY(), cz = center.getZ();
+
         for (int y = 0; y < height; y++) {
             for (int x = -radius; x <= radius; x++) {
                 for (int z = -radius; z <= radius; z++) {
-                    double dist = Math.sqrt(x * x + z * z);
-                    boolean onEdge = dist <= radius && dist > radius - 1.5;
-                    boolean inside = dist < radius - 1.5;
+                    int distSq = x * x + z * z;
+                    boolean onEdge = distSq <= radiusSq && distSq > innerSq;
+                    boolean inside = distSq < innerSq;
 
-                    BlockPos pos = center.add(x, y, z);
+                    mutable.set(cx + x, cy + y, cz + z);
 
                     if (onEdge) {
-                        BlockState wall = palette.getRandomWallBlock(random).getDefaultState();
-                        world.setBlockState(pos, wall);
+                        world.setBlockState(mutable, palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
                     } else if (inside) {
-                        world.setBlockState(pos, Blocks.AIR.getDefaultState());
+                        world.setBlockState(mutable, Blocks.AIR.getDefaultState(), StructureHelper.SET_FLAGS);
                     }
                 }
             }
@@ -88,8 +131,8 @@ public class TowerGenerator {
         for (int floor = 0; floor < height; floor += 5) {
             for (int x = -radius + 1; x < radius; x++) {
                 for (int z = -radius + 1; z < radius; z++) {
-                    if (Math.sqrt(x * x + z * z) < radius - 1) {
-                        world.setBlockState(center.add(x, floor, z), palette.getFloorState());
+                    if (x * x + z * z < floorThreshSq) {
+                        world.setBlockState(center.add(x, floor, z), palette.getFloorState(), StructureHelper.SET_FLAGS);
                     }
                 }
             }
@@ -104,31 +147,242 @@ public class TowerGenerator {
             addCircularWindows(world, center, radius, floor);
         }
 
+        // Guard's supply chest on top floor, against the north wall
+        int topFloor = (height / 5) * 5; // highest floor divisible by 5
+        StructureHelper.placeChest(world, center.add(0, topFloor + 1, -(radius - 2)),
+            Direction.SOUTH, LootTables.VILLAGE_WEAPONSMITH_CHEST);
+
         // Crenellated top
         StructureHelper.addCircularCrenellations(world, center, radius, height, palette.getPrimaryWallState());
 
-        // Conical roof cap
-        for (int y = 1; y <= 3; y++) {
-            int roofRadius = radius - y;
-            if (roofRadius > 0) {
-                for (int x = -roofRadius; x <= roofRadius; x++) {
-                    for (int z = -roofRadius; z <= roofRadius; z++) {
-                        if (Math.sqrt(x * x + z * z) <= roofRadius) {
-                            world.setBlockState(center.add(x, height + y, z), palette.getRoofState());
+        // Biome-specific roof and flag pole
+        int roofPeakY = buildCylindricalRoof(world, center, radius, height);
+
+        // Flag pole sits on top of the roof peak
+        world.setBlockState(center.up(roofPeakY), palette.getFenceState(), StructureHelper.SET_FLAGS);
+        world.setBlockState(center.up(roofPeakY + 1), palette.getFenceState(), StructureHelper.SET_FLAGS);
+
+        // Gargoyle waterspouts on Plains corner towers
+        if (palette == BiomePalette.PLAINS && type == TowerType.CORNER) {
+            addGargoyleWaterspouts(world, center, radius, height);
+        }
+    }
+
+    /**
+     * Add gargoyle waterspouts projecting from the tower wall at cardinal directions,
+     * just below the crenellations. Each gargoyle is a stone brick "neck" block
+     * projecting outward with a skull on top.
+     */
+    private void addGargoyleWaterspouts(ServerWorld world, BlockPos center, int radius, int height) {
+        int gargoyleY = height - 2;
+
+        // Cardinal direction offsets: N, S, E, W
+        int[][] directions = {
+            {0, -(radius + 1)},  // North
+            {0, radius + 1},     // South
+            {radius + 1, 0},     // East
+            {-(radius + 1), 0}   // West
+        };
+
+        // Alternate between skeleton skull and zombie head for variety
+        BlockState[] skulls = {
+            Blocks.SKELETON_SKULL.getDefaultState(),
+            Blocks.ZOMBIE_HEAD.getDefaultState(),
+            Blocks.SKELETON_SKULL.getDefaultState(),
+            Blocks.ZOMBIE_HEAD.getDefaultState()
+        };
+
+        for (int i = 0; i < directions.length; i++) {
+            int dx = directions[i][0];
+            int dz = directions[i][1];
+
+            // Stone brick "neck" projecting from the wall
+            BlockPos neckPos = center.add(dx, gargoyleY, dz);
+            world.setBlockState(neckPos, Blocks.STONE_BRICKS.getDefaultState(), StructureHelper.SET_FLAGS);
+
+            // Skull on top of the neck
+            BlockPos skullPos = neckPos.up();
+            world.setBlockState(skullPos, skulls[i], StructureHelper.SET_FLAGS);
+        }
+    }
+
+    /**
+     * Build a biome-specific roof on a cylindrical tower.
+     * Returns the Y offset from center where the flag pole should start.
+     */
+    private int buildCylindricalRoof(ServerWorld world, BlockPos center, int radius, int height) {
+        return switch (palette) {
+            case PLAINS -> buildConicalRoof(world, center, radius, height, palette.getRoofState(), false);
+            case DESERT -> buildDesertDome(world, center, radius, height);
+            case TAIGA -> buildTaigaSpire(world, center, radius, height);
+            case SNOWY -> buildConicalRoof(world, center, radius, height, palette.getRoofState(), true);
+            case SAVANNA -> buildSavannaFlatCap(world, center, radius, height);
+        };
+    }
+
+    /**
+     * Classic conical roof that properly scales with radius.
+     * Layers taper from radius-1 down to 1 (or 0 center cap).
+     * Returns the Y offset above center for flag pole placement.
+     */
+    private int buildConicalRoof(ServerWorld world, BlockPos center, int radius, int height, BlockState roofState, boolean addSnow) {
+        int layers = radius - 1; // Number of tapering layers
+        for (int layer = 0; layer < layers; layer++) {
+            int roofRadius = radius - 1 - layer;
+            int roofRadiusSq = roofRadius * roofRadius;
+            int y = height + 1 + layer;
+            for (int x = -roofRadius; x <= roofRadius; x++) {
+                for (int z = -roofRadius; z <= roofRadius; z++) {
+                    if (x * x + z * z <= roofRadiusSq) {
+                        world.setBlockState(center.add(x, y, z), roofState, StructureHelper.SET_FLAGS);
+                        if (addSnow) {
+                            world.setBlockState(center.add(x, y + 1, z),
+                                Blocks.SNOW.getDefaultState(), StructureHelper.SET_FLAGS);
                         }
                     }
                 }
             }
         }
+        // Cap block at the very top center
+        int peakY = height + 1 + layers;
+        world.setBlockState(center.up(peakY), roofState, StructureHelper.SET_FLAGS);
+        if (addSnow) {
+            world.setBlockState(center.up(peakY + 1), Blocks.SNOW.getDefaultState(), StructureHelper.SET_FLAGS);
+            return peakY + 2; // Flag pole above snow
+        }
+        return peakY + 1; // Flag pole above cap
+    }
 
-        // Flag pole at top
-        world.setBlockState(center.up(height + 4), palette.getFenceState());
-        world.setBlockState(center.up(height + 5), palette.getFenceState());
+    /**
+     * Desert: flat top with parapet lip and small dome center.
+     * No conical roof. Wall ring as parapet at height+1, dome center block at height+1
+     * with roofBlock ring around it at height.
+     */
+    private int buildDesertDome(ServerWorld world, BlockPos center, int radius, int height) {
+        int radiusSq = radius * radius;
+        double innerSq = (radius - 1.5) * (radius - 1.5);
+
+        // Fill the top surface as a solid platform first (support for dome and parapet)
+        for (int x = -radius; x <= radius; x++) {
+            for (int z = -radius; z <= radius; z++) {
+                if (x * x + z * z <= radiusSq) {
+                    world.setBlockState(center.add(x, height, z), palette.getRoofState(), StructureHelper.SET_FLAGS);
+                }
+            }
+        }
+
+        // Parapet lip: ring of wall blocks at height+1 on the outer edge
+        for (int x = -radius; x <= radius; x++) {
+            for (int z = -radius; z <= radius; z++) {
+                int distSq = x * x + z * z;
+                if (distSq <= radiusSq && distSq > innerSq) {
+                    world.setBlockState(center.add(x, height + 1, z), palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
+                }
+            }
+        }
+
+        // Small dome: ring of roofBlock at height+1 in the center area (radius 2)
+        int domeRadius = Math.min(2, radius - 2);
+        if (domeRadius > 0) {
+            int domeRadiusSq = domeRadius * domeRadius;
+            for (int x = -domeRadius; x <= domeRadius; x++) {
+                for (int z = -domeRadius; z <= domeRadius; z++) {
+                    if (x * x + z * z <= domeRadiusSq) {
+                        world.setBlockState(center.add(x, height + 1, z), palette.getRoofState(), StructureHelper.SET_FLAGS);
+                    }
+                }
+            }
+        }
+        // Dome peak
+        world.setBlockState(center.up(height + 2), palette.getRoofState(), StructureHelper.SET_FLAGS);
+
+        return height + 3; // Flag pole above dome peak
+    }
+
+    /**
+     * Taiga: tall steep spire using deepslate_tiles (roofBlock).
+     * Extra height layers compared to plains, topped with a fence as finial.
+     */
+    private int buildTaigaSpire(ServerWorld world, BlockPos center, int radius, int height) {
+        // Spire is steeper: more layers than a standard cone
+        // We go from radius-1 down to 0 but also add extra intermediate layers
+        int currentRadius = radius - 1;
+        int y = height + 1;
+        BlockState spireBlock = palette.getRoofState(); // deepslate_tiles for TAIGA
+
+        while (currentRadius > 0) {
+            int currentRadiusSq = currentRadius * currentRadius;
+            // Place ring at current radius
+            for (int x = -currentRadius; x <= currentRadius; x++) {
+                for (int z = -currentRadius; z <= currentRadius; z++) {
+                    if (x * x + z * z <= currentRadiusSq) {
+                        world.setBlockState(center.add(x, y, z), spireBlock, StructureHelper.SET_FLAGS);
+                    }
+                }
+            }
+            y++;
+
+            // For steep spire, add an extra layer at the same radius for larger radii
+            if (currentRadius >= 3) {
+                for (int x = -currentRadius; x <= currentRadius; x++) {
+                    for (int z = -currentRadius; z <= currentRadius; z++) {
+                        if (x * x + z * z <= currentRadiusSq) {
+                            world.setBlockState(center.add(x, y, z), spireBlock, StructureHelper.SET_FLAGS);
+                        }
+                    }
+                }
+                y++;
+            }
+
+            currentRadius--;
+        }
+
+        // Pointed tip: single block at center
+        world.setBlockState(center.up(y), spireBlock, StructureHelper.SET_FLAGS);
+        y++;
+
+        // Norse dragon prow: fence post topped with a dragon head facing outward
+        world.setBlockState(center.up(y), palette.getFenceState(), StructureHelper.SET_FLAGS);
+        y++;
+        world.setBlockState(center.up(y),
+            Blocks.SKELETON_SKULL.getDefaultState(), StructureHelper.SET_FLAGS);
+
+        return y + 1; // Flag pole above dragon head
+    }
+
+    /**
+     * Savanna: very low flat cap, just 1-2 layers, almost flat.
+     * Terracotta edge ring (roofBlock = ORANGE_TERRACOTTA for savanna).
+     */
+    private int buildSavannaFlatCap(ServerWorld world, BlockPos center, int radius, int height) {
+        int radiusSq = radius * radius;
+        double innerSq = (radius - 1.5) * (radius - 1.5);
+
+        // Flat roof surface
+        for (int x = -radius; x <= radius; x++) {
+            for (int z = -radius; z <= radius; z++) {
+                if (x * x + z * z <= radiusSq) {
+                    world.setBlockState(center.add(x, height, z), palette.getPlanksState(), StructureHelper.SET_FLAGS);
+                }
+            }
+        }
+
+        // Terracotta edge ring at height+1 (only the outer rim)
+        for (int x = -radius; x <= radius; x++) {
+            for (int z = -radius; z <= radius; z++) {
+                int distSq = x * x + z * z;
+                if (distSq <= radiusSq && distSq > innerSq) {
+                    world.setBlockState(center.add(x, height + 1, z), palette.getRoofState(), StructureHelper.SET_FLAGS);
+                }
+            }
+        }
+
+        return height + 2; // Flag pole above edge ring
     }
 
     private void generateSquareTower(ServerWorld world, BlockPos center, TowerType type) {
-        int halfSize = type.radius;
-        int height = type.height;
+        int halfSize = adjustedRadius(type);
+        int height = adjustedHeight(type);
 
         BlockPos corner1 = center.add(-halfSize, 0, -halfSize);
         BlockPos corner2 = center.add(halfSize, height, halfSize);
@@ -146,9 +400,9 @@ public class TowerGenerator {
                     BlockPos pos = center.add(x, y, z);
 
                     if (isEdge) {
-                        world.setBlockState(pos, palette.getRandomWallBlock(random).getDefaultState());
+                        world.setBlockState(pos, palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
                     } else {
-                        world.setBlockState(pos, Blocks.AIR.getDefaultState());
+                        world.setBlockState(pos, Blocks.AIR.getDefaultState(), StructureHelper.SET_FLAGS);
                     }
                 }
             }
@@ -158,7 +412,7 @@ public class TowerGenerator {
         for (int floor = 0; floor < height; floor += 5) {
             for (int x = -halfSize + 1; x < halfSize; x++) {
                 for (int z = -halfSize + 1; z < halfSize; z++) {
-                    world.setBlockState(center.add(x, floor, z), palette.getFloorState());
+                    world.setBlockState(center.add(x, floor, z), palette.getFloorState(), StructureHelper.SET_FLAGS);
                 }
             }
         }
@@ -169,11 +423,11 @@ public class TowerGenerator {
             // Backing block on the wall (already placed as part of walls, but ensure it's solid)
             BlockPos backingPos = center.add(halfSize, y, 0);
             if (world.getBlockState(backingPos).isAir()) {
-                world.setBlockState(backingPos, palette.getPrimaryWallState());
+                world.setBlockState(backingPos, palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
             }
             // Ladder facing west (back against east wall)
             world.setBlockState(center.add(halfSize - 1, y, 0),
-                Blocks.LADDER.getDefaultState().with(LadderBlock.FACING, Direction.WEST));
+                Blocks.LADDER.getDefaultState().with(LadderBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
         }
 
         // Windows
@@ -181,9 +435,17 @@ public class TowerGenerator {
             addSquareWindows(world, center, halfSize, floor);
         }
 
+        // Guard's supply chest on top floor
+        int topFloor = (height / 5) * 5;
+        StructureHelper.placeChest(world, center.add(-(halfSize - 2), topFloor + 1, 0),
+            Direction.EAST, LootTables.VILLAGE_WEAPONSMITH_CHEST);
+
         // Crenellations
         StructureHelper.addCrenellations(world, corner1.withY(center.getY() + height),
             corner2.withY(center.getY() + height), center.getY() + height + 1, palette.getPrimaryWallState());
+
+        // Biome-specific square tower top
+        buildSquareTowerTop(world, center, halfSize, height);
 
         // Lighting - place lanterns on floor (not hanging)
         // Floor lanterns sit on the floor block
@@ -192,7 +454,105 @@ public class TowerGenerator {
             // Make sure there's a floor block below
             if (!world.getBlockState(lanternPos.down()).isAir()) {
                 world.setBlockState(lanternPos,
-                    palette.light.getDefaultState().with(LanternBlock.HANGING, false));
+                    palette.light.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
+            }
+        }
+    }
+
+    /**
+     * Build biome-specific caps on square towers.
+     * - DESERT/SAVANNA: Keep flat with crenellations (already placed)
+     * - TAIGA: Small peaked roof (4 stair blocks as hip roof)
+     * - SNOWY: Peaked roof + snow layers
+     * - PLAINS: Keep flat with crenellations (already placed)
+     */
+    private void buildSquareTowerTop(ServerWorld world, BlockPos center, int halfSize, int height) {
+        switch (palette) {
+            case TAIGA -> buildSquarePeakedRoof(world, center, halfSize, height, false);
+            case SNOWY -> buildSquarePeakedRoof(world, center, halfSize, height, true);
+            // DESERT, SAVANNA, PLAINS: flat with crenellations is already placed above
+            default -> {}
+        }
+    }
+
+    /**
+     * Build a small peaked hip roof on a square tower using stair blocks.
+     * Layers taper inward from the edges. Each layer is a ring of stairs facing inward
+     * with a fill of roof blocks in the interior, topped with a ridge.
+     */
+    private void buildSquarePeakedRoof(ServerWorld world, BlockPos center, int halfSize, int height, boolean addSnow) {
+        BlockState roofBlock = palette.getRoofState();
+        int roofY = height + 1; // Start just above the crenellation row
+
+        // Build a solid floor at roofY as support for the roof structure
+        for (int x = -halfSize; x <= halfSize; x++) {
+            for (int z = -halfSize; z <= halfSize; z++) {
+                world.setBlockState(center.add(x, roofY, z), roofBlock, StructureHelper.SET_FLAGS);
+            }
+        }
+        if (addSnow) {
+            addSnowLayer(world, center, halfSize, halfSize, roofY);
+        }
+
+        // Tapering layers
+        int layer = 1;
+        int currentHalf = halfSize - 1;
+        while (currentHalf >= 0) {
+            int y = roofY + layer;
+            // Fill this layer as a solid platform
+            for (int x = -currentHalf; x <= currentHalf; x++) {
+                for (int z = -currentHalf; z <= currentHalf; z++) {
+                    world.setBlockState(center.add(x, y, z), roofBlock, StructureHelper.SET_FLAGS);
+                }
+            }
+            if (addSnow) {
+                addSnowLayer(world, center, currentHalf, currentHalf, y);
+            }
+            currentHalf--;
+            layer++;
+        }
+
+        // Place stair blocks on the outer ring of the first roof layer facing inward
+        // for a nicer visual (4 cardinal directions)
+        int stairY = roofY;
+        BlockState northStairs = palette.stoneStairs.getDefaultState()
+            .with(StairsBlock.FACING, Direction.SOUTH).with(StairsBlock.HALF, BlockHalf.BOTTOM);
+        BlockState southStairs = palette.stoneStairs.getDefaultState()
+            .with(StairsBlock.FACING, Direction.NORTH).with(StairsBlock.HALF, BlockHalf.BOTTOM);
+        BlockState eastStairs = palette.stoneStairs.getDefaultState()
+            .with(StairsBlock.FACING, Direction.WEST).with(StairsBlock.HALF, BlockHalf.BOTTOM);
+        BlockState westStairs = palette.stoneStairs.getDefaultState()
+            .with(StairsBlock.FACING, Direction.EAST).with(StairsBlock.HALF, BlockHalf.BOTTOM);
+
+        // North edge stairs (facing south/inward)
+        for (int x = -halfSize; x <= halfSize; x++) {
+            world.setBlockState(center.add(x, stairY, -halfSize), northStairs, StructureHelper.SET_FLAGS);
+        }
+        // South edge stairs (facing north/inward)
+        for (int x = -halfSize; x <= halfSize; x++) {
+            world.setBlockState(center.add(x, stairY, halfSize), southStairs, StructureHelper.SET_FLAGS);
+        }
+        // East edge stairs (facing west/inward)
+        for (int z = -halfSize + 1; z < halfSize; z++) {
+            world.setBlockState(center.add(halfSize, stairY, z), eastStairs, StructureHelper.SET_FLAGS);
+        }
+        // West edge stairs (facing east/inward)
+        for (int z = -halfSize + 1; z < halfSize; z++) {
+            world.setBlockState(center.add(-halfSize, stairY, z), westStairs, StructureHelper.SET_FLAGS);
+        }
+    }
+
+    /**
+     * Place snow layer blocks on top of a rectangular area.
+     * Only places snow where there is a solid block directly below.
+     */
+    private void addSnowLayer(ServerWorld world, BlockPos center, int halfX, int halfZ, int y) {
+        for (int x = -halfX; x <= halfX; x++) {
+            for (int z = -halfZ; z <= halfZ; z++) {
+                BlockPos snowPos = center.add(x, y + 1, z);
+                if (!world.getBlockState(snowPos.down()).isAir()) {
+                    world.setBlockState(snowPos, Blocks.SNOW.getDefaultState(), StructureHelper.SET_FLAGS);
+                }
             }
         }
     }
@@ -201,49 +561,34 @@ public class TowerGenerator {
         BlockState bars = palette.getBarsState();
 
         // 4 windows, one each direction
-        world.setBlockState(center.add(radius, y, 0), bars);
-        world.setBlockState(center.add(radius, y + 1, 0), bars);
+        world.setBlockState(center.add(radius, y, 0), bars, StructureHelper.SET_FLAGS);
+        world.setBlockState(center.add(radius, y + 1, 0), bars, StructureHelper.SET_FLAGS);
 
-        world.setBlockState(center.add(-radius, y, 0), bars);
-        world.setBlockState(center.add(-radius, y + 1, 0), bars);
+        world.setBlockState(center.add(-radius, y, 0), bars, StructureHelper.SET_FLAGS);
+        world.setBlockState(center.add(-radius, y + 1, 0), bars, StructureHelper.SET_FLAGS);
 
-        world.setBlockState(center.add(0, y, radius), bars);
-        world.setBlockState(center.add(0, y + 1, radius), bars);
+        world.setBlockState(center.add(0, y, radius), bars, StructureHelper.SET_FLAGS);
+        world.setBlockState(center.add(0, y + 1, radius), bars, StructureHelper.SET_FLAGS);
 
-        world.setBlockState(center.add(0, y, -radius), bars);
-        world.setBlockState(center.add(0, y + 1, -radius), bars);
+        world.setBlockState(center.add(0, y, -radius), bars, StructureHelper.SET_FLAGS);
+        world.setBlockState(center.add(0, y + 1, -radius), bars, StructureHelper.SET_FLAGS);
     }
 
     private void addSquareWindows(ServerWorld world, BlockPos center, int halfSize, int y) {
         BlockState bars = palette.getBarsState();
 
         // Window on each wall
-        world.setBlockState(center.add(halfSize, y, 0), bars);
-        world.setBlockState(center.add(halfSize, y + 1, 0), bars);
+        world.setBlockState(center.add(halfSize, y, 0), bars, StructureHelper.SET_FLAGS);
+        world.setBlockState(center.add(halfSize, y + 1, 0), bars, StructureHelper.SET_FLAGS);
 
-        world.setBlockState(center.add(-halfSize, y, 0), bars);
-        world.setBlockState(center.add(-halfSize, y + 1, 0), bars);
+        world.setBlockState(center.add(-halfSize, y, 0), bars, StructureHelper.SET_FLAGS);
+        world.setBlockState(center.add(-halfSize, y + 1, 0), bars, StructureHelper.SET_FLAGS);
 
-        world.setBlockState(center.add(0, y, halfSize), bars);
-        world.setBlockState(center.add(0, y + 1, halfSize), bars);
+        world.setBlockState(center.add(0, y, halfSize), bars, StructureHelper.SET_FLAGS);
+        world.setBlockState(center.add(0, y + 1, halfSize), bars, StructureHelper.SET_FLAGS);
 
-        world.setBlockState(center.add(0, y, -halfSize), bars);
-        world.setBlockState(center.add(0, y + 1, -halfSize), bars);
+        world.setBlockState(center.add(0, y, -halfSize), bars, StructureHelper.SET_FLAGS);
+        world.setBlockState(center.add(0, y + 1, -halfSize), bars, StructureHelper.SET_FLAGS);
     }
 
-    /**
-     * Generate a tower with connection points for walls.
-     * Returns positions where walls should connect.
-     */
-    public BlockPos[] generateWithConnections(ServerWorld world, BlockPos center, TowerType type, Direction... wallDirections) {
-        generate(world, center, type);
-
-        // Return connection points at base of tower
-        BlockPos[] connections = new BlockPos[wallDirections.length];
-        for (int i = 0; i < wallDirections.length; i++) {
-            Direction dir = wallDirections[i];
-            connections[i] = center.offset(dir, type.radius + 1);
-        }
-        return connections;
-    }
 }

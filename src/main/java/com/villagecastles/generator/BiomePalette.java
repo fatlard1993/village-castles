@@ -22,6 +22,7 @@ public enum BiomePalette {
         Blocks.OAK_STAIRS,
         Blocks.OAK_SLAB,
         Blocks.OAK_FENCE,
+        Blocks.OAK_FENCE_GATE,
         Blocks.OAK_DOOR,
         Blocks.OAK_TRAPDOOR,
         // Roof and accent
@@ -33,7 +34,10 @@ public enum BiomePalette {
         Blocks.POLISHED_ANDESITE,
         // Decoration
         Blocks.IRON_BARS,
-        Blocks.LANTERN
+        Blocks.LANTERN,
+        // Furnishing
+        Blocks.RED_BED,
+        Blocks.RED_CARPET
     ),
 
     DESERT(
@@ -49,6 +53,7 @@ public enum BiomePalette {
         Blocks.ACACIA_STAIRS,
         Blocks.ACACIA_SLAB,
         Blocks.ACACIA_FENCE,
+        Blocks.ACACIA_FENCE_GATE,
         Blocks.ACACIA_DOOR,
         Blocks.ACACIA_TRAPDOOR,
         // Roof and accent
@@ -60,7 +65,10 @@ public enum BiomePalette {
         Blocks.SMOOTH_SANDSTONE,
         // Decoration
         Blocks.IRON_BARS,
-        Blocks.SOUL_LANTERN
+        Blocks.SOUL_LANTERN,
+        // Furnishing
+        Blocks.YELLOW_BED,
+        Blocks.YELLOW_CARPET
     ),
 
     SAVANNA(
@@ -76,6 +84,7 @@ public enum BiomePalette {
         Blocks.ACACIA_STAIRS,
         Blocks.ACACIA_SLAB,
         Blocks.ACACIA_FENCE,
+        Blocks.ACACIA_FENCE_GATE,
         Blocks.ACACIA_DOOR,
         Blocks.ACACIA_TRAPDOOR,
         // Roof and accent
@@ -87,7 +96,10 @@ public enum BiomePalette {
         Blocks.PACKED_MUD,
         // Decoration
         Blocks.IRON_BARS,
-        Blocks.LANTERN
+        Blocks.LANTERN,
+        // Furnishing
+        Blocks.ORANGE_BED,
+        Blocks.ORANGE_CARPET
     ),
 
     TAIGA(
@@ -103,6 +115,7 @@ public enum BiomePalette {
         Blocks.SPRUCE_STAIRS,
         Blocks.SPRUCE_SLAB,
         Blocks.SPRUCE_FENCE,
+        Blocks.SPRUCE_FENCE_GATE,
         Blocks.SPRUCE_DOOR,
         Blocks.SPRUCE_TRAPDOOR,
         // Roof and accent
@@ -114,7 +127,10 @@ public enum BiomePalette {
         Blocks.SPRUCE_PLANKS,
         // Decoration
         Blocks.IRON_BARS,
-        Blocks.LANTERN
+        Blocks.LANTERN,
+        // Furnishing
+        Blocks.BROWN_BED,
+        Blocks.BROWN_CARPET
     ),
 
     SNOWY(
@@ -130,6 +146,7 @@ public enum BiomePalette {
         Blocks.SPRUCE_STAIRS,
         Blocks.SPRUCE_SLAB,
         Blocks.SPRUCE_FENCE,
+        Blocks.SPRUCE_FENCE_GATE,
         Blocks.SPRUCE_DOOR,
         Blocks.SPRUCE_TRAPDOOR,
         // Roof and accent
@@ -141,7 +158,10 @@ public enum BiomePalette {
         Blocks.PACKED_ICE,
         // Decoration
         Blocks.IRON_BARS,
-        Blocks.SOUL_LANTERN
+        Blocks.SOUL_LANTERN,
+        // Furnishing
+        Blocks.LIGHT_BLUE_BED,
+        Blocks.LIGHT_BLUE_CARPET
     );
 
     public final String id;
@@ -158,6 +178,7 @@ public enum BiomePalette {
     public final Block woodStairs;
     public final Block woodSlab;
     public final Block fence;
+    public final Block fenceGate;
     public final Block door;
     public final Block trapdoor;
 
@@ -172,12 +193,17 @@ public enum BiomePalette {
     public final Block bars;
     public final Block light;
 
+    // Furnishing
+    public final Block bed;
+    public final Block carpet;
+
     BiomePalette(String id, String displayName,
                  Block primaryWall, Block secondaryWall, Block accentWall,
                  Block planks, Block log, Block woodStairs, Block woodSlab,
-                 Block fence, Block door, Block trapdoor,
+                 Block fence, Block fenceGate, Block door, Block trapdoor,
                  Block roofBlock, Block stoneStairs, Block stoneSlab, Block wall,
-                 Block floor, Block bars, Block light) {
+                 Block floor, Block bars, Block light,
+                 Block bed, Block carpet) {
         this.id = id;
         this.displayName = displayName;
         this.primaryWall = primaryWall;
@@ -188,6 +214,7 @@ public enum BiomePalette {
         this.woodStairs = woodStairs;
         this.woodSlab = woodSlab;
         this.fence = fence;
+        this.fenceGate = fenceGate;
         this.door = door;
         this.trapdoor = trapdoor;
         this.roofBlock = roofBlock;
@@ -197,6 +224,8 @@ public enum BiomePalette {
         this.floor = floor;
         this.bars = bars;
         this.light = light;
+        this.bed = bed;
+        this.carpet = carpet;
     }
 
     public BlockState getPrimaryWallState() {
@@ -243,6 +272,18 @@ public enum BiomePalette {
         return fence.getDefaultState();
     }
 
+    public BlockState getFenceGateState() {
+        return fenceGate.getDefaultState();
+    }
+
+    public BlockState getBedState() {
+        return bed.getDefaultState();
+    }
+
+    public BlockState getCarpetState() {
+        return carpet.getDefaultState();
+    }
+
     /**
      * Get a palette by its biome ID string.
      */
@@ -256,12 +297,12 @@ public enum BiomePalette {
     }
 
     /**
-     * Get a random wall block for variety (weighted towards primary).
+     * Get a random wall block state for variety (weighted towards primary).
      */
-    public Block getRandomWallBlock(java.util.Random random) {
+    public BlockState getRandomWallBlock(java.util.Random random) {
         int roll = random.nextInt(10);
-        if (roll < 6) return primaryWall;
-        if (roll < 9) return secondaryWall;
-        return accentWall;
+        if (roll < 6) return primaryWall.getDefaultState();
+        if (roll < 9) return secondaryWall.getDefaultState();
+        return accentWall.getDefaultState();
     }
 }

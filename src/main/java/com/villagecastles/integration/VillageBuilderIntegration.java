@@ -6,23 +6,36 @@ import net.minecraft.item.Item;
 import net.minecraft.item.Items;
 import net.minecraft.util.Identifier;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Optional integration with the Village Builder mod.
  * Registers castle structures so they can be built by Builder villagers.
  * Uses reflection to avoid compile-time dependency on village-builder.
+ *
+ * Only registers structures whose NBT files actually exist.
+ *
+ * API surface targeted:
+ *   justfatlard.village_builder.api.VillageBuilderAPI
+ *   justfatlard.village_builder.village.VillageNeedsAnalyzer$VillageNeed
+ *   justfatlard.village_builder.building.StructureType$MaterialRequirement
  */
 public class VillageBuilderIntegration {
 
     private static boolean initialized = false;
-    private static Method registerStructureMethod = null;
 
-    /**
-     * Initialize the integration if village-builder is present.
-     */
+    // Cached reflection references
+    private static Method registerStructurePersistentMethod;
+    private static Constructor<?> materialReqConstructor;
+    private static Object needDefense;
+    private static Object needHousing;
+
     public static void init() {
         if (initialized) return;
         initialized = true;
@@ -35,198 +48,209 @@ public class VillageBuilderIntegration {
         VillageCastles.LOGGER.info("Village Builder detected, registering castle structures...");
 
         try {
-            // Get the API class and method via reflection
             Class<?> apiClass = Class.forName("justfatlard.village_builder.api.VillageBuilderAPI");
-            registerStructureMethod = apiClass.getMethod(
-                "registerStructure",
-                Identifier.class,
-                String.class,
-                String.class,
-                Map.class,
-                int.class
-            );
 
-            registerStructures();
-            VillageCastles.LOGGER.info("Successfully registered castle structures with Village Builder!");
+            // VillageNeed enum
+            @SuppressWarnings("unchecked")
+            Class<Enum<?>> needEnum = (Class<Enum<?>>) Class.forName(
+                "justfatlard.village_builder.village.VillageNeedsAnalyzer$VillageNeed");
+            needDefense = Enum.valueOf((Class) needEnum, "DEFENSE");
+            needHousing = Enum.valueOf((Class) needEnum, "HOUSING");
+
+            // MaterialRequirement record constructor
+            Class<?> matReqClass = Class.forName(
+                "justfatlard.village_builder.building.StructureType$MaterialRequirement");
+            materialReqConstructor = matReqClass.getDeclaredConstructor(Item.class, int.class);
+
+            // registerStructurePersistent(Identifier, String, Set<VillageNeed>, List<MaterialRequirement>, Set<String>, int)
+            registerStructurePersistentMethod = apiClass.getMethod("registerStructurePersistent",
+                Identifier.class, String.class, Set.class, List.class, Set.class, int.class);
+
+            int registered = registerStructures();
+            if (registered > 0) {
+                VillageCastles.LOGGER.info("Registered {} castle structures with Village Builder", registered);
+            } else {
+                VillageCastles.LOGGER.info("No NBT files found yet — Village Builder will have nothing to build. "
+                    + "Use /villagecastles status to check.");
+            }
         } catch (ClassNotFoundException e) {
-            VillageCastles.LOGGER.warn("Village Builder API class not found: " + e.getMessage());
+            VillageCastles.LOGGER.warn("Village Builder API class not found: {}", e.getMessage());
         } catch (NoSuchMethodException e) {
-            VillageCastles.LOGGER.warn("Village Builder API method not found: " + e.getMessage());
+            VillageCastles.LOGGER.warn("Village Builder API method not found (version mismatch?): {}", e.getMessage());
         } catch (Exception e) {
-            VillageCastles.LOGGER.error("Failed to register with Village Builder: " + e.getMessage());
+            VillageCastles.LOGGER.error("Failed to register with Village Builder: {}", e.getMessage());
         }
     }
 
     /**
-     * Call the registerStructure method via reflection.
+     * Register a structure with Village Builder via reflection.
+     * Uses registerStructurePersistent so registrations survive world reloads.
      */
     private static void registerStructure(
         Identifier structureId,
         String displayName,
-        String villageType,
+        Set<Object> needs,
         Map<Item, Integer> materials,
-        int complexity
+        Set<String> biomePreferences,
+        int clearanceSize
     ) {
-        if (registerStructureMethod == null) return;
+        if (registerStructurePersistentMethod == null) return;
 
         try {
-            registerStructureMethod.invoke(null, structureId, displayName, villageType, materials, complexity);
+            // Convert Map<Item, Integer> to List<MaterialRequirement>
+            List<Object> requirements = new ArrayList<>();
+            for (Map.Entry<Item, Integer> entry : materials.entrySet()) {
+                requirements.add(materialReqConstructor.newInstance(entry.getKey(), entry.getValue()));
+            }
+
+            registerStructurePersistentMethod.invoke(null,
+                structureId, displayName, needs, requirements, biomePreferences, clearanceSize);
         } catch (Exception e) {
-            VillageCastles.LOGGER.warn("Failed to register structure " + displayName + ": " + e.getMessage());
+            VillageCastles.LOGGER.warn("Failed to register structure {}: {}", displayName, e.getMessage());
         }
     }
 
     /**
-     * Register all castle structures with the Village Builder API.
+     * Only register structures that have NBT files on disk.
+     * Returns count of successfully registered structures.
      */
-    private static void registerStructures() {
-        // Register each biome's castle
-        registerPlainscastle();
-        registerDesertCastle();
-        registerSavannaCastle();
-        registerTaigaCastle();
-        registerSnowyCastle();
-
-        // Register wall segments for each biome
-        registerWallSegments();
+    private static int registerStructures() {
+        return registerBiomeCastles();
     }
 
-    private static void registerPlainscastle() {
-        registerStructure(
-            Identifier.of("villagecastles", "structure/plains/castle_center"),
-            "Medieval Castle",
-            "plains",
-            createCastleMaterials(
-                Items.STONE_BRICKS, 800,
-                Items.COBBLESTONE, 400,
-                Items.OAK_LOG, 200,
-                Items.OAK_PLANKS, 150,
-                Items.GLASS_PANE, 64,
-                Items.IRON_BARS, 48,
-                Items.TORCH, 64,
-                Items.IRON_INGOT, 32,
-                Items.COAL, 48
+    private static boolean structureExists(String path) {
+        return com.villagecastles.util.StructureHelper.structureNbtExists(path);
+    }
+
+    private static int registerBiomeCastles() {
+        int count = 0;
+
+        String[][] castles = {
+            {"plains/castle_small", "Medieval Castle (Small)", "plains"},
+            {"plains/castle_medium", "Medieval Castle (Medium)", "plains"},
+            {"plains/castle_large", "Medieval Castle", "plains"},
+            {"desert/castle_small", "Sandstone Citadel (Small)", "desert"},
+            {"desert/castle_medium", "Sandstone Citadel (Medium)", "desert"},
+            {"desert/castle_large", "Sandstone Citadel", "desert"},
+            {"savanna/castle_small", "Acacia Stronghold (Small)", "savanna"},
+            {"savanna/castle_medium", "Acacia Stronghold (Medium)", "savanna"},
+            {"savanna/castle_large", "Acacia Stronghold", "savanna"},
+            {"taiga/castle_small", "Nordic Fortress (Small)", "taiga"},
+            {"taiga/castle_medium", "Nordic Fortress (Medium)", "taiga"},
+            {"taiga/castle_large", "Nordic Fortress", "taiga"},
+            {"snowy/castle_small", "Ice Keep (Small)", "snowy"},
+            {"snowy/castle_medium", "Ice Keep (Medium)", "snowy"},
+            {"snowy/castle_large", "Ice Keep", "snowy"},
+        };
+
+        Map<String, Map<Item, Integer>> biomeMaterials = Map.of(
+            "plains", createCastleMaterials(
+                Items.STONE_BRICKS, 800, Items.COBBLESTONE, 400,
+                Items.OAK_LOG, 200, Items.OAK_PLANKS, 150,
+                Items.GLASS_PANE, 64, Items.IRON_BARS, 48,
+                Items.TORCH, 64, Items.IRON_INGOT, 32
             ),
-            5 // Very complex
-        );
-    }
-
-    private static void registerDesertCastle() {
-        registerStructure(
-            Identifier.of("villagecastles", "structure/desert/castle_center"),
-            "Sandstone Citadel",
-            "desert",
-            createCastleMaterials(
-                Items.SANDSTONE, 600,
-                Items.CUT_SANDSTONE, 400,
-                Items.RED_TERRACOTTA, 200,
-                Items.ACACIA_LOG, 100,
-                Items.ACACIA_PLANKS, 100,
-                Items.GLASS_PANE, 48,
-                Items.IRON_BARS, 32,
-                Items.TORCH, 64,
-                Items.IRON_INGOT, 24,
-                Items.COAL, 32
+            "desert", createCastleMaterials(
+                Items.SANDSTONE, 600, Items.CUT_SANDSTONE, 400,
+                Items.TERRACOTTA, 200, Items.ACACIA_LOG, 100,
+                Items.ACACIA_PLANKS, 100, Items.GLASS_PANE, 48,
+                Items.IRON_BARS, 32, Items.TORCH, 64
             ),
-            5
-        );
-    }
-
-    private static void registerSavannaCastle() {
-        registerStructure(
-            Identifier.of("villagecastles", "structure/savanna/castle_center"),
-            "Acacia Stronghold",
-            "savanna",
-            createCastleMaterials(
-                Items.MUD_BRICKS, 500,
-                Items.COBBLESTONE, 300,
-                Items.ACACIA_LOG, 250,
-                Items.ACACIA_PLANKS, 200,
-                Items.TERRACOTTA, 150,
-                Items.GLASS_PANE, 48,
-                Items.IRON_BARS, 32,
-                Items.TORCH, 64,
-                Items.IRON_INGOT, 24,
-                Items.COAL, 32
+            "savanna", createCastleMaterials(
+                Items.MUD_BRICKS, 500, Items.COBBLESTONE, 300,
+                Items.ACACIA_LOG, 250, Items.ACACIA_PLANKS, 200,
+                Items.TERRACOTTA, 150, Items.GLASS_PANE, 48,
+                Items.IRON_BARS, 32, Items.TORCH, 64
             ),
-            5
-        );
-    }
-
-    private static void registerTaigaCastle() {
-        registerStructure(
-            Identifier.of("villagecastles", "structure/taiga/castle_center"),
-            "Nordic Fortress",
-            "taiga",
-            createCastleMaterials(
-                Items.COBBLESTONE, 600,
-                Items.MOSSY_COBBLESTONE, 200,
-                Items.SPRUCE_LOG, 300,
-                Items.SPRUCE_PLANKS, 250,
-                Items.STONE_BRICKS, 200,
-                Items.GLASS_PANE, 48,
-                Items.IRON_BARS, 40,
-                Items.LANTERN, 48,
-                Items.IRON_INGOT, 32,
-                Items.COAL, 40
+            "taiga", createCastleMaterials(
+                Items.COBBLESTONE, 600, Items.MOSSY_COBBLESTONE, 200,
+                Items.SPRUCE_LOG, 300, Items.SPRUCE_PLANKS, 250,
+                Items.STONE_BRICKS, 200, Items.GLASS_PANE, 48,
+                Items.IRON_BARS, 40, Items.LANTERN, 48
             ),
-            5
+            "snowy", createCastleMaterials(
+                Items.PACKED_ICE, 400, Items.BLUE_ICE, 100,
+                Items.STONE_BRICKS, 400, Items.SPRUCE_LOG, 200,
+                Items.SPRUCE_PLANKS, 150, Items.GLASS_PANE, 48,
+                Items.IRON_BARS, 32, Items.LANTERN, 64
+            )
         );
+
+        for (String[] castle : castles) {
+            if (!structureExists(castle[0])) continue;
+
+            String biome = castle[2];
+            Map<Item, Integer> baseMaterials = biomeMaterials.get(biome);
+            int clearanceSize;
+            double materialScale;
+            if (castle[0].contains("large")) {
+                clearanceSize = 50;
+                materialScale = 1.0;
+            } else if (castle[0].contains("medium")) {
+                clearanceSize = 30;
+                materialScale = 0.6;
+            } else {
+                clearanceSize = 15;
+                materialScale = 0.25;
+            }
+
+            // Scale material costs by castle size
+            Map<Item, Integer> materials = new HashMap<>(baseMaterials);
+            materials.replaceAll((item, amount) -> Math.max(1, (int) (amount * materialScale)));
+
+            // Castles satisfy DEFENSE + HOUSING (they have beds and walls)
+            Set<Object> needs = castle[0].contains("large")
+                ? Set.of(needDefense, needHousing)
+                : Set.of(needDefense);
+
+            registerStructure(
+                Identifier.of("villagecastles", castle[0]),
+                castle[1],
+                needs,
+                materials,
+                Set.of(biome),
+                clearanceSize
+            );
+            count++;
+        }
+
+        return count;
     }
 
-    private static void registerSnowyCastle() {
-        registerStructure(
-            Identifier.of("villagecastles", "structure/snowy/castle_center"),
-            "Ice Keep",
-            "snowy",
-            createCastleMaterials(
-                Items.PACKED_ICE, 400,
-                Items.BLUE_ICE, 100,
-                Items.STONE_BRICKS, 400,
-                Items.SPRUCE_LOG, 200,
-                Items.SPRUCE_PLANKS, 150,
-                Items.GLASS_PANE, 48,
-                Items.IRON_BARS, 32,
-                Items.LANTERN, 64,
-                Items.IRON_INGOT, 24,
-                Items.COAL, 48
-            ),
-            5
-        );
-    }
-
-    private static void registerWallSegments() {
-        // Register wall segments for each biome type
+    private static int registerWallSegments() {
         String[] biomes = {"plains", "desert", "savanna", "taiga", "snowy"};
+        String[] segments = {"wall_straight", "wall_corner", "wall_gate", "wall_tower", "wall_terminator"};
+        int count = 0;
 
         for (String biome : biomes) {
             String wallType = getWallTypeForBiome(biome);
             String displayName = capitalize(biome) + " Village Wall";
 
-            registerStructure(
-                Identifier.of("villagecastles", "structure/village_walls/" + biome + "/wall_straight"),
-                displayName + " (Straight)",
-                biome,
-                createWallMaterials(wallType),
-                2 // Simple
-            );
+            for (String segment : segments) {
+                String path = "village_walls/" + biome + "/" + segment;
+                if (!structureExists(path)) continue;
 
-            registerStructure(
-                Identifier.of("villagecastles", "structure/village_walls/" + biome + "/wall_gate"),
-                displayName + " (Gate)",
-                biome,
-                createGateMaterials(wallType),
-                3 // Medium
-            );
+                String segDisplay = segment.replace("wall_", "");
+                Map<Item, Integer> materials = switch (segment) {
+                    case "wall_gate" -> createGateMaterials(wallType);
+                    case "wall_tower" -> createTowerMaterials(wallType);
+                    default -> createWallMaterials(wallType);
+                };
+                int clearanceSize = segment.equals("wall_straight") ? 5 : 8;
 
-            registerStructure(
-                Identifier.of("villagecastles", "structure/village_walls/" + biome + "/wall_tower"),
-                displayName + " (Tower)",
-                biome,
-                createTowerMaterials(wallType),
-                3 // Medium
-            );
+                registerStructure(
+                    Identifier.of("villagecastles", path),
+                    displayName + " (" + capitalize(segDisplay) + ")",
+                    Set.of(needDefense),
+                    materials,
+                    Set.of(biome),
+                    clearanceSize
+                );
+                count++;
+            }
         }
+
+        return count;
     }
 
     private static String getWallTypeForBiome(String biome) {
@@ -241,19 +265,13 @@ public class VillageBuilderIntegration {
     private static Map<Item, Integer> createWallMaterials(String wallType) {
         return switch (wallType) {
             case "palisade" -> createCastleMaterials(
-                Items.OAK_LOG, 32,
-                Items.OAK_FENCE, 16,
-                Items.TORCH, 4
+                Items.OAK_LOG, 32, Items.OAK_FENCE, 16, Items.TORCH, 4
             );
             case "adobe" -> createCastleMaterials(
-                Items.MUD_BRICKS, 48,
-                Items.SANDSTONE, 32,
-                Items.TORCH, 4
+                Items.MUD_BRICKS, 48, Items.SANDSTONE, 32, Items.TORCH, 4
             );
             case "stone" -> createCastleMaterials(
-                Items.STONE_BRICKS, 64,
-                Items.COBBLESTONE, 32,
-                Items.TORCH, 4
+                Items.STONE_BRICKS, 64, Items.COBBLESTONE, 32, Items.TORCH, 4
             );
             default -> createCastleMaterials(Items.COBBLESTONE, 64);
         };
@@ -268,21 +286,17 @@ public class VillageBuilderIntegration {
 
     private static Map<Item, Integer> createTowerMaterials(String wallType) {
         Map<Item, Integer> materials = new HashMap<>(createWallMaterials(wallType));
-        // Towers need more materials
-        materials.replaceAll((item, count) -> count * 2);
+        materials.replaceAll((item, c) -> c * 2);
         materials.put(Items.LADDER, 8);
         return materials;
     }
 
-    /**
-     * Helper to create material maps with varargs.
-     */
     private static Map<Item, Integer> createCastleMaterials(Object... itemsAndCounts) {
         Map<Item, Integer> materials = new HashMap<>();
         for (int i = 0; i < itemsAndCounts.length; i += 2) {
             Item item = (Item) itemsAndCounts[i];
-            Integer count = (Integer) itemsAndCounts[i + 1];
-            materials.put(item, count);
+            Integer c = (Integer) itemsAndCounts[i + 1];
+            materials.put(item, c);
         }
         return materials;
     }

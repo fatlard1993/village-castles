@@ -1,6 +1,5 @@
 plugins {
     id 'fabric-loom' version '1.13-SNAPSHOT'
-    id 'maven-publish'
 }
 
 version = project.mod_version
@@ -15,7 +14,6 @@ repositories {
 }
 
 loom {
-    // Enable data generation
     runs {
         datagen {
             inherit server
@@ -24,6 +22,12 @@ loom {
             vmArg "-Dfabric-api.datagen.output-dir=${file("src/main/generated")}"
             vmArg "-Dfabric-api.datagen.modid=villagecastles"
             runDir "build/datagen"
+        }
+        exportStructures {
+            inherit server
+            name "Export Structures"
+            vmArg "-Dvillagecastles.exportall=true"
+            runDir "run"
         }
     }
 }

@@ -4,7 +4,7 @@
   "version": "${version}",
   "name": "Village Castles",
   "description": "Adds grand, biome-themed castle structures to villages",
-  "authors": ["VillageCastles Team"],
+  "authors": ["justfatlard"],
   "contact": {
     "homepage": "https://github.com/villagecastles",
     "sources": "https://github.com/villagecastles/village-castles"
@@ -17,14 +17,17 @@
       "com.villagecastles.VillageCastles"
     ]
   },
-  "mixins": [],
+  "mixins": [
+    "villagecastles.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=0.16.0",
     "minecraft": "~1.21.11",
     "java": ">=21",
-    "fabric-api": "*"
+    "fabric-api": ">=0.140.2"
   },
   "suggests": {
-    "village-builder": "*"
+    "village-builder": "*",
+    "village-quests": "*"
   }
 }
