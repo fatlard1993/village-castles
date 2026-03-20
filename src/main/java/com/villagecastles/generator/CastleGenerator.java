@@ -309,8 +309,8 @@ public class CastleGenerator {
                 world.setBlockState(mutable, Blocks.AIR.getDefaultState(), StructureHelper.SET_FLAGS);
             }
         }
-        // Acacia gate
-        world.setBlockState(new BlockPos(ox, baseY, oz + outerRadius),
+        // Acacia gate (at interior floor level baseY+1, not ground baseY)
+        world.setBlockState(new BlockPos(ox, baseY + 1, oz + outerRadius),
             palette.fenceGate.getDefaultState().with(net.minecraft.block.FenceGateBlock.FACING, Direction.SOUTH),
             StructureHelper.SET_FLAGS);
 
@@ -653,6 +653,12 @@ public class CastleGenerator {
         // Interior floor — spruce planks
         StructureHelper.fillBox(world, center.add(-halfWidth + 1, 1, -halfLength + 1),
             center.add(halfWidth - 1, 1, halfLength - 1), palette.getPlanksState());
+
+        // Floor at doorway thresholds (so player doesn't step down at entrances)
+        for (int x = -1; x <= 1; x++) {
+            world.setBlockState(new BlockPos(ox + x, baseY + 1, oz + halfLength), palette.getPlanksState(), StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + x, baseY + 1, oz - halfLength), palette.getPlanksState(), StructureHelper.SET_FLAGS);
+        }
 
         // Steep A-frame roof (spruce planks)
         BlockState roofBlock = palette.getRoofState();
@@ -1098,13 +1104,13 @@ public class CastleGenerator {
         StructureHelper.placeChest(world, new BlockPos(ox, cellarBaseY + 1, oz),
             Direction.NORTH, LootTables.VILLAGE_SNOWY_HOUSE_CHEST);
 
-        // Spruce trapdoor access in igloo floor near the wall (offset from center)
+        // Spruce trapdoor access directly above the cellar
         // The floor is at baseY+1, trapdoor sits on top facing down into the cellar
-        BlockPos trapdoorPos = new BlockPos(ox + innerRadius - 3, baseY + 1, oz);
+        BlockPos trapdoorPos = new BlockPos(ox + 1, baseY + 1, oz);
         world.setBlockState(trapdoorPos, Blocks.SPRUCE_TRAPDOOR.getDefaultState()
             .with(TrapdoorBlock.HALF, BlockHalf.TOP)
             .with(TrapdoorBlock.FACING, Direction.EAST), StructureHelper.SET_FLAGS);
-        // Clear air below the trapdoor for access shaft
+        // Clear air below the trapdoor for access shaft down to cellar
         for (int dy = 0; dy >= cellarBaseY - baseY; dy--) {
             mutable.set(trapdoorPos.getX(), baseY + dy, trapdoorPos.getZ());
             if (dy < 0) {
@@ -1518,9 +1524,10 @@ public class CastleGenerator {
     private CastleBounds generateGreatEnclosure(ServerWorld world, BlockPos center, int radius) {
         int halfLength = 25; // long axis (north-south)
         int halfWidth = 10;  // short axis (east-west)
-        int depth = 5;       // how far below ground the floor sits
         int wallHeight = 3;  // walls above ground level (roof barely visible)
         int baseY = center.getY();
+        int depth = Math.min(5, baseY + 63); // Clamp to stay above y=-63 (world minimum is -64)
+        if (depth < 2) depth = 2; // Minimum viable sunken depth
         int floorY = baseY - depth;
         int ox = center.getX();
         int oz = center.getZ();
@@ -2485,27 +2492,10 @@ public class CastleGenerator {
             world.setBlockState(new BlockPos(treasureX + 4, yFloor + 3, treasureZ + 3),
                 soulLantern, StructureHelper.SET_FLAGS);
 
-            // TNT trap under treasure room
-            for (int tx = treasureX; tx <= treasureX + 6; tx++) {
-                for (int tz = treasureZ; tz <= treasureZ + 6; tz++) {
-                    pyramidMutable.set(tx, yFloor - 2, tz);
-                    world.setBlockState(pyramidMutable, air, StructureHelper.SET_FLAGS);
-                }
-            }
-            world.setBlockState(new BlockPos(treasureX + 2, yFloor - 2, treasureZ + 3),
-                Blocks.TNT.getDefaultState(), StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(treasureX + 4, yFloor - 2, treasureZ + 3),
-                Blocks.TNT.getDefaultState(), StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(treasureX + 3, yFloor - 2, treasureZ + 2),
-                Blocks.TNT.getDefaultState(), StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(treasureX + 3, yFloor - 2, treasureZ + 4),
-                Blocks.TNT.getDefaultState(), StructureHelper.SET_FLAGS);
+            // No traps in village castles — these are inhabited structures.
+            // TNT traps belong in ruins variants only (DecayEngine/RuinsGenerator).
 
-            // Pressure plate at entrance
-            world.setBlockState(new BlockPos(treasureX + 3, yFloor, treasureZ + 6),
-                Blocks.STONE_PRESSURE_PLATE.getDefaultState(), StructureHelper.SET_FLAGS);
-
-            VillageCastles.LOGGER.debug("Treasure room with TNT trap placed at tier 0");
+            VillageCastles.LOGGER.debug("Treasure room placed at tier 0");
         }
 
         // ================================================================
@@ -2861,12 +2851,20 @@ public class CastleGenerator {
             new BlockPos(startX + 2, startY + height + 2, startZ + 2));
 
         // Spiral pattern: N, E, S, W offsets for each quarter turn
+        // Facing direction: the stair faces the direction the player walks up toward
         int[][] spiral = {
-            {0, -1},  // North
-            {1, 0},   // East
-            {0, 1},   // South
-            {-1, 0},  // West
+            {0, -1},  // North offset -> player walks south, stair faces SOUTH
+            {1, 0},   // East offset  -> player walks west,  stair faces WEST
+            {0, 1},   // South offset -> player walks north, stair faces NORTH
+            {-1, 0},  // West offset  -> player walks east,  stair faces EAST
         };
+        Direction[] spiralFacing = {
+            Direction.SOUTH,
+            Direction.WEST,
+            Direction.NORTH,
+            Direction.EAST,
+        };
+        BlockState sandstoneStairs = Blocks.SANDSTONE_STAIRS.getDefaultState();
 
         for (int step = 0; step < height; step++) {
             int stepY = startY + step;
@@ -2874,8 +2872,9 @@ public class CastleGenerator {
             int stepX = startX + spiral[dir][0];
             int stepZ = startZ + spiral[dir][1];
 
+            // Place stair block with correct facing instead of full block
             spiralMutable.set(stepX, stepY, stepZ);
-            world.setBlockState(spiralMutable, stepBlock, StructureHelper.SET_FLAGS);
+            world.setBlockState(spiralMutable, sandstoneStairs.with(StairsBlock.FACING, spiralFacing[dir]), StructureHelper.SET_FLAGS);
             // Support underneath
             spiralMutable.set(stepX, stepY - 1, stepZ);
             world.setBlockState(spiralMutable, wallBlock, StructureHelper.SET_FLAGS);
