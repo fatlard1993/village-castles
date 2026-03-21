@@ -3096,381 +3096,431 @@ public class CastleGenerator {
      * scale, carved from blue ice by unknown forces. The villagers have moved in,
      * building spruce-wood platforms and campfire hearths inside the vast frozen halls.
      * Beneath it: a secret icy dungeon with a diamond block shrine.
+     *
+     * The scale is inhuman. Arched hallways 10 blocks tall. A hollow central
+     * spire you can look straight up inside. Frozen waterfalls. Sea lanterns
+     * glowing through ice walls. The villagers have built spruce platforms
+     * and campfire hearths in the corners — tiny warm islands inside
+     * something vast and cold and old.
      */
     private CastleBounds generateIcePalace(ServerWorld world, BlockPos center, int radius) {
         int baseY = center.getY();
         int ox = center.getX(), oz = center.getZ();
         BlockPos.Mutable m = new BlockPos.Mutable();
 
-        BlockState blueIce = Blocks.BLUE_ICE.getDefaultState();
-        BlockState packedIce = Blocks.PACKED_ICE.getDefaultState();
-        BlockState snowBlock = Blocks.SNOW_BLOCK.getDefaultState();
-        BlockState sprucePlanks = palette.getPlanksState();
-        BlockState spruceFence = palette.getFenceState();
-        BlockState spruceSlab = palette.woodSlab.getDefaultState();
+        BlockState blue = Blocks.BLUE_ICE.getDefaultState();
+        BlockState packed = Blocks.PACKED_ICE.getDefaultState();
+        BlockState snow = Blocks.SNOW_BLOCK.getDefaultState();
+        BlockState sea = Blocks.SEA_LANTERN.getDefaultState();
+        BlockState spruce = palette.getPlanksState();
+        BlockState fence = palette.getFenceState();
+        BlockState log = palette.log.getDefaultState();
         BlockState air = Blocks.AIR.getDefaultState();
 
-        int wallR = radius - 2;   // outer wall radius
-        int wallH = 16;           // walls are TALL — inhuman scale
-        int spireH = 35;          // central spire — visible across the tundra
-        int spireR = 7;           // thicker, more imposing
-        int towerH = 22;
-        int towerR = 5;
-        int dungeonDepth = Math.min(8, baseY + 63); // clamp for bedrock
+        // Scale — this was built for something much larger than humans
+        int wallR = radius - 2;    // outer wall extent
+        int wallThick = 4;         // massively thick walls
+        int wallH = 18;            // walls taller than any other structure
+        int innerR = wallR - wallThick;
+        int archH = 14;            // arched ceiling peak height
+        int spireR = 8;            // central spire radius
+        int spireH = 40;           // visible from hundreds of blocks away
+        int towerR = 5;            // corner spire radius
+        int towerH = 25;           // corner spire height
+        int dungeonDepth = Math.min(10, baseY + 63);
 
         prepareGround(world, center, wallR + 3);
 
         // ============================================================
-        // PHASE 1: THE ANCIENT STRUCTURE (blue ice — alien, geometric)
+        // THE ANCIENT STRUCTURE — built by giants, found by villagers
         // ============================================================
 
-        // Outer walls — blue ice, 4 blocks thick, impossibly smooth
+        // Outer walls — blue ice, 4 blocks thick
         for (int x = -wallR; x <= wallR; x++) {
             for (int z = -wallR; z <= wallR; z++) {
-                boolean onWall = Math.abs(x) >= wallR - 3 || Math.abs(z) >= wallR - 3;
-                boolean inWall = Math.abs(x) > wallR || Math.abs(z) > wallR;
-                if (onWall && !inWall) {
+                boolean onWall = Math.abs(x) >= wallR - wallThick + 1 || Math.abs(z) >= wallR - wallThick + 1;
+                boolean outside = Math.abs(x) > wallR || Math.abs(z) > wallR;
+                if (onWall && !outside) {
                     for (int y = 0; y < wallH; y++) {
                         m.set(ox + x, baseY + y, oz + z);
-                        world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
+                        world.setBlockState(m, blue, StructureHelper.SET_FLAGS);
                     }
                 }
             }
         }
 
-        // Clear the vast interior — cavernous
-        int innerR = wallR - 4;
+        // Hollow the interior
         StructureHelper.clearInterior(world,
             center.add(-innerR, 0, -innerR),
-            center.add(innerR, wallH + 4, innerR));
+            center.add(innerR, wallH + 6, innerR));
 
-        // Packed ice floor (ancient, worn)
+        // Packed ice floor
         StructureHelper.fillFloor(world,
             center.add(-innerR, 0, -innerR),
-            center.add(innerR, 0, innerR),
-            baseY, packedIce);
+            center.add(innerR, 0, innerR), baseY, packed);
 
-        // Four corner spires — blue ice, tapered, like frozen stalagmites
+        // === ARCHED CEILING — barrel vault, not flat ===
+        // The ceiling arches from the east/west walls inward, peaking at archH
+        for (int x = -innerR; x <= innerR; x++) {
+            // Parabolic arch profile: height = archH * (1 - (x/innerR)^2)
+            double normalX = (double) x / innerR;
+            int archY = (int)(archH * (1.0 - normalX * normalX));
+            if (archY < 2) archY = 2;
+            for (int z = -innerR; z <= innerR; z++) {
+                m.set(ox + x, baseY + wallH - 1 + archY - archH, oz + z);
+                // Only place arch blocks above the wall top or at the wall edge
+                int placeY = baseY + archY;
+                if (placeY >= baseY + wallH - 2) {
+                    world.setBlockState(new BlockPos(ox + x, placeY, oz + z), blue, StructureHelper.SET_FLAGS);
+                    world.setBlockState(new BlockPos(ox + x, placeY + 1, oz + z), blue, StructureHelper.SET_FLAGS);
+                }
+            }
+        }
+
+        // === SEA LANTERNS EMBEDDED IN WALLS — magical glow ===
+        // Every 5 blocks along interior walls, at two heights
+        for (int i = -innerR + 2; i <= innerR - 2; i += 5) {
+            for (int h : new int[]{3, 8}) {
+                // North and south walls
+                world.setBlockState(new BlockPos(ox + i, baseY + h, oz - innerR - 1), sea, StructureHelper.SET_FLAGS);
+                world.setBlockState(new BlockPos(ox + i, baseY + h, oz + innerR + 1), sea, StructureHelper.SET_FLAGS);
+                // East and west walls
+                world.setBlockState(new BlockPos(ox - innerR - 1, baseY + h, oz + i), sea, StructureHelper.SET_FLAGS);
+                world.setBlockState(new BlockPos(ox + innerR + 1, baseY + h, oz + i), sea, StructureHelper.SET_FLAGS);
+            }
+        }
+
+        // === FOUR CORNER SPIRES — frozen stalagmites ===
         int[][] corners = {{-wallR, -wallR}, {wallR, -wallR}, {-wallR, wallR}, {wallR, wallR}};
         for (int[] c : corners) {
-            BlockPos tb = new BlockPos(ox + c[0], baseY, oz + c[1]);
-            // Tapered cylinder — wider at base, narrow at top
+            int cx = ox + c[0], cz = oz + c[1];
             for (int y = 0; y < towerH; y++) {
-                int r = towerR - (y * towerR / (towerH + 5)); // gradual taper
+                int r = towerR - (y * towerR / (towerH + 5));
                 if (r < 1) r = 1;
                 for (int tx = -r; tx <= r; tx++) {
                     for (int tz = -r; tz <= r; tz++) {
                         if (tx * tx + tz * tz <= r * r) {
-                            m.set(tb.getX() + tx, baseY + y, tb.getZ() + tz);
-                            world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
+                            m.set(cx + tx, baseY + y, cz + tz);
+                            world.setBlockState(m, blue, StructureHelper.SET_FLAGS);
                         }
                     }
                 }
             }
-            // Pointed tip
-            for (int y = 0; y <= 3; y++) {
-                m.set(tb.getX(), baseY + towerH + y, tb.getZ());
-                world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
+            // Tip + end rod crystal
+            for (int y = 0; y <= 4; y++) {
+                world.setBlockState(new BlockPos(cx, baseY + towerH + y, cz), blue, StructureHelper.SET_FLAGS);
             }
+            world.setBlockState(new BlockPos(cx, baseY + towerH + 5, cz),
+                Blocks.END_ROD.getDefaultState(), StructureHelper.SET_FLAGS);
         }
 
-        // Central spire — the defining silhouette, visible from far away
+        // === CENTRAL SPIRE — hollow, with spiral staircase inside ===
+        // Outer shell
         for (int y = 0; y < spireH; y++) {
-            int r = spireR - (y * spireR / (spireH + 8));
-            if (r < 1) r = 1;
+            int r = spireR - (y * spireR / (spireH + 10));
+            if (r < 2) r = 2;
             for (int x = -r; x <= r; x++) {
                 for (int z = -r; z <= r; z++) {
-                    if (x * x + z * z <= r * r) {
+                    int distSq = x * x + z * z;
+                    boolean onShell = distSq <= r * r && distSq > (r - 2) * (r - 2);
+                    boolean solid = distSq <= r * r && r <= 2; // solid at narrow top
+                    if (onShell || solid) {
                         m.set(ox + x, baseY + y, oz + z);
-                        world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
+                        world.setBlockState(m, blue, StructureHelper.SET_FLAGS);
                     }
                 }
             }
         }
-        // Sea lantern at the very peak — glows like a frozen star
-        world.setBlockState(new BlockPos(ox, baseY + spireH, oz), Blocks.SEA_LANTERN.getDefaultState(), StructureHelper.SET_FLAGS);
+        // Hollow the interior of the spire (you can look straight up)
+        for (int y = 1; y < spireH - 2; y++) {
+            int r = spireR - (y * spireR / (spireH + 10));
+            if (r < 2) r = 2;
+            int ir = r - 2;
+            if (ir < 1) continue;
+            for (int x = -ir; x <= ir; x++) {
+                for (int z = -ir; z <= ir; z++) {
+                    if (x * x + z * z < ir * ir) {
+                        m.set(ox + x, baseY + y, oz + z);
+                        world.setBlockState(m, air, StructureHelper.SET_FLAGS);
+                    }
+                }
+            }
+        }
+        // Sea lantern at peak
+        world.setBlockState(new BlockPos(ox, baseY + spireH, oz), sea, StructureHelper.SET_FLAGS);
+        // End rod crystals around the peak
+        for (int[] er : new int[][]{{0,1},{0,-1},{1,0},{-1,0}}) {
+            world.setBlockState(new BlockPos(ox + er[0], baseY + spireH - 1, oz + er[1]),
+                Blocks.END_ROD.getDefaultState(), StructureHelper.SET_FLAGS);
+        }
+        // Sea lanterns spiraling up inside the spire (visible when looking up)
+        for (int y = 5; y < spireH - 5; y += 4) {
+            double angle = Math.toRadians(y * 30);
+            int lx = (int)(2 * Math.cos(angle));
+            int lz = (int)(2 * Math.sin(angle));
+            world.setBlockState(new BlockPos(ox + lx, baseY + y, oz + lz), sea, StructureHelper.SET_FLAGS);
+        }
 
-        // Doorways through the central spire (N/S) — carved, ancient
+        // Doorways through spire (N/S, 3 wide, 5 tall — giant-scale)
         for (int x = -1; x <= 1; x++) {
-            for (int y = 1; y <= 4; y++) { // 4 tall — inhuman proportions
+            for (int y = 1; y <= 5; y++) {
                 world.setBlockState(new BlockPos(ox + x, baseY + y, oz + spireR), air, StructureHelper.SET_FLAGS);
+                world.setBlockState(new BlockPos(ox + x, baseY + y, oz + spireR - 1), air, StructureHelper.SET_FLAGS);
                 world.setBlockState(new BlockPos(ox + x, baseY + y, oz - spireR), air, StructureHelper.SET_FLAGS);
+                world.setBlockState(new BlockPos(ox + x, baseY + y, oz - spireR + 1), air, StructureHelper.SET_FLAGS);
             }
         }
 
-        // Main entrance — south wall, grand archway (5 wide, 7 tall)
+        // === GRAND ENTRANCE — south wall, massive archway ===
         for (int x = -3; x <= 3; x++) {
-            for (int y = 1; y <= 7; y++) {
-                for (int t = 0; t < 4; t++) {
+            int archHeight = 8 - Math.abs(x); // pointed arch shape
+            for (int y = 1; y <= archHeight; y++) {
+                for (int t = 0; t < wallThick; t++) {
                     m.set(ox + x, baseY + y, oz + wallR - t);
                     world.setBlockState(m, air, StructureHelper.SET_FLAGS);
                 }
             }
         }
-        // Grand entrance frame — packed ice columns flanking the doorway
-        for (int y = 0; y <= 8; y++) {
-            world.setBlockState(new BlockPos(ox - 4, baseY + y, oz + wallR), blueIce, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(ox + 4, baseY + y, oz + wallR), blueIce, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(ox - 4, baseY + y, oz + wallR - 1), blueIce, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(ox + 4, baseY + y, oz + wallR - 1), blueIce, StructureHelper.SET_FLAGS);
-        }
-        // Arch top
-        for (int x = -3; x <= 3; x++) {
-            world.setBlockState(new BlockPos(ox + x, baseY + 8, oz + wallR), blueIce, StructureHelper.SET_FLAGS);
+        // Entrance columns
+        for (int y = 0; y <= 9; y++) {
+            world.setBlockState(new BlockPos(ox - 4, baseY + y, oz + wallR), blue, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + 4, baseY + y, oz + wallR), blue, StructureHelper.SET_FLAGS);
         }
 
-        // Snow dusting on top of walls (uneven, natural)
-        for (int x = -wallR; x <= wallR; x += 3) {
-            for (int z = -wallR; z <= wallR; z += 3) {
-                boolean onTop = Math.abs(x) >= wallR - 2 || Math.abs(z) >= wallR - 2;
-                if (onTop && random.nextInt(3) == 0) {
-                    m.set(ox + x, baseY + wallH, oz + z);
-                    world.setBlockState(m, snowBlock, StructureHelper.SET_FLAGS);
+        // === FROZEN WATERFALL — east interior wall ===
+        // Packed ice column (frozen cascade) with water pool at base
+        int waterfallX = ox + innerR;
+        int waterfallZ = oz;
+        for (int y = 1; y <= wallH - 2; y++) {
+            world.setBlockState(new BlockPos(waterfallX, baseY + y, waterfallZ), packed, StructureHelper.SET_FLAGS);
+            if (y % 3 == 0) { // alternating packed/blue for texture
+                world.setBlockState(new BlockPos(waterfallX, baseY + y, waterfallZ), blue, StructureHelper.SET_FLAGS);
+            }
+        }
+        // Pool at the base
+        world.setBlockState(new BlockPos(waterfallX - 1, baseY, waterfallZ - 1), packed, StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(waterfallX - 1, baseY, waterfallZ), packed, StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(waterfallX - 1, baseY, waterfallZ + 1), packed, StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(waterfallX - 2, baseY + 1, waterfallZ), Blocks.WATER.getDefaultState(), StructureHelper.SET_FLAGS);
+
+        // === ICE BRIDGE — spanning the hall at height 8 ===
+        int bridgeY = baseY + 8;
+        for (int z = -innerR + 3; z <= innerR - 3; z++) {
+            world.setBlockState(new BlockPos(ox - 1, bridgeY, oz + z), packed, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox, bridgeY, oz + z), blue, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + 1, bridgeY, oz + z), packed, StructureHelper.SET_FLAGS);
+            // Fence railing
+            world.setBlockState(new BlockPos(ox - 2, bridgeY + 1, oz + z), fence, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + 2, bridgeY + 1, oz + z), fence, StructureHelper.SET_FLAGS);
+        }
+
+        // Snow on walls (irregular, ancient)
+        for (int x = -wallR; x <= wallR; x += 2) {
+            for (int z = -wallR; z <= wallR; z += 2) {
+                if ((Math.abs(x) >= wallR - wallThick || Math.abs(z) >= wallR - wallThick) && random.nextInt(4) == 0) {
+                    world.setBlockState(new BlockPos(ox + x, baseY + wallH, oz + z), snow, StructureHelper.SET_FLAGS);
                 }
             }
         }
 
         // ============================================================
-        // PHASE 2: VILLAGER HABITATION (spruce wood — warm, human, small)
+        // VILLAGER HABITATION — small warm islands in a frozen cathedral
         // ============================================================
 
-        // Raised spruce platform in the SW quadrant — the living area
-        int platMinX = ox - innerR + 2;
-        int platMaxX = ox - 3;
-        int platMinZ = oz + 2;
-        int platMaxZ = oz + innerR - 2;
-        // Platform base (1 block up from ice floor)
-        StructureHelper.fillBox(world, new BlockPos(platMinX, baseY + 1, platMinZ),
-            new BlockPos(platMaxX, baseY + 1, platMaxZ), sprucePlanks);
+        // Main camp — SE quadrant, raised spruce platform
+        int pMinX = ox + 3, pMaxX = ox + innerR - 2;
+        int pMinZ = oz + 3, pMaxZ = oz + innerR - 2;
+        StructureHelper.fillBox(world, new BlockPos(pMinX, baseY + 1, pMinZ),
+            new BlockPos(pMaxX, baseY + 1, pMaxZ), spruce);
+        int fy = baseY + 2; // furniture Y
 
-        // Beds on the platform (clustered near campfires)
-        int bedY = baseY + 2;
-        for (int i = 0; i < 3; i++) {
-            int bx = platMinX + 2 + i * 3;
-            world.setBlockState(new BlockPos(bx, bedY, platMinZ + 2), palette.bed.getDefaultState()
+        // Campfires — the warmth this whole camp orbits around
+        world.setBlockState(new BlockPos(pMinX + 3, baseY + 1, pMinZ + 3), Blocks.STONE_BRICKS.getDefaultState(), StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(pMinX + 3, fy, pMinZ + 3), Blocks.CAMPFIRE.getDefaultState(), StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(pMinX + 4, baseY + 1, pMinZ + 3), Blocks.STONE_BRICKS.getDefaultState(), StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(pMinX + 4, fy, pMinZ + 3), Blocks.CAMPFIRE.getDefaultState(), StructureHelper.SET_FLAGS);
+
+        // Beds clustered near the fire (4 beds)
+        for (int i = 0; i < 4; i++) {
+            int bx = pMinX + 1 + i * 2;
+            if (bx > pMaxX - 2) break;
+            world.setBlockState(new BlockPos(bx, fy, pMinZ + 1), palette.bed.getDefaultState()
                 .with(BedBlock.PART, BedPart.FOOT).with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(bx, bedY, platMinZ + 3), palette.bed.getDefaultState()
+            world.setBlockState(new BlockPos(bx, fy, pMinZ + 2), palette.bed.getDefaultState()
                 .with(BedBlock.PART, BedPart.HEAD).with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
         }
 
-        // Campfire hearth on stone base (on the platform)
-        world.setBlockState(new BlockPos(platMinX + 4, baseY + 1, platMinZ + 5), Blocks.STONE_BRICKS.getDefaultState(), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(platMinX + 4, bedY, platMinZ + 5), Blocks.CAMPFIRE.getDefaultState(), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(platMinX + 5, baseY + 1, platMinZ + 5), Blocks.STONE_BRICKS.getDefaultState(), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(platMinX + 5, bedY, platMinZ + 5), Blocks.CAMPFIRE.getDefaultState(), StructureHelper.SET_FLAGS);
-
-        // Crafting/storage area on platform
-        world.setBlockState(new BlockPos(platMaxX - 1, bedY, platMaxZ - 1), Blocks.CRAFTING_TABLE.getDefaultState(), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(platMaxX - 1, bedY, platMaxZ - 2), Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
-        StructureHelper.placeChest(world, new BlockPos(platMaxX - 2, bedY, platMaxZ - 1),
+        // Storage corner
+        world.setBlockState(new BlockPos(pMaxX - 1, fy, pMaxZ - 1), Blocks.CRAFTING_TABLE.getDefaultState(), StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(pMaxX - 1, fy, pMaxZ - 2), Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(pMaxX - 2, fy, pMaxZ - 1), Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
+        StructureHelper.placeChest(world, new BlockPos(pMaxX - 2, fy, pMaxZ - 2),
             Direction.NORTH, LootTables.VILLAGE_SNOWY_HOUSE_CHEST);
 
-        // Spruce fence railing around platform edge
-        for (int x = platMinX; x <= platMaxX; x++) {
-            world.setBlockState(new BlockPos(x, bedY, platMinZ), spruceFence, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(x, bedY, platMaxZ), spruceFence, StructureHelper.SET_FLAGS);
-        }
-        for (int z = platMinZ; z <= platMaxZ; z++) {
-            world.setBlockState(new BlockPos(platMinX, bedY, z), spruceFence, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(platMaxX, bedY, z), spruceFence, StructureHelper.SET_FLAGS);
-        }
-
-        // Second platform — NE quadrant, smaller, for the chief
-        int cp2MinX = ox + 3;
-        int cp2MaxX = ox + innerR - 2;
-        int cp2MinZ = oz - innerR + 2;
-        int cp2MaxZ = oz - 3;
-        StructureHelper.fillBox(world, new BlockPos(cp2MinX, baseY + 1, cp2MinZ),
-            new BlockPos(cp2MaxX, baseY + 1, cp2MaxZ), sprucePlanks);
-        // Chief's bed
-        world.setBlockState(new BlockPos(cp2MinX + 2, bedY, cp2MinZ + 1), palette.bed.getDefaultState()
-            .with(BedBlock.PART, BedPart.FOOT).with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(cp2MinX + 2, bedY, cp2MinZ + 2), palette.bed.getDefaultState()
-            .with(BedBlock.PART, BedPart.HEAD).with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        // Throne (spruce stairs facing south — the chief looks out over the hall)
-        world.setBlockState(new BlockPos(cp2MinX + 4, bedY, cp2MinZ + 1),
-            palette.woodStairs.getDefaultState().with(StairsBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        // Bookshelf + lectern
-        world.setBlockState(new BlockPos(cp2MaxX - 1, bedY, cp2MinZ + 1), Blocks.BOOKSHELF.getDefaultState(), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(cp2MaxX - 1, bedY, cp2MinZ + 2), Blocks.LECTERN.getDefaultState(), StructureHelper.SET_FLAGS);
-        StructureHelper.placeChest(world, new BlockPos(cp2MaxX - 1, bedY, cp2MaxZ - 1),
-            Direction.WEST, LootTables.VILLAGE_SNOWY_HOUSE_CHEST);
-        // Campfire
-        world.setBlockState(new BlockPos(cp2MinX + 3, baseY + 1, cp2MaxZ - 2), Blocks.STONE_BRICKS.getDefaultState(), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(cp2MinX + 3, bedY, cp2MaxZ - 2), Blocks.CAMPFIRE.getDefaultState(), StructureHelper.SET_FLAGS);
         // Fence railing
-        for (int x = cp2MinX; x <= cp2MaxX; x++) {
-            world.setBlockState(new BlockPos(x, bedY, cp2MinZ), spruceFence, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(x, bedY, cp2MaxZ), spruceFence, StructureHelper.SET_FLAGS);
+        for (int x = pMinX; x <= pMaxX; x++) {
+            world.setBlockState(new BlockPos(x, fy, pMinZ), fence, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(x, fy, pMaxZ), fence, StructureHelper.SET_FLAGS);
         }
-        for (int z = cp2MinZ; z <= cp2MaxZ; z++) {
-            world.setBlockState(new BlockPos(cp2MinX, bedY, z), spruceFence, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(cp2MaxX, bedY, z), spruceFence, StructureHelper.SET_FLAGS);
-        }
-
-        // === SPRUCE PLANK WALKWAY connecting the two living platforms ===
-        // Walkway runs from SW platform (east edge) to NE platform (west edge)
-        // Bridge at baseY+1 (same height as platforms)
-        int walkwayZ = oz; // center line
-        for (int x = platMaxX; x <= cp2MinX; x++) {
-            world.setBlockState(new BlockPos(x, baseY + 1, walkwayZ), sprucePlanks, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(x, baseY + 1, walkwayZ - 1), sprucePlanks, StructureHelper.SET_FLAGS);
-            // Fence railings on walkway edges
-            world.setBlockState(new BlockPos(x, bedY, walkwayZ + 1), spruceFence, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(x, bedY, walkwayZ - 2), spruceFence, StructureHelper.SET_FLAGS);
+        for (int z = pMinZ; z <= pMaxZ; z++) {
+            world.setBlockState(new BlockPos(pMinX, fy, z), fence, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(pMaxX, fy, z), fence, StructureHelper.SET_FLAGS);
         }
 
-        // === ADDITIONAL BEDS for more villager warmth ===
-        // Extra beds on SW platform
-        for (int i = 0; i < 2; i++) {
-            int bx = platMinX + 2 + i * 3;
-            world.setBlockState(new BlockPos(bx, bedY, platMaxZ - 2), palette.bed.getDefaultState()
-                .with(BedBlock.PART, BedPart.FOOT).with(BedBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(bx, bedY, platMaxZ - 3), palette.bed.getDefaultState()
-                .with(BedBlock.PART, BedPart.HEAD).with(BedBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
-        }
-        // Extra bed on NE platform
-        world.setBlockState(new BlockPos(cp2MinX + 4, bedY, cp2MinZ + 1), palette.bed.getDefaultState()
+        // Chief's nook — NW quadrant, smaller
+        int cMinX = ox - innerR + 2, cMaxX = ox - 4;
+        int cMinZ = oz - innerR + 2, cMaxZ = oz - 4;
+        StructureHelper.fillBox(world, new BlockPos(cMinX, baseY + 1, cMinZ),
+            new BlockPos(cMaxX, baseY + 1, cMaxZ), spruce);
+        // Chief's bed
+        world.setBlockState(new BlockPos(cMinX + 2, fy, cMinZ + 1), palette.bed.getDefaultState()
             .with(BedBlock.PART, BedPart.FOOT).with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(cp2MinX + 4, bedY, cp2MinZ + 2), palette.bed.getDefaultState()
+        world.setBlockState(new BlockPos(cMinX + 2, fy, cMinZ + 2), palette.bed.getDefaultState()
             .with(BedBlock.PART, BedPart.HEAD).with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-
-        // === ADDITIONAL CAMPFIRES for warmth ===
-        // Second campfire on SW platform
-        world.setBlockState(new BlockPos(platMinX + 2, baseY + 1, platMaxZ - 1), Blocks.STONE_BRICKS.getDefaultState(), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(platMinX + 2, bedY, platMaxZ - 1), Blocks.CAMPFIRE.getDefaultState(), StructureHelper.SET_FLAGS);
-        // Campfire on ground level near entrance (not on platform)
-        world.setBlockState(new BlockPos(ox, baseY, oz + innerR - 5), Blocks.STONE_BRICKS.getDefaultState(), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(ox, baseY + 1, oz + innerR - 5), Blocks.CAMPFIRE.getDefaultState(), StructureHelper.SET_FLAGS);
-
-        // === MORE SPRUCE WOOD accents for human warmth ===
-        // Spruce log columns near platforms
-        for (int y = 0; y <= 4; y++) {
-            world.setBlockState(new BlockPos(platMinX - 1, baseY + y, platMinZ - 1), palette.log.getDefaultState(), StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(platMaxX + 1, baseY + y, platMaxZ + 1), palette.log.getDefaultState(), StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(cp2MinX - 1, baseY + y, cp2MinZ - 1), palette.log.getDefaultState(), StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(cp2MaxX + 1, baseY + y, cp2MaxZ + 1), palette.log.getDefaultState(), StructureHelper.SET_FLAGS);
+        // Throne
+        world.setBlockState(new BlockPos(cMinX + 4, fy, cMinZ + 1),
+            palette.woodStairs.getDefaultState().with(StairsBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+        // Campfire
+        world.setBlockState(new BlockPos(cMinX + 3, baseY + 1, cMaxZ - 2), Blocks.STONE_BRICKS.getDefaultState(), StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(cMinX + 3, fy, cMaxZ - 2), Blocks.CAMPFIRE.getDefaultState(), StructureHelper.SET_FLAGS);
+        StructureHelper.placeChest(world, new BlockPos(cMaxX - 1, fy, cMinZ + 1),
+            Direction.WEST, LootTables.VILLAGE_SNOWY_HOUSE_CHEST);
+        // Bookshelf
+        world.setBlockState(new BlockPos(cMaxX - 1, fy, cMinZ + 2), Blocks.BOOKSHELF.getDefaultState(), StructureHelper.SET_FLAGS);
+        // Railing
+        for (int x = cMinX; x <= cMaxX; x++) {
+            world.setBlockState(new BlockPos(x, fy, cMinZ), fence, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(x, fy, cMaxZ), fence, StructureHelper.SET_FLAGS);
+        }
+        for (int z = cMinZ; z <= cMaxZ; z++) {
+            world.setBlockState(new BlockPos(cMinX, fy, z), fence, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(cMaxX, fy, z), fence, StructureHelper.SET_FLAGS);
         }
 
-        // Lanterns on spruce posts scattered through the hall (human-scale lighting in a vast space)
-        int[][] lanternSpots = {{-innerR + 4, -innerR + 4}, {innerR - 4, -innerR + 4},
-            {-innerR + 4, innerR - 4}, {innerR - 4, innerR - 4}, {0, innerR - 4}, {0, -innerR + 4},
-            {-innerR / 2, 0}, {innerR / 2, 0}, {0, 0}};
-        for (int[] ls : lanternSpots) {
-            world.setBlockState(new BlockPos(ox + ls[0], baseY, oz + ls[1]), spruceFence, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(ox + ls[0], baseY + 1, oz + ls[1]), spruceFence, StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(ox + ls[0], baseY + 2, oz + ls[1]),
+        // Ground-level campfire near entrance (gathering spot)
+        world.setBlockState(new BlockPos(ox, baseY, oz + innerR - 4), Blocks.STONE_BRICKS.getDefaultState(), StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(ox, baseY + 1, oz + innerR - 4), Blocks.CAMPFIRE.getDefaultState(), StructureHelper.SET_FLAGS);
+
+        // Spruce log columns (human-scale warmth markers)
+        for (int[] lp : new int[][]{{pMinX - 1, pMinZ - 1}, {pMaxX + 1, pMaxZ + 1},
+                                     {cMinX - 1, cMinZ - 1}, {cMaxX + 1, cMaxZ + 1}}) {
+            for (int y = 0; y <= 5; y++) {
+                world.setBlockState(new BlockPos(lp[0], baseY + y, lp[1]), log, StructureHelper.SET_FLAGS);
+            }
+        }
+
+        // Lanterns on posts (regular — warm human light in cold space)
+        int[][] lamps = {{-innerR + 4, innerR - 4}, {innerR - 4, -innerR + 4},
+            {0, innerR - 4}, {0, -innerR + 4}, {innerR / 2, innerR / 2}, {-innerR / 2, -innerR / 2}};
+        for (int[] l : lamps) {
+            world.setBlockState(new BlockPos(ox + l[0], baseY, oz + l[1]), fence, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + l[0], baseY + 1, oz + l[1]), fence, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox + l[0], baseY + 2, oz + l[1]),
                 Blocks.LANTERN.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
         }
 
-        // Additional lanterns on platform edges (regular, not soul — warm living areas)
-        world.setBlockState(new BlockPos(platMinX + 1, bedY + 1, platMinZ + 1),
-            Blocks.LANTERN.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(platMaxX - 1, bedY + 1, platMaxZ - 1),
-            Blocks.LANTERN.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(cp2MinX + 1, bedY + 1, cp2MaxZ - 1),
-            Blocks.LANTERN.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
-
-        // Bell on a post near the entrance
-        world.setBlockState(new BlockPos(ox + 3, baseY, oz + innerR - 3), spruceFence, StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(ox + 3, baseY + 1, oz + innerR - 3), Blocks.BELL.getDefaultState(), StructureHelper.SET_FLAGS);
+        // Bell
+        world.setBlockState(new BlockPos(ox + 4, baseY, oz + innerR - 3), fence, StructureHelper.SET_FLAGS);
+        world.setBlockState(new BlockPos(ox + 4, baseY + 1, oz + innerR - 3), Blocks.BELL.getDefaultState(), StructureHelper.SET_FLAGS);
 
         // ============================================================
-        // PHASE 3: SECRET DUNGEON (beneath the palace)
+        // SECRET DUNGEON — beneath the palace, the villagers avoid it
         // ============================================================
 
-        // Hidden entrance — behind the central spire on the north side
-        // A 2-wide passage descending into darkness
         int dungeonFloorY = baseY - dungeonDepth;
-        int stairX = ox;
         int stairStartZ = oz - spireR - 1;
 
-        // Descending staircase
+        // Descending staircase — each step goes 1 down and 1 north
         for (int step = 0; step < dungeonDepth; step++) {
             int sy = baseY - 1 - step;
             int sz = stairStartZ - step;
             for (int sx = -1; sx <= 0; sx++) {
-                m.set(stairX + sx, sy, sz);
+                m.set(ox + sx, sy, sz);
                 world.setBlockState(m, Blocks.SPRUCE_STAIRS.getDefaultState()
                     .with(StairsBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-                // Headroom
                 for (int h = 1; h <= 3; h++) {
-                    m.set(stairX + sx, sy + h, sz);
+                    m.set(ox + sx, sy + h, sz);
                     world.setBlockState(m, air, StructureHelper.SET_FLAGS);
                 }
             }
-            // Blue ice walls along stairway
+            // Ice walls and ceiling
             for (int h = 0; h <= 3; h++) {
-                m.set(stairX - 2, sy + h, sz);
-                world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
-                m.set(stairX + 1, sy + h, sz);
-                world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
+                world.setBlockState(new BlockPos(ox - 2, sy + h, sz), blue, StructureHelper.SET_FLAGS);
+                world.setBlockState(new BlockPos(ox + 1, sy + h, sz), blue, StructureHelper.SET_FLAGS);
             }
-            // Ceiling
-            m.set(stairX - 1, sy + 4, sz);
-            world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
-            m.set(stairX, sy + 4, sz);
-            world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox - 1, sy + 4, sz), blue, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox, sy + 4, sz), blue, StructureHelper.SET_FLAGS);
         }
 
-        // Dungeon chamber — 9x9 blue ice room
-        int chamberR = 4;
-        int chamberCZ = stairStartZ - dungeonDepth - chamberR;
-        BlockPos chamberCenter = new BlockPos(ox, dungeonFloorY, chamberCZ);
+        // Shrine chamber — circular, 11x11
+        int chamberR = 5;
+        int chamberCZ = stairStartZ - dungeonDepth - chamberR - 1;
+        BlockPos shrine = new BlockPos(ox, dungeonFloorY, chamberCZ);
 
-        // Carve chamber
-        StructureHelper.fillBox(world,
-            chamberCenter.add(-chamberR, 0, -chamberR),
-            chamberCenter.add(chamberR, 0, chamberR), blueIce); // floor
-        StructureHelper.fillBox(world,
-            chamberCenter.add(-chamberR, 1, -chamberR),
-            chamberCenter.add(chamberR, 5, chamberR), blueIce); // walls
-        StructureHelper.clearInterior(world,
-            chamberCenter.add(-chamberR + 1, 1, -chamberR + 1),
-            chamberCenter.add(chamberR - 1, 4, chamberR - 1)); // hollow
+        // Build chamber (circular for a more mystical feel)
+        for (int x = -chamberR; x <= chamberR; x++) {
+            for (int z = -chamberR; z <= chamberR; z++) {
+                if (x * x + z * z <= chamberR * chamberR) {
+                    // Floor
+                    world.setBlockState(shrine.add(x, 0, z), blue, StructureHelper.SET_FLAGS);
+                    // Walls and ceiling
+                    for (int y = 1; y <= 6; y++) {
+                        boolean edge = x * x + z * z > (chamberR - 1) * (chamberR - 1);
+                        world.setBlockState(shrine.add(x, y, z), edge ? blue : air, StructureHelper.SET_FLAGS);
+                    }
+                    // Domed ceiling
+                    world.setBlockState(shrine.add(x, 7, z), blue, StructureHelper.SET_FLAGS);
+                }
+            }
+        }
 
-        // Connect stairway to chamber
+        // Connect tunnel to chamber
         int stairEndZ = stairStartZ - dungeonDepth;
         for (int z = stairEndZ; z >= chamberCZ + chamberR; z--) {
             for (int sx = -1; sx <= 0; sx++) {
-                for (int h = 0; h <= 3; h++) {
-                    m.set(stairX + sx, dungeonFloorY + 1 + h, z);
-                    world.setBlockState(m, air, StructureHelper.SET_FLAGS);
+                for (int h = 1; h <= 3; h++) {
+                    world.setBlockState(new BlockPos(ox + sx, dungeonFloorY + h, z), air, StructureHelper.SET_FLAGS);
                 }
             }
-            // Tunnel walls
-            for (int h = 0; h <= 3; h++) {
-                m.set(stairX - 2, dungeonFloorY + 1 + h, z);
-                world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
-                m.set(stairX + 1, dungeonFloorY + 1 + h, z);
-                world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
+            for (int h = 0; h <= 4; h++) {
+                world.setBlockState(new BlockPos(ox - 2, dungeonFloorY + h, z), blue, StructureHelper.SET_FLAGS);
+                world.setBlockState(new BlockPos(ox + 1, dungeonFloorY + h, z), blue, StructureHelper.SET_FLAGS);
             }
-            m.set(stairX - 1, dungeonFloorY + 5, z);
-            world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
-            m.set(stairX, dungeonFloorY + 5, z);
-            world.setBlockState(m, blueIce, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox - 1, dungeonFloorY + 5, z), blue, StructureHelper.SET_FLAGS);
+            world.setBlockState(new BlockPos(ox, dungeonFloorY + 5, z), blue, StructureHelper.SET_FLAGS);
         }
 
-        // === THE SHRINE ===
-        // Diamond block on a packed ice pedestal, surrounded by blue ice pillars
-        world.setBlockState(chamberCenter.add(0, 1, 0), packedIce, StructureHelper.SET_FLAGS);
-        world.setBlockState(chamberCenter.add(0, 2, 0), packedIce, StructureHelper.SET_FLAGS);
-        world.setBlockState(chamberCenter.add(0, 3, 0), Blocks.DIAMOND_BLOCK.getDefaultState(), StructureHelper.SET_FLAGS);
+        // THE SHRINE — diamond block on packed ice pedestal
+        world.setBlockState(shrine.add(0, 1, 0), packed, StructureHelper.SET_FLAGS);
+        world.setBlockState(shrine.add(0, 2, 0), packed, StructureHelper.SET_FLAGS);
+        world.setBlockState(shrine.add(0, 3, 0), Blocks.DIAMOND_BLOCK.getDefaultState(), StructureHelper.SET_FLAGS);
+        // End rod crystal above the diamond
+        world.setBlockState(shrine.add(0, 4, 0), Blocks.END_ROD.getDefaultState(), StructureHelper.SET_FLAGS);
 
-        // Four pillars around the shrine
-        for (int[] p : new int[][]{{-2, -2}, {2, -2}, {-2, 2}, {2, 2}}) {
-            for (int y = 1; y <= 4; y++) {
-                world.setBlockState(chamberCenter.add(p[0], y, p[1]), blueIce, StructureHelper.SET_FLAGS);
+        // Blue ice pillars in a ring
+        for (int angle = 0; angle < 360; angle += 60) {
+            double rad = Math.toRadians(angle);
+            int px = (int)(3 * Math.cos(rad));
+            int pz = (int)(3 * Math.sin(rad));
+            for (int y = 1; y <= 5; y++) {
+                world.setBlockState(shrine.add(px, y, pz), blue, StructureHelper.SET_FLAGS);
             }
+            // End rod crystal on top of each pillar
+            world.setBlockState(shrine.add(px, 6, pz), Blocks.END_ROD.getDefaultState(), StructureHelper.SET_FLAGS);
         }
 
-        // Soul lanterns in the dungeon — dim, ancient
-        world.setBlockState(chamberCenter.add(-2, 3, 0),
+        // Soul lanterns — the only light down here, dim and ancient
+        world.setBlockState(shrine.add(-3, 3, 0),
             Blocks.SOUL_LANTERN.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
-        world.setBlockState(chamberCenter.add(2, 3, 0),
+        world.setBlockState(shrine.add(3, 3, 0),
             Blocks.SOUL_LANTERN.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
-        // One soul lantern at the stair entrance
-        world.setBlockState(new BlockPos(stairX - 1, baseY, stairStartZ),
+        world.setBlockState(shrine.add(0, 3, -3),
+            Blocks.SOUL_LANTERN.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
+        world.setBlockState(shrine.add(0, 3, 3),
+            Blocks.SOUL_LANTERN.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
+
+        // Soul lantern at stair entrance (marking the way down)
+        world.setBlockState(new BlockPos(ox - 1, baseY, stairStartZ),
             Blocks.SOUL_LANTERN.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
 
         placeJigsawConnectors(world, center, wallR);
