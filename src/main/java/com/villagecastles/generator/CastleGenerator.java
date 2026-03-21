@@ -3238,10 +3238,10 @@ public class CastleGenerator {
 
             // THREE helical ridges spiral up the exterior, 120° apart
             // Tight twist: 15° per block = full turn every 24 blocks
-            // Wide protrusion: 5 blocks out, 35° arc width
+            // Protrusion SCALES with taper — always ~25% of current radius
             double twist = Math.toRadians(y * 15);
             double[] ridgeAngles = {twist, twist + 2.094, twist + 4.189}; // 120° apart
-            int ridgeProtrusion = 5;
+            int ridgeProtrusion = Math.max(2, baseR / 4); // scales with spire width
             double ridgeArc = 0.6; // ~35° arc width — fat, visible ridges
 
             for (int bx = -baseR - ridgeProtrusion; bx <= baseR + ridgeProtrusion; bx++) {
