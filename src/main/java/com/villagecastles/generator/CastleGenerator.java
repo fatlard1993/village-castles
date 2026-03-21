@@ -3116,7 +3116,7 @@ public class CastleGenerator {
         BlockState blueIce = Blocks.BLUE_ICE.getDefaultState();
         BlockState packedIce = Blocks.PACKED_ICE.getDefaultState();
         BlockState snowBlock = Blocks.SNOW_BLOCK.getDefaultState();
-        BlockState ice = Blocks.ICE.getDefaultState(); // translucent
+        // No regular ICE — it melts near light sources
         BlockState seaLantern = Blocks.SEA_LANTERN.getDefaultState();
         BlockState spruce = palette.getPlanksState();
         BlockState fence = palette.getFenceState();
@@ -3152,13 +3152,13 @@ public class CastleGenerator {
         };
 
         // Deterministic texture function — mixed ice based on position
-        // 60% blue ice, 25% packed ice, 10% snow block, 5% regular ice
+        // 60% blue ice, 30% packed ice, 10% snow block
+        // NO regular ice — it melts near light sources and turns to water
         java.util.function.Function<BlockPos, BlockState> iceTexture = (BlockPos pos) -> {
             int hash = ((pos.getX() * 31 + pos.getY() * 17 + pos.getZ() * 7) & 0x1F);
             if (hash < 19) return blueIce;
-            if (hash < 27) return packedIce;
-            if (hash < 30) return snowBlock;
-            return ice;
+            if (hash < 29) return packedIce;
+            return snowBlock;
         };
 
         // ============================================================
@@ -3236,31 +3236,36 @@ public class CastleGenerator {
             int baseR = Math.max(2, (int)(bigSpireR * taper));
             int ir = baseR - bigSpireShell;
 
-            // Two helical ridges spiral up the exterior, 180° apart
-            double ridgeAngle1 = Math.toRadians(y * 12); // 12° per block = full turn every 30 blocks
-            double ridgeAngle2 = ridgeAngle1 + Math.PI;  // second ridge opposite
+            // THREE helical ridges spiral up the exterior, 120° apart
+            // Tight twist: 15° per block = full turn every 24 blocks
+            // Wide protrusion: 5 blocks out, 35° arc width
+            double twist = Math.toRadians(y * 15);
+            double[] ridgeAngles = {twist, twist + 2.094, twist + 4.189}; // 120° apart
+            int ridgeProtrusion = 5;
+            double ridgeArc = 0.6; // ~35° arc width — fat, visible ridges
 
-            for (int bx = -baseR - 2; bx <= baseR + 2; bx++) {
-                for (int bz = -baseR - 2; bz <= baseR + 2; bz++) {
+            for (int bx = -baseR - ridgeProtrusion; bx <= baseR + ridgeProtrusion; bx++) {
+                for (int bz = -baseR - ridgeProtrusion; bz <= baseR + ridgeProtrusion; bz++) {
                     int distSq = bx * bx + bz * bz;
 
-                    // Check if this block is on the corkscrew ridge
+                    // Check if on any ridge
                     double blockAngle = Math.atan2(bz, bx);
-                    double angleDiff1 = Math.abs(blockAngle - ridgeAngle1);
-                    double angleDiff2 = Math.abs(blockAngle - ridgeAngle2);
-                    // Normalize angle differences to [0, PI]
-                    if (angleDiff1 > Math.PI) angleDiff1 = 2 * Math.PI - angleDiff1;
-                    if (angleDiff2 > Math.PI) angleDiff2 = 2 * Math.PI - angleDiff2;
-                    boolean onRidge = angleDiff1 < 0.4 || angleDiff2 < 0.4; // ~23° arc width
+                    boolean onRidge = false;
+                    for (double ra : ridgeAngles) {
+                        double diff = Math.abs(blockAngle - ra);
+                        if (diff > Math.PI) diff = 2 * Math.PI - diff;
+                        if (diff < ridgeArc) { onRidge = true; break; }
+                    }
 
-                    int effectiveR = onRidge ? baseR + 2 : baseR; // ridges protrude 2 blocks
+                    int effectiveR = onRidge ? baseR + ridgeProtrusion : baseR;
 
                     if (distSq <= effectiveR * effectiveR) {
                         // Hollow: skip interior
                         if (y > 0 && ir > 2 && distSq < ir * ir) continue;
                         BlockPos bp = new BlockPos(bigSX + bx, baseY + y, bigSZ + bz);
-                        // Ridge blocks use blue ice (more uniform, catches light)
-                        BlockState block = (onRidge && distSq > baseR * baseR) ? blueIce : iceTexture.apply(bp);
+                        // Ridge blocks: packed ice (lighter, contrasts against blue body)
+                        // Body blocks: textured mix
+                        BlockState block = (onRidge && distSq > baseR * baseR) ? packedIce : iceTexture.apply(bp);
                         world.setBlockState(bp, block, StructureHelper.SET_FLAGS);
                     }
                 }
@@ -3354,10 +3359,14 @@ public class CastleGenerator {
         // ============================================================
 
         // Bridge from south courtyard up to the spire entrance at 1/3 height
+        // The spire tapers — calculate where the south face actually IS at bridgeY
+        double taperAtBridge = 1.0 - ((double)(bridgeY - baseY) / (bigSpireH + 10));
+        int spireRAtBridge = Math.max(2, (int)(bigSpireR * taperAtBridge));
+        int spireFaceAtBridge = bigSZ + spireRAtBridge; // actual south face at entrance height
+
         int bridgeHalfW = 3; // 7 blocks wide (giant scale)
-        int spireSouthFace = bigSZ + bigSpireR; // south edge of the big spire
         int bridgeStartZ = oz + hexR - 5; // start near the south wall
-        int bridgeEndZ = spireSouthFace + 1; // just outside the spire
+        int bridgeEndZ = spireFaceAtBridge + 1; // just outside the tapered spire face
         int bridgeLen = bridgeStartZ - bridgeEndZ;
         if (bridgeLen <= 0) bridgeLen = 1;
 
@@ -3388,7 +3397,8 @@ public class CastleGenerator {
         }
 
         // Open the big spire wall at bridge entrance height — grand doorway
-        int doorZ = spireSouthFace; // south face of the spire
+        // Use the TAPERED south face position, not ground-level
+        int doorZ = spireFaceAtBridge;
         for (int bx = -3; bx <= 3; bx++) { // 7 wide (giant scale)
             for (int y = bridgeY - 1; y <= bridgeY + 5; y++) { // 7 tall
                 for (int dz = 0; dz < bigSpireShell + 1; dz++) {
@@ -3397,10 +3407,11 @@ public class CastleGenerator {
             }
         }
         // Also open a ground-level entrance (villagers walk in from the courtyard)
+        int groundDoorZ = bigSZ + bigSpireR; // ground-level south face (full radius)
         for (int bx = -2; bx <= 2; bx++) {
             for (int y = 1; y <= 4; y++) {
                 for (int dz = 0; dz < bigSpireShell + 1; dz++) {
-                    world.setBlockState(new BlockPos(bigSX + bx, baseY + y, doorZ - dz), air, StructureHelper.SET_FLAGS);
+                    world.setBlockState(new BlockPos(bigSX + bx, baseY + y, groundDoorZ - dz), air, StructureHelper.SET_FLAGS);
                 }
             }
         }
