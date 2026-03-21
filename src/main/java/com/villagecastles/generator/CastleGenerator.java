@@ -3141,15 +3141,15 @@ public class CastleGenerator {
 
         prepareGround(world, center, hexR + 5);
 
-        // Hexagon vertex positions (MC coords: +X=east, -Z=north)
-        int[][] verts = {
-            {0, -hexR},                                          // 0: NORTH — big spire
-            {(int)(hexR * 0.866), -(hexR / 2)},                 // 1: NE
-            {(int)(hexR * 0.866),  (hexR / 2)},                 // 2: SE
-            {0,  hexR},                                          // 3: SOUTH — entrance
-            {-(int)(hexR * 0.866),  (hexR / 2)},                // 4: SW
-            {-(int)(hexR * 0.866), -(hexR / 2)}                 // 5: NW
-        };
+        // Hexagon vertex positions — rotated 30° so NO spire is dead south
+        // Entrance passes between two spires, not through one
+        // Vertex 0 is still north (big spire position, though spire is offset)
+        int[][] verts = new int[6][2];
+        for (int i = 0; i < 6; i++) {
+            double angle = Math.toRadians(90 + i * 60 + 30); // 30° rotation
+            verts[i][0] = (int) Math.round(hexR * Math.cos(angle));
+            verts[i][1] = (int) Math.round(-hexR * Math.sin(angle)); // -sin because MC north = -Z
+        }
 
         // Deterministic texture function — mixed ice based on position
         // 60% blue ice, 30% packed ice, 10% snow block
@@ -3187,8 +3187,7 @@ public class CastleGenerator {
             for (int y = 0; y <= 4; y++) {
                 world.setBlockState(new BlockPos(sx, baseY + smallSpireH + y, sz), blueIce, StructureHelper.SET_FLAGS);
             }
-            world.setBlockState(new BlockPos(sx, baseY + smallSpireH + 5, sz),
-                Blocks.END_ROD.getDefaultState(), StructureHelper.SET_FLAGS);
+            // Tip is pure blue ice — no end rods
 
             // Sea lantern windows
             for (int y = 6; y < smallSpireH - 5; y += 6) {
@@ -3257,7 +3256,7 @@ public class CastleGenerator {
             // Ridge protrusion waxes on: starts small at base, peaks at 40% height, tapers with spire
             double heightRatio = (double) y / bigSpireH;
             double waxOn = heightRatio < 0.15 ? heightRatio / 0.15 : 1.0; // ramp up over first 15%
-            int ridgeProtrusion = Math.max(1, (int)(baseR * 0.3 * waxOn)); // up to 30% of current radius
+            int ridgeProtrusion = Math.max(2, (int)(baseR * 0.4 * waxOn)); // always at least 2, up to 40% of radius
             double ridgeArc = 0.5 + 0.2 * waxOn; // arc widens as effect builds
 
             for (int bx = -baseR - ridgeProtrusion; bx <= baseR + ridgeProtrusion; bx++) {
@@ -3281,7 +3280,8 @@ public class CastleGenerator {
                         BlockPos bp = new BlockPos(bigSX + bx, baseY + y, bigSZ + bz);
                         // Ridge blocks: packed ice (lighter, contrasts against blue body)
                         // Body blocks: textured mix
-                        BlockState block = (onRidge && distSq > baseR * baseR) ? packedIce : iceTexture.apply(bp);
+                        // Ridge = snow block (white contrast against blue body)
+                        BlockState block = (onRidge && distSq > baseR * baseR) ? snowBlock : iceTexture.apply(bp);
                         world.setBlockState(bp, block, StructureHelper.SET_FLAGS);
                     }
                 }
@@ -3291,8 +3291,8 @@ public class CastleGenerator {
         for (int y = 0; y <= 5; y++) {
             world.setBlockState(new BlockPos(bigSX, baseY + bigSpireH + y, bigSZ), blueIce, StructureHelper.SET_FLAGS);
         }
-        world.setBlockState(new BlockPos(bigSX, baseY + bigSpireH + 6, bigSZ),
-            Blocks.END_ROD.getDefaultState(), StructureHelper.SET_FLAGS);
+        // Tip is sea lantern — visible beacon, no end rods
+        world.setBlockState(new BlockPos(bigSX, baseY + bigSpireH + 6, bigSZ), seaLantern, StructureHelper.SET_FLAGS);
 
         // Sea lanterns spiraling inside the big spire (visible looking up)
         for (int y = 5; y < bigSpireH - 5; y += 3) {
@@ -3381,7 +3381,7 @@ public class CastleGenerator {
         int spireFaceAtBridge = bigSZ + spireRAtBridge; // actual south face at entrance height
 
         int bridgeHalfW = 3; // 7 blocks wide (giant scale)
-        int bridgeStartZ = oz + hexR - 5; // start near the south wall
+        int bridgeStartZ = oz + hexR; // start at the south hex extent (ground level)
         int bridgeEndZ = spireFaceAtBridge + 1; // just outside the tapered spire face
         int bridgeLen = bridgeStartZ - bridgeEndZ;
         if (bridgeLen <= 0) bridgeLen = 1;
@@ -3469,33 +3469,35 @@ public class CastleGenerator {
             }
         }
 
-        // Ice spiral staircase hugging the interior wall
-        // Continuous from ground to near the top, passing through the bridge platform
-        for (int y = 1; y < bigSpireH - 5; y++) {
+        // SOLID interior spiral staircase — wide, continuous, hugs the inner wall
+        // 5 blocks wide, goes from ground to near the top
+        for (int y = 1; y < bigSpireH - 4; y++) {
             double taperHere = 1.0 - ((double) y / (bigSpireH + 10));
-            int irHere = Math.max(2, (int)(bigSpireR * taperHere)) - bigSpireShell;
-            if (irHere < 3) continue;
+            int rHere = Math.max(3, (int)(bigSpireR * taperHere)) - bigSpireShell;
+            if (rHere < 3) continue;
 
-            // Staircase hugs the inner wall — 3 blocks wide, at the inner radius
-            double stairAngle = Math.toRadians(y * 12); // 12° per Y = full turn every 30 blocks
-            int stairCenterR = irHere - 1; // 1 block from the inner wall
+            double stairAngle = Math.toRadians(y * 10); // 10° per Y = full turn every 36 blocks
+            int stairR = rHere - 1; // hugs the inner wall
 
-            for (int tw = -1; tw <= 1; tw++) { // 3-block tread width
-                double offsetAngle = stairAngle + tw * 0.15; // spread across the arc
-                int sx = bigSX + (int)(stairCenterR * Math.cos(offsetAngle));
-                int sz = bigSZ + (int)(stairCenterR * Math.sin(offsetAngle));
-                m.set(sx, baseY + y, sz);
-                world.setBlockState(m, packedIce, StructureHelper.SET_FLAGS);
-                // Clear headroom above the step
+            // Place a 5-wide arc of solid packed ice at this height
+            for (int tw = -2; tw <= 2; tw++) {
+                double offsetAngle = stairAngle + tw * 0.12;
+                int sx = bigSX + (int)(stairR * Math.cos(offsetAngle));
+                int sz = bigSZ + (int)(stairR * Math.sin(offsetAngle));
+                // The step itself
+                world.setBlockState(new BlockPos(sx, baseY + y, sz), packedIce, StructureHelper.SET_FLAGS);
+                // Also fill one block below for solidity (no gaps)
+                world.setBlockState(new BlockPos(sx, baseY + y - 1, sz), packedIce, StructureHelper.SET_FLAGS);
+                // Clear headroom
                 for (int h = 1; h <= 3; h++) {
                     world.setBlockState(new BlockPos(sx, baseY + y + h, sz), air, StructureHelper.SET_FLAGS);
                 }
             }
 
-            // Sea lantern every 15 blocks along the stair
-            if (y % 15 == 0) {
-                int lx = bigSX + (int)((stairCenterR - 1) * Math.cos(stairAngle));
-                int lz = bigSZ + (int)((stairCenterR - 1) * Math.sin(stairAngle));
+            // Sea lantern embedded in the inner wall every 12 blocks
+            if (y % 12 == 0) {
+                int lx = bigSX + (int)(rHere * Math.cos(stairAngle));
+                int lz = bigSZ + (int)(rHere * Math.sin(stairAngle));
                 world.setBlockState(new BlockPos(lx, baseY + y + 1, lz), seaLantern, StructureHelper.SET_FLAGS);
             }
         }
@@ -3606,36 +3608,36 @@ public class CastleGenerator {
                 Blocks.LANTERN.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
         }
 
-        // GRAND ENTRANCE through the south hex wall — the bridge passes through this
-        // Must be tall enough for the bridge at its highest point near the wall
-        // The bridge at the south wall (z ≈ oz + hexR) has risen partway to bridgeY
-        int wallEntranceHeight = Math.min(bridgeY - baseY + 6, wallH); // bridge height + headroom
-        for (int bx = -bridgeHalfW - 1; bx <= bridgeHalfW + 1; bx++) { // wider than bridge
-            for (int y = 1; y <= wallEntranceHeight; y++) {
-                for (int t = -wallThick; t <= wallThick; t++) {
-                    // Carve through all wall segments near the south hex vertex
-                    world.setBlockState(new BlockPos(ox + bx, baseY + y, oz + hexR + t), air, StructureHelper.SET_FLAGS);
-                }
-            }
-        }
-        // Also carve through any wall segments the bridge passes through between south and spire
-        // The NE and NW walls cross the bridge path — clear those too
+        // PURPOSEFUL ARCH ENTRANCE through the south hex wall
+        // Clean pointed arch — wider at base, narrows at top
+        // Clear along the full bridge path through any walls it crosses
         for (int bz = bridgeEndZ; bz <= bridgeStartZ; bz++) {
-            double progress = (double)(bridgeStartZ - bz) / bridgeLen;
+            double progress = (double)(bridgeStartZ - bz) / Math.max(1, bridgeLen);
             int by = baseY + (int)(progress * (bridgeY - baseY));
-            for (int bx = -bridgeHalfW - 1; bx <= bridgeHalfW + 1; bx++) {
-                for (int h = -1; h <= 5; h++) {
-                    BlockPos checkPos = new BlockPos(ox + bx, by + h, bz);
-                    // Only clear if it's a wall block (don't destroy the spire)
-                    BlockState existing = world.getBlockState(checkPos);
-                    if (existing.equals(blueIce) || existing.equals(packedIce) || existing.equals(snowBlock)) {
-                        // Check if this is inside the big spire — don't carve the spire
-                        int dxFromSpire = ox + bx - bigSX;
-                        int dzFromSpire = bz - bigSZ;
-                        double distFromSpire = Math.sqrt(dxFromSpire * dxFromSpire + dzFromSpire * dzFromSpire);
-                        double spireRAtH = bigSpireR * (1.0 - (double)(by + h - baseY) / (bigSpireH + 10));
-                        if (distFromSpire > spireRAtH + 1) { // only clear if OUTSIDE the spire
-                            world.setBlockState(checkPos, air, StructureHelper.SET_FLAGS);
+
+            // Only clear if this Z is within a wall (check if world block is ice)
+            boolean inWall = false;
+            BlockState probe = world.getBlockState(new BlockPos(ox, by + 1, bz));
+            if (probe.equals(blueIce) || probe.equals(packedIce) || probe.equals(snowBlock)) {
+                inWall = true;
+            }
+            if (!inWall) continue;
+
+            // Pointed arch: width narrows from bridge width at base to 3 at top
+            int archWidth = bridgeHalfW + 1;
+            int archHeight = 8; // tall enough for giant-scale
+            for (int bx = -archWidth; bx <= archWidth; bx++) {
+                int maxH = archHeight - Math.abs(bx) / 2; // narrows at edges
+                for (int h = 0; h <= maxH; h++) {
+                    for (int t = -wallThick; t <= wallThick; t++) {
+                        BlockPos clearPos = new BlockPos(ox + bx, by + h, bz + t);
+                        // Don't carve into the big spire
+                        int dxS = ox + bx - bigSX;
+                        int dzS = bz + t - bigSZ;
+                        double distS = Math.sqrt(dxS * dxS + dzS * dzS);
+                        double spireRH = bigSpireR * (1.0 - (double)Math.max(0, by + h - baseY) / (bigSpireH + 10));
+                        if (distS > spireRH + 1) {
+                            world.setBlockState(clearPos, air, StructureHelper.SET_FLAGS);
                         }
                     }
                 }
