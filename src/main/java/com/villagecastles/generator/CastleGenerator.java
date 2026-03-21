@@ -3230,19 +3230,38 @@ public class CastleGenerator {
                 Blocks.LANTERN.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
         }
 
-        // === MASSIVE BIG SPIRE — hollow, centered at bigSX/bigSZ ===
+        // === MASSIVE BIG SPIRE — hollow, with corkscrew ridges ===
         for (int y = 0; y < bigSpireH; y++) {
             double taper = 1.0 - ((double) y / (bigSpireH + 10));
-            int r = Math.max(2, (int)(bigSpireR * taper));
-            int ir = r - bigSpireShell;
-            for (int bx = -r; bx <= r; bx++) {
-                for (int bz = -r; bz <= r; bz++) {
+            int baseR = Math.max(2, (int)(bigSpireR * taper));
+            int ir = baseR - bigSpireShell;
+
+            // Two helical ridges spiral up the exterior, 180° apart
+            double ridgeAngle1 = Math.toRadians(y * 12); // 12° per block = full turn every 30 blocks
+            double ridgeAngle2 = ridgeAngle1 + Math.PI;  // second ridge opposite
+
+            for (int bx = -baseR - 2; bx <= baseR + 2; bx++) {
+                for (int bz = -baseR - 2; bz <= baseR + 2; bz++) {
                     int distSq = bx * bx + bz * bz;
-                    if (distSq <= r * r) {
-                        // Hollow: skip interior above ground level
+
+                    // Check if this block is on the corkscrew ridge
+                    double blockAngle = Math.atan2(bz, bx);
+                    double angleDiff1 = Math.abs(blockAngle - ridgeAngle1);
+                    double angleDiff2 = Math.abs(blockAngle - ridgeAngle2);
+                    // Normalize angle differences to [0, PI]
+                    if (angleDiff1 > Math.PI) angleDiff1 = 2 * Math.PI - angleDiff1;
+                    if (angleDiff2 > Math.PI) angleDiff2 = 2 * Math.PI - angleDiff2;
+                    boolean onRidge = angleDiff1 < 0.4 || angleDiff2 < 0.4; // ~23° arc width
+
+                    int effectiveR = onRidge ? baseR + 2 : baseR; // ridges protrude 2 blocks
+
+                    if (distSq <= effectiveR * effectiveR) {
+                        // Hollow: skip interior
                         if (y > 0 && ir > 2 && distSq < ir * ir) continue;
                         BlockPos bp = new BlockPos(bigSX + bx, baseY + y, bigSZ + bz);
-                        world.setBlockState(bp, iceTexture.apply(bp), StructureHelper.SET_FLAGS);
+                        // Ridge blocks use blue ice (more uniform, catches light)
+                        BlockState block = (onRidge && distSq > baseR * baseR) ? blueIce : iceTexture.apply(bp);
+                        world.setBlockState(bp, block, StructureHelper.SET_FLAGS);
                     }
                 }
             }
