@@ -3136,7 +3136,7 @@ public class CastleGenerator {
         // Big spire centered north of hex center, not at vertex
         int bigSX = ox;
         int bigSZ = oz - hexR / 3; // shifted north, connected to back walls
-        int bridgeY = baseY + 12;  // bridge entrance mid-level on spire
+        int bridgeY = baseY + bigSpireH / 2; // entrance HALFWAY up the massive spire
         int dungeonDepth = Math.min(10, baseY + 63);
 
         prepareGround(world, center, hexR + 5);
@@ -3201,13 +3201,11 @@ public class CastleGenerator {
                 }
             }
 
-            // Villager crow's nest — wraps AROUND the spire where it's still wide
-            // Place at ~60% height where spire radius is still substantial
-            int nestHeight = (int)(smallSpireH * 0.55);
+            // Villager crow's nest — high up near the tip
+            int nestHeight = (int)(smallSpireH * 0.75); // 75% up — high, dramatic
             int nestY = baseY + nestHeight;
-            // Calculate spire radius at this height and wrap just outside it
-            int spireRAtNest = Math.max(2, (int)(smallSpireR * (1.0 - (double) nestHeight / (smallSpireH + 8))));
-            int nestR = spireRAtNest + 2; // wraps outside the spire wall at this height
+            int spireRAtNest = Math.max(1, (int)(smallSpireR * (1.0 - (double) nestHeight / (smallSpireH + 8))));
+            int nestR = spireRAtNest + 2;
             // Circular platform
             for (int px = -nestR; px <= nestR; px++) {
                 for (int pz = -nestR; pz <= nestR; pz++) {
@@ -3304,14 +3302,7 @@ public class CastleGenerator {
                     // Snow on top
                     world.setBlockState(new BlockPos(bx, baseY + localH, bz), snowBlock, StructureHelper.SET_FLAGS);
                 }
-                // Villager plank spanning gaps where wall dips low
-                if (localH < wallH) {
-                    int midX = wx;
-                    int midZ = wz;
-                    for (int y = localH; y <= wallH; y++) {
-                        world.setBlockState(new BlockPos(midX, baseY + y, midZ), spruce, StructureHelper.SET_FLAGS);
-                    }
-                }
+                // No wood in the ancient walls — pure ice, varied and organic
             }
         }
 
@@ -3372,14 +3363,7 @@ public class CastleGenerator {
                 }
             }
 
-            // Villager adaptation: cobblestone stairs every 2 blocks of rise
-            // The bridge rises 1 block per ~3 Z, so every 3 blocks place a cobble step
-            if (bz % 3 == 0 && by > baseY) {
-                for (int bx = -bridgeHalfW + 1; bx < bridgeHalfW; bx++) {
-                    world.setBlockState(new BlockPos(ox + bx, by + 1, bz),
-                        cobbleStairs.with(StairsBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-                }
-            }
+            // Clean ice bridge — no cobble adaptations on this ancient structure
         }
 
         // Open the big spire wall at bridge entrance height — grand doorway
@@ -3460,9 +3444,7 @@ public class CastleGenerator {
                 for (int h = 1; h <= 4; h++) {
                     world.setBlockState(new BlockPos(twX, currentY + h, twZ), air, StructureHelper.SET_FLAGS);
                 }
-                // Villager cobble stairs on each giant step
-                world.setBlockState(new BlockPos(twX, currentY + 1, twZ),
-                    cobbleStairs.with(StairsBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
+                // Giant ice treads — no villager modifications on the staircase
             }
             // Rise every other step (giant 2-block rise)
             if (step % 2 == 1) currentY += 2;
