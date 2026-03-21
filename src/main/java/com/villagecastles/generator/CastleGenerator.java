@@ -3130,13 +3130,13 @@ public class CastleGenerator {
         int wallThick = 3;         // wall thickness
         int smallSpireR = 5;       // regular spire base radius
         int smallSpireH = 32;      // regular spire height
-        int bigSpireR = 20;        // MASSIVE — eats 2/3 of the courtyard
-        int bigSpireH = 55;        // taller to match the wider base
+        int bigSpireR = 24;        // MASSIVE — dominates the interior
+        int bigSpireH = 65;        // taller — the defining silhouette
         int bigSpireShell = 3;     // thick shell walls
-        // Big spire centered north of hex center, not at vertex
+        // Big spire TOUCHING the back (north) wall
         int bigSX = ox;
-        int bigSZ = oz - hexR / 3; // shifted north, connected to back walls
-        int bridgeY = baseY + bigSpireH / 2; // entrance HALFWAY up the massive spire
+        int bigSZ = oz - hexR + bigSpireR; // north edge meets the north wall
+        int bridgeY = baseY + bigSpireH / 3; // entrance 1/3 up (~22 blocks)
         int dungeonDepth = Math.min(10, baseY + 63);
 
         prepareGround(world, center, hexR + 5);
@@ -3334,13 +3334,15 @@ public class CastleGenerator {
         // SECTION 4: GRAND BRIDGE + ICE SCULPTURES
         // ============================================================
 
-        // Bridge from courtyard south to big spire entrance
-        // Rises from baseY to bridgeY over the gap
+        // Bridge from south courtyard up to the spire entrance at 1/3 height
         int bridgeHalfW = 3; // 7 blocks wide (giant scale)
-        int bridgeStartZ = oz + hexR / 3; // south part of courtyard
-        int bridgeEndZ = bigSZ + bigSpireR + 1; // just outside big spire south face
+        int spireSouthFace = bigSZ + bigSpireR; // south edge of the big spire
+        int bridgeStartZ = oz + hexR - 5; // start near the south wall
+        int bridgeEndZ = spireSouthFace + 1; // just outside the spire
         int bridgeLen = bridgeStartZ - bridgeEndZ;
-        if (bridgeLen <= 0) bridgeLen = 1; // safety
+        if (bridgeLen <= 0) bridgeLen = 1;
+
+        VillageCastles.LOGGER.debug("Bridge: startZ={} endZ={} len={} bridgeY={}", bridgeStartZ, bridgeEndZ, bridgeLen, bridgeY);
 
         for (int bz = bridgeEndZ; bz <= bridgeStartZ; bz++) {
             // Y rises linearly from baseY (at south/center) to bridgeY (at north/spire)
@@ -3367,7 +3369,7 @@ public class CastleGenerator {
         }
 
         // Open the big spire wall at bridge entrance height — grand doorway
-        int doorZ = bigSZ + bigSpireR; // south face of the spire
+        int doorZ = spireSouthFace; // south face of the spire
         for (int bx = -3; bx <= 3; bx++) { // 7 wide (giant scale)
             for (int y = bridgeY - 1; y <= bridgeY + 5; y++) { // 7 tall
                 for (int dz = 0; dz < bigSpireShell + 1; dz++) {
