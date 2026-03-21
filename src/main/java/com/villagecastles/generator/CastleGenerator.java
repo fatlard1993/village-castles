@@ -3201,9 +3201,13 @@ public class CastleGenerator {
                 }
             }
 
-            // Villager crow's nest — wraps AROUND the spire, not just on one side
-            int nestY = baseY + smallSpireH - 8;
-            int nestR = smallSpireR + 2; // wraps outside the spire wall
+            // Villager crow's nest — wraps AROUND the spire where it's still wide
+            // Place at ~60% height where spire radius is still substantial
+            int nestHeight = (int)(smallSpireH * 0.55);
+            int nestY = baseY + nestHeight;
+            // Calculate spire radius at this height and wrap just outside it
+            int spireRAtNest = Math.max(2, (int)(smallSpireR * (1.0 - (double) nestHeight / (smallSpireH + 8))));
+            int nestR = spireRAtNest + 2; // wraps outside the spire wall at this height
             // Circular platform
             for (int px = -nestR; px <= nestR; px++) {
                 for (int pz = -nestR; pz <= nestR; pz++) {
@@ -3218,7 +3222,7 @@ public class CastleGenerator {
                 }
             }
             // Ladder up the south face of spire to the nest
-            for (int y = 1; y <= smallSpireH - 8; y++) {
+            for (int y = 1; y <= nestHeight; y++) {
                 world.setBlockState(new BlockPos(sx, baseY + y, sz + smallSpireR),
                     Blocks.LADDER.getDefaultState().with(net.minecraft.block.LadderBlock.FACING, Direction.SOUTH),
                     StructureHelper.SET_FLAGS);
@@ -3339,12 +3343,13 @@ public class CastleGenerator {
         // SECTION 4: GRAND BRIDGE + ICE SCULPTURES
         // ============================================================
 
-        // Bridge from courtyard center to big spire entrance (north)
-        // Rises from baseY to bridgeY over ~30 blocks
+        // Bridge from courtyard south to big spire entrance
+        // Rises from baseY to bridgeY over the gap
         int bridgeHalfW = 3; // 7 blocks wide (giant scale)
-        int bridgeStartZ = oz; // courtyard center
-        int bridgeEndZ = oz + verts[0][1] + bigSpireR; // just outside big spire south face
+        int bridgeStartZ = oz + hexR / 3; // south part of courtyard
+        int bridgeEndZ = bigSZ + bigSpireR + 1; // just outside big spire south face
         int bridgeLen = bridgeStartZ - bridgeEndZ;
+        if (bridgeLen <= 0) bridgeLen = 1; // safety
 
         for (int bz = bridgeEndZ; bz <= bridgeStartZ; bz++) {
             // Y rises linearly from baseY (at south/center) to bridgeY (at north/spire)
@@ -3377,18 +3382,28 @@ public class CastleGenerator {
             }
         }
 
-        // Open the big spire wall at bridge entrance height
+        // Open the big spire wall at bridge entrance height — grand doorway
+        int doorZ = bigSZ + bigSpireR; // south face of the spire
+        for (int bx = -3; bx <= 3; bx++) { // 7 wide (giant scale)
+            for (int y = bridgeY - 1; y <= bridgeY + 5; y++) { // 7 tall
+                for (int dz = 0; dz < bigSpireShell + 1; dz++) {
+                    world.setBlockState(new BlockPos(bigSX + bx, y, doorZ - dz), air, StructureHelper.SET_FLAGS);
+                }
+            }
+        }
+        // Also open a ground-level entrance (villagers walk in from the courtyard)
         for (int bx = -2; bx <= 2; bx++) {
-            for (int y = bridgeY + 1; y <= bridgeY + 5; y++) { // giant doorway: 5 tall
-                world.setBlockState(new BlockPos(ox + bx, y, bridgeEndZ), air, StructureHelper.SET_FLAGS);
-                world.setBlockState(new BlockPos(ox + bx, y, bridgeEndZ - 1), air, StructureHelper.SET_FLAGS);
+            for (int y = 1; y <= 4; y++) {
+                for (int dz = 0; dz < bigSpireShell + 1; dz++) {
+                    world.setBlockState(new BlockPos(bigSX + bx, baseY + y, doorZ - dz), air, StructureHelper.SET_FLAGS);
+                }
             }
         }
 
         // Ice sculptures flanking the bridge start
         for (int side : new int[]{-1, 1}) {
             int sculX = ox + side * (bridgeHalfW + 3);
-            int sculZ = bridgeStartZ;
+            int sculZ = (bridgeStartZ + bridgeEndZ) / 2; // midpoint of bridge
             // Pedestal
             StructureHelper.fillBox(world, new BlockPos(sculX - 1, baseY, sculZ - 1),
                 new BlockPos(sculX + 1, baseY + 2, sculZ + 1), packedIce);
