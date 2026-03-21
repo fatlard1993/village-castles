@@ -1581,6 +1581,9 @@ public class CastleGenerator {
         int halfW = radius;          // east-west half width
         int halfD = radius + 5;      // north-south half depth (longer)
 
+        // Prepare ground before building
+        prepareGround(world, center, Math.max(halfW, halfD));
+
         // ================================================================
         // Step 1: Thick outer walls (2-block thick SANDSTONE), flat roof
         // ================================================================
@@ -1640,19 +1643,32 @@ public class CastleGenerator {
         }
 
         // Iron bar mashrabiya windows on exterior walls (every 4 blocks, at y+3 and y+4)
+        // Punch through both outer and inner wall layers
         for (int x = -halfW + 4; x <= halfW - 4; x += 4) {
             for (int wy = 3; wy <= 4; wy++) {
+                // Outer layer (north/south)
                 mutable.set(ox + x, baseY + wy, oz - halfD);
                 world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
                 mutable.set(ox + x, baseY + wy, oz + halfD);
+                world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
+                // Inner layer (north/south)
+                mutable.set(ox + x, baseY + wy, oz - halfD + 1);
+                world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
+                mutable.set(ox + x, baseY + wy, oz + halfD - 1);
                 world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
             }
         }
         for (int z = -halfD + 4; z <= halfD - 4; z += 4) {
             for (int wy = 3; wy <= 4; wy++) {
+                // Outer layer (east/west)
                 mutable.set(ox - halfW, baseY + wy, oz + z);
                 world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
                 mutable.set(ox + halfW, baseY + wy, oz + z);
+                world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
+                // Inner layer (east/west)
+                mutable.set(ox - halfW + 1, baseY + wy, oz + z);
+                world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
+                mutable.set(ox + halfW - 1, baseY + wy, oz + z);
                 world.setBlockState(mutable, ironBars, StructureHelper.SET_FLAGS);
             }
         }
@@ -1681,11 +1697,12 @@ public class CastleGenerator {
         //   West rooms: Kitchen/stores
         //   South rooms: Audience hall
 
-        int innerW = halfW - wallThickness;   // Inner usable half-width
-        int innerD = halfD - wallThickness;   // Inner usable half-depth
+        int innerW = halfW - wallThickness;   // Inner usable half-width (RELATIVE)
+        int innerD = halfD - wallThickness;   // Inner usable half-depth (RELATIVE)
 
         // Dividing wall between private courtyard (north) and main courtyard (south)
         // This wall runs east-west at oz - 4
+        // NOTE: divideZ is ABSOLUTE (includes oz)
         int divideZ = oz - 4;
         int roomWallHeight = 5; // Internal walls shorter than outer walls
         for (int x = -innerW; x <= innerW; x++) {
@@ -1696,33 +1713,37 @@ public class CastleGenerator {
         }
 
         // Room partition walls along east side (guard quarters) - Z from divideZ to south wall
+        // NOTE: eastRoomX is ABSOLUTE (includes ox)
         int eastRoomX = ox + innerW - 7; // East room is 7 blocks wide
         for (int z = divideZ + 1; z <= oz + innerD; z++) {
             for (int y = 1; y <= roomWallHeight; y++) {
-                mutable.set(eastRoomX, baseY + y, oz + z);
+                mutable.set(eastRoomX, baseY + y, z);
                 world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
             }
         }
 
         // Room partition walls along west side (kitchen) - Z from divideZ to south wall
+        // NOTE: westRoomX is ABSOLUTE (includes ox)
         int westRoomX = ox - innerW + 7; // West room is 7 blocks wide
         for (int z = divideZ + 1; z <= oz + innerD; z++) {
             for (int y = 1; y <= roomWallHeight; y++) {
-                mutable.set(westRoomX, baseY + y, oz + z);
+                mutable.set(westRoomX, baseY + y, z);
                 world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
             }
         }
 
         // South audience hall partition (separates audience hall from main courtyard)
+        // NOTE: audienceZ is ABSOLUTE (includes oz)
         int audienceZ = oz + innerD - 6; // Audience hall is 6 blocks deep at south
         for (int x = westRoomX; x <= eastRoomX; x++) {
             for (int y = 1; y <= roomWallHeight; y++) {
-                mutable.set(ox + x, baseY + y, audienceZ);
+                mutable.set(x, baseY + y, audienceZ);
                 world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
             }
         }
 
         // Lord's chambers partition (north side, between private courtyard and north wall)
+        // NOTE: lordZ is ABSOLUTE (includes oz)
         int lordZ = oz - innerD + 6; // Lord's chambers 6 blocks deep at north
         for (int x = -innerW; x <= innerW; x++) {
             for (int y = 1; y <= roomWallHeight; y++) {
@@ -1771,7 +1792,7 @@ public class CastleGenerator {
         // ================================================================
         // Step 4: Main courtyard (larger, south-center area)
         // ================================================================
-        // Courtyard bounds: westRoomX+1 to eastRoomX-1, divideZ+1 to audienceZ-1
+        // Courtyard bounds — ALL ABSOLUTE coordinates
         int cyMinX = westRoomX + 1;
         int cyMaxX = eastRoomX - 1;
         int cyMinZ = divideZ + 1;
@@ -1781,14 +1802,15 @@ public class CastleGenerator {
         for (int x = cyMinX; x <= cyMaxX; x++) {
             for (int z = cyMinZ; z <= cyMaxZ; z++) {
                 BlockState floorBlock = ((x + z) % 2 == 0) ? cutSandstone : orangeTerracotta;
-                mutable.set(ox + x, baseY, oz + z);
+                mutable.set(x, baseY, z);
                 world.setBlockState(mutable, floorBlock, StructureHelper.SET_FLAGS);
             }
         }
 
         // Central fountain pool (3x3 water, bordered with CUT_SANDSTONE)
+        // NOTE: fountainX and fountainZ are ABSOLUTE
         int fountainX = ox;
-        int fountainZ = oz + (cyMinZ + cyMaxZ) / 2;
+        int fountainZ = (cyMinZ + cyMaxZ) / 2;
         // Border (5x5 cut sandstone frame, 1 block high)
         for (int fx = -2; fx <= 2; fx++) {
             for (int fz = -2; fz <= 2; fz++) {
@@ -1807,64 +1829,62 @@ public class CastleGenerator {
                 world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
             }
         }
-        // Central column with water cascading
+        // Central column (no cascade water at top — too messy)
         mutable.set(fountainX, baseY + 1, fountainZ);
         world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
         mutable.set(fountainX, baseY + 2, fountainZ);
         world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-        mutable.set(fountainX, baseY + 3, fountainZ);
-        world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
 
         // Colonnade walkways around main courtyard (pillars + shade roof every 2 blocks)
         for (int x = cyMinX; x <= cyMaxX; x += 2) {
             // North colonnade (along divideZ+1)
-            mutable.set(ox + x, baseY + 1, oz + cyMinZ);
+            mutable.set(x, baseY + 1, cyMinZ);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + x, baseY + 2, oz + cyMinZ);
+            mutable.set(x, baseY + 2, cyMinZ);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + x, baseY + 3, oz + cyMinZ);
+            mutable.set(x, baseY + 3, cyMinZ);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + x, baseY + 4, oz + cyMinZ);
+            mutable.set(x, baseY + 4, cyMinZ);
             world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
             // Shade roof extends one block into courtyard
-            mutable.set(ox + x, baseY + 4, oz + cyMinZ + 1);
+            mutable.set(x, baseY + 4, cyMinZ + 1);
             world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
 
             // South colonnade (along audienceZ-1)
-            mutable.set(ox + x, baseY + 1, oz + cyMaxZ);
+            mutable.set(x, baseY + 1, cyMaxZ);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + x, baseY + 2, oz + cyMaxZ);
+            mutable.set(x, baseY + 2, cyMaxZ);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + x, baseY + 3, oz + cyMaxZ);
+            mutable.set(x, baseY + 3, cyMaxZ);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + x, baseY + 4, oz + cyMaxZ);
+            mutable.set(x, baseY + 4, cyMaxZ);
             world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
-            mutable.set(ox + x, baseY + 4, oz + cyMaxZ - 1);
+            mutable.set(x, baseY + 4, cyMaxZ - 1);
             world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
         }
         for (int z = cyMinZ; z <= cyMaxZ; z += 2) {
             // East colonnade
-            mutable.set(ox + cyMaxX, baseY + 1, oz + z);
+            mutable.set(cyMaxX, baseY + 1, z);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + cyMaxX, baseY + 2, oz + z);
+            mutable.set(cyMaxX, baseY + 2, z);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + cyMaxX, baseY + 3, oz + z);
+            mutable.set(cyMaxX, baseY + 3, z);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + cyMaxX, baseY + 4, oz + z);
+            mutable.set(cyMaxX, baseY + 4, z);
             world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
-            mutable.set(ox + cyMaxX - 1, baseY + 4, oz + z);
+            mutable.set(cyMaxX - 1, baseY + 4, z);
             world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
 
             // West colonnade
-            mutable.set(ox + cyMinX, baseY + 1, oz + z);
+            mutable.set(cyMinX, baseY + 1, z);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + cyMinX, baseY + 2, oz + z);
+            mutable.set(cyMinX, baseY + 2, z);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + cyMinX, baseY + 3, oz + z);
+            mutable.set(cyMinX, baseY + 3, z);
             world.setBlockState(mutable, wallBlock, StructureHelper.SET_FLAGS);
-            mutable.set(ox + cyMinX, baseY + 4, oz + z);
+            mutable.set(cyMinX, baseY + 4, z);
             world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
-            mutable.set(ox + cyMinX + 1, baseY + 4, oz + z);
+            mutable.set(cyMinX + 1, baseY + 4, z);
             world.setBlockState(mutable, acaciaSlab, StructureHelper.SET_FLAGS);
         }
 
@@ -1879,7 +1899,7 @@ public class CastleGenerator {
             world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
         }
         // South channel
-        for (int z = fountainZ + 3; z <= oz + cyMaxZ - 1; z++) {
+        for (int z = fountainZ + 3; z <= cyMaxZ - 1; z++) {
             mutable.set(fountainX, baseY, z);
             world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
             mutable.set(fountainX - 1, baseY, z);
@@ -1887,24 +1907,21 @@ public class CastleGenerator {
             mutable.set(fountainX + 1, baseY, z);
             world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
         }
-        // East channel
-        for (int x = fountainX + 3; x <= ox + cyMaxX - 1; x++) {
+        // East channel — water at baseY, borders at baseY to match north/south channels
+        for (int x = fountainX + 3; x <= cyMaxX - 1; x++) {
             mutable.set(x, baseY, fountainZ);
             world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
-            mutable.set(x, baseY - 1, fountainZ);
-            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
-            // Border blocks on sides
+            // Border blocks on sides at baseY (same level as north/south channel borders)
             mutable.set(x, baseY, fountainZ - 1);
             world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
             mutable.set(x, baseY, fountainZ + 1);
             world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
         }
-        // West channel
-        for (int x = ox + cyMinX + 1; x < fountainX - 2; x++) {
+        // West channel — water at baseY, borders at baseY to match north/south channels
+        for (int x = cyMinX + 1; x < fountainX - 2; x++) {
             mutable.set(x, baseY, fountainZ);
             world.setBlockState(mutable, water, StructureHelper.SET_FLAGS);
-            mutable.set(x, baseY - 1, fountainZ);
-            world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
+            // Border blocks on sides at baseY
             mutable.set(x, baseY, fountainZ - 1);
             world.setBlockState(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
             mutable.set(x, baseY, fountainZ + 1);
@@ -1919,15 +1936,16 @@ public class CastleGenerator {
 
         // Soul lanterns throughout main courtyard (hanging from colonnade slabs)
         for (int x = cyMinX + 1; x <= cyMaxX - 1; x += 3) {
-            mutable.set(ox + x, baseY + 3, oz + cyMinZ + 1);
+            mutable.set(x, baseY + 3, cyMinZ + 1);
             world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
-            mutable.set(ox + x, baseY + 3, oz + cyMaxZ - 1);
+            mutable.set(x, baseY + 3, cyMaxZ - 1);
             world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
         }
 
         // ================================================================
         // Step 5: Private courtyard (smaller, north area between lordZ and divideZ)
         // ================================================================
+        // NOTE: pcMinZ, pcMaxZ are ABSOLUTE; pcMinX, pcMaxX are RELATIVE
         int pcMinZ = lordZ + 1;
         int pcMaxZ = divideZ - 1;
         int pcMinX = -innerW + 2;
@@ -1935,7 +1953,7 @@ public class CastleGenerator {
 
         // Small pool in private courtyard (2x2)
         int pcCenterX = ox;
-        int pcCenterZ = oz + (pcMinZ + pcMaxZ) / 2;
+        int pcCenterZ = (pcMinZ + pcMaxZ) / 2;
         for (int fx = 0; fx <= 1; fx++) {
             for (int fz = 0; fz <= 1; fz++) {
                 mutable.set(pcCenterX + fx, baseY, pcCenterZ + fz);
@@ -1956,21 +1974,26 @@ public class CastleGenerator {
             world.setBlockState(mutable, cutSandstone, StructureHelper.SET_FLAGS);
         }
 
-        // Decorated pots in private courtyard corners
-        mutable.set(ox + pcMinX + 1, baseY + 1, oz + pcMinZ + 1);
+        // Decorated pots in private courtyard corners (pcMinX/pcMaxX are relative, pcMinZ is absolute)
+        mutable.set(ox + pcMinX + 1, baseY + 1, pcMinZ + 1);
         world.setBlockState(mutable, Blocks.DECORATED_POT.getDefaultState(), StructureHelper.SET_FLAGS);
-        mutable.set(ox + pcMaxX - 1, baseY + 1, oz + pcMinZ + 1);
+        mutable.set(ox + pcMaxX - 1, baseY + 1, pcMinZ + 1);
         world.setBlockState(mutable, Blocks.DECORATED_POT.getDefaultState(), StructureHelper.SET_FLAGS);
 
-        // Soul lanterns in private courtyard
-        mutable.set(ox + pcMinX + 1, baseY + 4, oz + pcMinZ + 1);
+        // Soul lanterns in private courtyard — with solid block above for hanging
+        mutable.set(ox + pcMinX + 1, baseY + 5, pcMinZ + 1);
+        world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
+        mutable.set(ox + pcMinX + 1, baseY + 4, pcMinZ + 1);
         world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
-        mutable.set(ox + pcMaxX - 1, baseY + 4, oz + pcMaxZ - 1);
+        mutable.set(ox + pcMaxX - 1, baseY + 5, pcMaxZ - 1);
+        world.setBlockState(mutable, sandstone, StructureHelper.SET_FLAGS);
+        mutable.set(ox + pcMaxX - 1, baseY + 4, pcMaxZ - 1);
         world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
 
         // ================================================================
         // Step 6: Audience hall (south room, between audienceZ and south wall)
         // ================================================================
+        // NOTE: ahFloorZ and ahBackZ are ABSOLUTE
         int ahFloorZ = audienceZ + 1;
         int ahBackZ = oz + innerD;
 
@@ -1988,29 +2011,30 @@ public class CastleGenerator {
 
         // Yellow carpet runner from door to throne
         for (int z = ahFloorZ; z <= ahBackZ - 2; z++) {
-            mutable.set(ox, baseY + 1, oz + z);
+            mutable.set(ox, baseY + 1, z);
             world.setBlockState(mutable, carpet, StructureHelper.SET_FLAGS);
         }
 
         // Chiseled sandstone pillar accents (2 on each side of carpet)
         for (int pz = ahFloorZ + 1; pz <= ahBackZ - 2; pz += 3) {
             for (int py = 1; py <= roomWallHeight; py++) {
-                mutable.set(ox - 2, baseY + py, oz + pz);
+                mutable.set(ox - 2, baseY + py, pz);
                 world.setBlockState(mutable, chiseledSandstone, StructureHelper.SET_FLAGS);
-                mutable.set(ox + 2, baseY + py, oz + pz);
+                mutable.set(ox + 2, baseY + py, pz);
                 world.setBlockState(mutable, chiseledSandstone, StructureHelper.SET_FLAGS);
             }
         }
 
         // Soul lanterns in audience hall
-        mutable.set(ox - 2, baseY + roomWallHeight, oz + ahFloorZ + 2);
+        mutable.set(ox - 2, baseY + roomWallHeight, ahFloorZ + 2);
         world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
-        mutable.set(ox + 2, baseY + roomWallHeight, oz + ahFloorZ + 2);
+        mutable.set(ox + 2, baseY + roomWallHeight, ahFloorZ + 2);
         world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
 
         // ================================================================
         // Step 7: Guard quarters (east room)
         // ================================================================
+        // NOTE: gqMinX, gqMaxX, gqMinZ, gqCenterX are ALL ABSOLUTE
         int gqMinX = eastRoomX + 1;
         int gqMaxX = ox + innerW;
         int gqMinZ = divideZ + 1;
@@ -2021,57 +2045,59 @@ public class CastleGenerator {
             int bedX = gqMinX + 1 + b * 2;
             if (bedX >= gqMaxX) break;
             int bedZ = gqMinZ + 1;
-            world.setBlockState(new BlockPos(ox + bedX, baseY + 1, oz + bedZ),
+            world.setBlockState(new BlockPos(bedX, baseY + 1, bedZ),
                 bedFoot.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-            world.setBlockState(new BlockPos(ox + bedX, baseY + 1, oz + bedZ + 1),
+            world.setBlockState(new BlockPos(bedX, baseY + 1, bedZ + 1),
                 bedHead.with(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
         }
 
         // Chests for guards
-        StructureHelper.placeChest(world, new BlockPos(ox + gqMaxX - 1, baseY + 1, oz + gqMinZ + 4),
+        StructureHelper.placeChest(world, new BlockPos(gqMaxX - 1, baseY + 1, gqMinZ + 4),
             Direction.WEST, LootTables.VILLAGE_DESERT_HOUSE_CHEST);
-        StructureHelper.placeChest(world, new BlockPos(ox + gqMaxX - 1, baseY + 1, oz + gqMinZ + 6),
+        StructureHelper.placeChest(world, new BlockPos(gqMaxX - 1, baseY + 1, gqMinZ + 6),
             Direction.WEST, LootTables.VILLAGE_DESERT_HOUSE_CHEST);
 
         // Soul lantern
-        mutable.set(ox + gqCenterX, baseY + roomWallHeight, oz + gqMinZ + 3);
+        mutable.set(gqCenterX, baseY + roomWallHeight, gqMinZ + 3);
         world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
 
         // ================================================================
         // Step 8: Kitchen/stores (west room)
         // ================================================================
+        // NOTE: ktMinX is ABSOLUTE, ktMaxX is ABSOLUTE, ktMinZ is ABSOLUTE
         int ktMinX = ox - innerW;
         int ktMaxX = westRoomX - 1;
         int ktMinZ = divideZ + 1;
 
         // Smoker
-        mutable.set(ktMinX + 1, baseY + 1, oz + ktMinZ + 1);
+        mutable.set(ktMinX + 1, baseY + 1, ktMinZ + 1);
         world.setBlockState(mutable, Blocks.SMOKER.getDefaultState()
             .with(HorizontalFacingBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
 
         // Crafting table
-        mutable.set(ktMinX + 3, baseY + 1, oz + ktMinZ + 1);
+        mutable.set(ktMinX + 3, baseY + 1, ktMinZ + 1);
         world.setBlockState(mutable, Blocks.CRAFTING_TABLE.getDefaultState(), StructureHelper.SET_FLAGS);
 
         // Barrels
-        mutable.set(ktMinX + 1, baseY + 1, oz + ktMinZ + 3);
+        mutable.set(ktMinX + 1, baseY + 1, ktMinZ + 3);
         world.setBlockState(mutable, Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
-        mutable.set(ktMinX + 1, baseY + 2, oz + ktMinZ + 3);
+        mutable.set(ktMinX + 1, baseY + 2, ktMinZ + 3);
         world.setBlockState(mutable, Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
-        mutable.set(ktMinX + 2, baseY + 1, oz + ktMinZ + 3);
+        mutable.set(ktMinX + 2, baseY + 1, ktMinZ + 3);
         world.setBlockState(mutable, Blocks.BARREL.getDefaultState(), StructureHelper.SET_FLAGS);
 
         // Cauldron
-        mutable.set(ktMinX + 4, baseY + 1, oz + ktMinZ + 1);
+        mutable.set(ktMinX + 4, baseY + 1, ktMinZ + 1);
         world.setBlockState(mutable, Blocks.CAULDRON.getDefaultState(), StructureHelper.SET_FLAGS);
 
         // Soul lantern
-        mutable.set(ktMinX + 3, baseY + roomWallHeight, oz + ktMinZ + 2);
+        mutable.set(ktMinX + 3, baseY + roomWallHeight, ktMinZ + 2);
         world.setBlockState(mutable, soulLantern, StructureHelper.SET_FLAGS);
 
         // ================================================================
         // Step 9: Lord's chambers (north, between north wall and lordZ)
         // ================================================================
+        // NOTE: lcMinZ, lcMaxZ, lcCenterZ are ALL ABSOLUTE
         int lcMinZ = oz - innerD;
         int lcMaxZ = lordZ - 1;
         int lcCenterZ = (lcMinZ + lcMaxZ) / 2;
@@ -2145,25 +2171,25 @@ public class CastleGenerator {
         // ================================================================
         // Step 12: Room ceilings (smooth sandstone slabs over rooms)
         // ================================================================
-        // Ceiling over audience hall
+        // Ceiling over audience hall (all vars are absolute — no ox/oz prefix needed)
         StructureHelper.fillBox(world,
-            new BlockPos(ox + westRoomX + 1, baseY + roomWallHeight + 1, oz + ahFloorZ),
-            new BlockPos(ox + eastRoomX - 1, baseY + roomWallHeight + 1, ahBackZ),
+            new BlockPos(westRoomX + 1, baseY + roomWallHeight + 1, ahFloorZ),
+            new BlockPos(eastRoomX - 1, baseY + roomWallHeight + 1, ahBackZ),
             smoothSandstone);
         // Ceiling over guard quarters
         StructureHelper.fillBox(world,
-            new BlockPos(ox + gqMinX, baseY + roomWallHeight + 1, oz + gqMinZ),
-            new BlockPos(ox + gqMaxX, baseY + roomWallHeight + 1, oz + audienceZ - 1),
+            new BlockPos(gqMinX, baseY + roomWallHeight + 1, gqMinZ),
+            new BlockPos(gqMaxX, baseY + roomWallHeight + 1, audienceZ - 1),
             smoothSandstone);
         // Ceiling over kitchen
         StructureHelper.fillBox(world,
-            new BlockPos(ktMinX, baseY + roomWallHeight + 1, oz + ktMinZ),
-            new BlockPos(ox + ktMaxX, baseY + roomWallHeight + 1, oz + audienceZ - 1),
+            new BlockPos(ktMinX, baseY + roomWallHeight + 1, ktMinZ),
+            new BlockPos(ktMaxX, baseY + roomWallHeight + 1, audienceZ - 1),
             smoothSandstone);
         // Ceiling over lord's chambers
         StructureHelper.fillBox(world,
             new BlockPos(ox - innerW, baseY + roomWallHeight + 1, lcMinZ),
-            new BlockPos(ox + innerW, baseY + roomWallHeight + 1, oz + lcMaxZ),
+            new BlockPos(ox + innerW, baseY + roomWallHeight + 1, lcMaxZ),
             smoothSandstone);
 
         placeJigsawConnectors(world, center, Math.max(halfW, halfD));
@@ -3630,25 +3656,28 @@ public class CastleGenerator {
             }
 
             // Stairs descending to underground pool (NE corner of tier 1)
+            // Diagonal staircase: each step offsets 1 block in Z and 1 block in Y
             int poolStairX = ox + innerHalf - 2;
             int poolStairZ = oz - innerHalf + 2;
-            int poolDepth = Math.min(6, baseY + 63);
+            int poolDepth = Math.min(6, Math.max(2, baseY + 64));
             for (int step = 0; step < poolDepth; step++) {
-                m.set(poolStairX, t1Floor - 1 - step, poolStairZ);
+                int stepZ = poolStairZ - step;
+                int stepY = t1Floor - 1 - step;
+                m.set(poolStairX, stepY, stepZ);
                 world.setBlockState(m,
                     Blocks.SANDSTONE_STAIRS.getDefaultState()
-                        .with(StairsBlock.FACING, Direction.EAST)
+                        .with(StairsBlock.FACING, Direction.SOUTH)
                         .with(StairsBlock.HALF, BlockHalf.BOTTOM),
                     StructureHelper.SET_FLAGS);
-                // Clear headroom
+                // Clear headroom above
                 for (int ch = 1; ch <= 3; ch++) {
-                    m.set(poolStairX, t1Floor - 1 - step + ch, poolStairZ);
+                    m.set(poolStairX, stepY + ch, stepZ);
                     world.setBlockState(m, air, StructureHelper.SET_FLAGS);
                 }
                 // Side walls
-                m.set(poolStairX, t1Floor - 1 - step, poolStairZ - 1);
+                m.set(poolStairX - 1, stepY, stepZ);
                 world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
-                m.set(poolStairX, t1Floor - 1 - step, poolStairZ + 1);
+                m.set(poolStairX + 1, stepY, stepZ);
                 world.setBlockState(m, sandstone, StructureHelper.SET_FLAGS);
             }
 
@@ -3885,7 +3914,7 @@ public class CastleGenerator {
         // Step 7: Underground pool (beneath tier 1)
         // ================================================================
         {
-            int poolDepth = Math.min(6, baseY + 63);
+            int poolDepth = Math.min(6, Math.max(2, baseY + 64));
             int poolFloorY = baseY - poolDepth;
             int poolChamberHalf = 5; // 11x11 chamber
             int poolHalf = 2;        // 5x5 pool
@@ -3952,6 +3981,21 @@ public class CastleGenerator {
                 }
             }
 
+            // Raised PRISMARINE border at poolFloorY+2 around pool perimeter
+            // Prevents upper water layer from flowing out
+            for (int px = -poolHalf - 1; px <= poolHalf + 1; px++) {
+                m.set(ox + px, poolFloorY + 2, oz - poolHalf - 1);
+                world.setBlockState(m, prismarine, StructureHelper.SET_FLAGS);
+                m.set(ox + px, poolFloorY + 2, oz + poolHalf + 1);
+                world.setBlockState(m, prismarine, StructureHelper.SET_FLAGS);
+            }
+            for (int pz = -poolHalf; pz <= poolHalf; pz++) {
+                m.set(ox - poolHalf - 1, poolFloorY + 2, oz + pz);
+                world.setBlockState(m, prismarine, StructureHelper.SET_FLAGS);
+                m.set(ox + poolHalf + 1, poolFloorY + 2, oz + pz);
+                world.setBlockState(m, prismarine, StructureHelper.SET_FLAGS);
+            }
+
             // SANDSTONE_WALL column ring around pool
             int colDist = poolHalf + 2;
             int[][] poolCols = {
@@ -3985,12 +4029,19 @@ public class CastleGenerator {
                 world.setBlockState(m, floorLantern, StructureHelper.SET_FLAGS);
             }
 
-            // 1x1 light shafts in ceiling (air blocks for zenithal light)
+            // 1x1 light shafts in ceiling — air through shaft, GLASS at floor level
+            // so light passes but players cannot fall through
+            BlockState glass = Blocks.GLASS.getDefaultState();
             for (int lx = -2; lx <= 2; lx += 2) {
                 for (int lz = -2; lz <= 2; lz += 2) {
                     for (int ly = poolCeilY + 1; ly <= baseY + 1; ly++) {
                         m.set(ox + lx, ly, oz + lz);
-                        world.setBlockState(m, air, StructureHelper.SET_FLAGS);
+                        if (ly == baseY + 1) {
+                            // Floor level (t1Floor) — glass so players don't fall in
+                            world.setBlockState(m, glass, StructureHelper.SET_FLAGS);
+                        } else {
+                            world.setBlockState(m, air, StructureHelper.SET_FLAGS);
+                        }
                     }
                 }
             }
