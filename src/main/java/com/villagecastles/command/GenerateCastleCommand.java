@@ -16,6 +16,11 @@ import net.minecraft.command.CommandSource;
 import net.minecraft.command.permission.Permission;
 import net.minecraft.command.permission.PermissionCheck;
 import net.minecraft.command.permission.PermissionLevel;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.structure.StructurePlacementData;
+import net.minecraft.structure.StructureTemplate;
+import net.minecraft.util.BlockRotation;
 import net.minecraft.util.math.Direction;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
@@ -23,6 +28,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 
@@ -38,6 +44,11 @@ import java.util.Arrays;
  *   /villagecastles help
  */
 public class GenerateCastleCommand {
+
+    // Last generated bounds — used by /villagecastles capture
+    private static CastleGenerator.CastleBounds lastBounds = null;
+    private static String lastBiome = null;
+    private static String lastSize = null;
 
     private static final java.util.function.Predicate<ServerCommandSource> REQUIRES_OP =
         CommandManager.requirePermissionLevel(
@@ -130,11 +141,38 @@ public class GenerateCastleCommand {
                     .requires(REQUIRES_OP)
                     .then(CommandManager.argument("biome", StringArgumentType.word())
                         .suggests(BIOME_SUGGESTIONS)
-                        .executes(ctx -> executeExport(ctx, "large"))
+                        .executes(ctx -> executeExport(ctx, "large", false))
                         .then(CommandManager.argument("size", StringArgumentType.word())
                             .suggests(SIZE_SUGGESTIONS)
                             .executes(ctx -> executeExport(ctx,
+                                StringArgumentType.getString(ctx, "size"), false))
+                            .then(CommandManager.literal("force")
+                                .executes(ctx -> executeExport(ctx,
+                                    StringArgumentType.getString(ctx, "size"), true))
+                            )
+                        )
+                    )
+                )
+                .then(CommandManager.literal("place")
+                    .requires(REQUIRES_OP)
+                    .then(CommandManager.argument("biome", StringArgumentType.word())
+                        .suggests(BIOME_SUGGESTIONS)
+                        .executes(ctx -> executePlace(ctx, "large"))
+                        .then(CommandManager.argument("size", StringArgumentType.word())
+                            .suggests(SIZE_SUGGESTIONS)
+                            .executes(ctx -> executePlace(ctx,
                                 StringArgumentType.getString(ctx, "size")))
+                        )
+                    )
+                )
+                .then(CommandManager.literal("capture")
+                    .requires(REQUIRES_OP)
+                    .executes(GenerateCastleCommand::executeCapture)
+                    .then(CommandManager.argument("biome", StringArgumentType.word())
+                        .suggests(BIOME_SUGGESTIONS)
+                        .then(CommandManager.argument("size", StringArgumentType.word())
+                            .suggests(SIZE_SUGGESTIONS)
+                            .executes(GenerateCastleCommand::executeCaptureAtPlayer)
                         )
                     )
                 )
@@ -205,11 +243,14 @@ public class GenerateCastleCommand {
             });
 
             CastleGenerator.CastleBounds bounds = result[0];
+            lastBounds = bounds;
+            lastBiome = palette.id;
+            lastSize = size.name().toLowerCase();
+
             source.sendFeedback(() -> Text.translatable("commands.villagecastles.generate.success",
                 bounds.getWidth(), bounds.getHeight(), bounds.getDepth()), false);
 
-            source.sendFeedback(() -> Text.translatable("commands.villagecastles.generate.save_hint",
-                palette.id, size.name().toLowerCase()), false);
+            source.sendFeedback(() -> Text.literal("§7Use /villagecastles capture to save this structure after editing"), false);
 
             return 1;
 
@@ -217,6 +258,73 @@ public class GenerateCastleCommand {
             VillageCastles.LOGGER.error("Failed to generate castle", e);
             String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             source.sendError(Text.translatable("commands.villagecastles.generate.failed", msg));
+            return 0;
+        }
+    }
+
+    /**
+     * Place a saved NBT structure file at the player's position.
+     * This loads the captured/exported NBT and places it in the world.
+     */
+    private static int executePlace(CommandContext<ServerCommandSource> ctx, String sizeStr) {
+        ServerCommandSource source = ctx.getSource();
+        String biomeStr = StringArgumentType.getString(ctx, "biome");
+
+        BiomePalette palette = BiomePalette.fromId(biomeStr);
+        if (palette == null) {
+            source.sendError(Text.literal("Unknown biome: " + biomeStr));
+            return 0;
+        }
+
+        CastleGenerator.CastleSize size;
+        try {
+            size = CastleGenerator.CastleSize.valueOf(sizeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            source.sendError(Text.literal("Unknown size: " + sizeStr));
+            return 0;
+        }
+
+        BlockPos playerPos = BlockPos.ofFloored(source.getPosition());
+        ServerWorld world = source.getWorld();
+
+        String structurePath = palette.id + "/castle_" + size.name().toLowerCase();
+        Path runDir = source.getServer().getRunDirectory();
+        Path nbtPath = NbtExporter.getStructureOutputPath(structurePath, runDir);
+
+        if (!Files.exists(nbtPath)) {
+            source.sendError(Text.literal("NBT file not found: " + nbtPath));
+            source.sendError(Text.literal("Generate and capture first, or run /villagecastles export " + biomeStr + " " + sizeStr));
+            return 0;
+        }
+
+        try {
+            NbtCompound nbt;
+            try (java.io.InputStream is = Files.newInputStream(nbtPath)) {
+                nbt = NbtIo.readCompressed(is, net.minecraft.nbt.NbtSizeTracker.ofUnlimitedBytes());
+            }
+            StructureTemplate template = new StructureTemplate();
+            template.readNbt(world.getRegistryManager().getOrThrow(net.minecraft.registry.RegistryKeys.BLOCK), nbt);
+
+            // Place centered on player — offset by half the structure size
+            int halfX = template.getSize().getX() / 2;
+            int halfZ = template.getSize().getZ() / 2;
+            BlockPos placePos = playerPos.add(-halfX, 0, -halfZ);
+
+            StructurePlacementData placement = new StructurePlacementData()
+                .setRotation(BlockRotation.NONE)
+                .setIgnoreEntities(false);
+
+            template.place(world, placePos, placePos, placement, world.getRandom(), StructureHelper.SET_FLAGS);
+
+            source.sendFeedback(() -> Text.literal("§aPlaced " + structurePath + " (" +
+                template.getSize().getX() + "x" + template.getSize().getY() + "x" + template.getSize().getZ() +
+                ") at " + placePos.toShortString()), true);
+
+            return 1;
+
+        } catch (Exception e) {
+            VillageCastles.LOGGER.error("Failed to place structure from NBT", e);
+            source.sendError(Text.literal("Failed to place: " + e.getMessage()));
             return 0;
         }
     }
@@ -302,9 +410,121 @@ public class GenerateCastleCommand {
     }
 
     /**
-     * Generate a single castle and export it as NBT.
+     * Capture the CURRENT world state at the last generated bounds and save as NBT.
+     * This lets you: generate → hand-edit in creative → capture the polished result.
      */
-    private static int executeExport(CommandContext<ServerCommandSource> ctx, String sizeStr) {
+    private static int executeCapture(CommandContext<ServerCommandSource> ctx) {
+        ServerCommandSource source = ctx.getSource();
+
+        if (lastBounds == null || lastBiome == null || lastSize == null) {
+            source.sendError(Text.literal("Nothing to capture. Generate a structure first with /villagecastles generate"));
+            return 0;
+        }
+
+        try {
+            ServerWorld world = source.getWorld();
+            String structurePath = lastBiome + "/castle_" + lastSize;
+            Path runDir = source.getServer().getRunDirectory();
+            Path outputPath = NbtExporter.getStructureOutputPath(structurePath, runDir);
+
+            source.sendFeedback(() -> Text.literal("§eSaving world state at " +
+                lastBounds.getWidth() + "x" + lastBounds.getHeight() + "x" + lastBounds.getDepth() +
+                " to " + structurePath + "..."), true);
+
+            boolean exported = NbtExporter.exportRegion(world, lastBounds.min, lastBounds.max, outputPath);
+
+            if (exported) {
+                NbtExporter.markPolished(outputPath);
+                source.sendFeedback(() -> Text.literal("§aCaptured and marked as §6POLISHED§a! Saved to " + outputPath), false);
+                source.sendFeedback(() -> Text.literal("§7Export/exportall will skip this file. Use 'export <biome> <size> force' to overwrite."), false);
+            } else {
+                source.sendError(Text.literal("Failed to capture structure"));
+            }
+
+            return exported ? 1 : 0;
+
+        } catch (Exception e) {
+            VillageCastles.LOGGER.error("Failed to capture structure", e);
+            source.sendError(Text.literal("Capture failed: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    /**
+     * Capture world state at PLAYER POSITION using known bounds for biome/size.
+     * Stand at the CENTER of the structure you edited, then run:
+     *   /villagecastles capture <biome> <size>
+     * This saves your hand-edited work without regenerating.
+     */
+    private static int executeCaptureAtPlayer(CommandContext<ServerCommandSource> ctx) {
+        ServerCommandSource source = ctx.getSource();
+        String biomeStr = StringArgumentType.getString(ctx, "biome");
+        String sizeStr = StringArgumentType.getString(ctx, "size");
+
+        BiomePalette palette = BiomePalette.fromId(biomeStr);
+        if (palette == null) {
+            source.sendError(Text.literal("Unknown biome: " + biomeStr));
+            return 0;
+        }
+
+        CastleGenerator.CastleSize size;
+        try {
+            size = CastleGenerator.CastleSize.valueOf(sizeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            source.sendError(Text.literal("Unknown size: " + sizeStr));
+            return 0;
+        }
+
+        BlockPos playerPos = BlockPos.ofFloored(source.getPosition());
+        ServerWorld world = source.getWorld();
+
+        // Generous bounds based on size — covers any structure variant
+        int hRadius = size.diameter / 2 + 10;
+        int belowGround = 15; // cisterns, dungeons, foundations
+        int aboveGround;
+        // Ice citadel is very tall
+        if (palette == BiomePalette.SNOWY && size == CastleGenerator.CastleSize.LARGE) {
+            aboveGround = 100;
+        } else {
+            aboveGround = size == CastleGenerator.CastleSize.LARGE ? 40 : 25;
+        }
+
+        BlockPos min = playerPos.add(-hRadius, -belowGround, -hRadius);
+        BlockPos max = playerPos.add(hRadius, aboveGround, hRadius);
+
+        try {
+            String structurePath = palette.id + "/castle_" + size.name().toLowerCase();
+            Path runDir = source.getServer().getRunDirectory();
+            Path outputPath = NbtExporter.getStructureOutputPath(structurePath, runDir);
+
+            source.sendFeedback(() -> Text.literal("§eCapturing " + (hRadius * 2) + "x" +
+                (belowGround + aboveGround) + "x" + (hRadius * 2) +
+                " region centered on you..."), true);
+
+            boolean exported = NbtExporter.exportRegion(world, min, max, outputPath);
+
+            if (exported) {
+                NbtExporter.markPolished(outputPath);
+                source.sendFeedback(() -> Text.literal("§aCaptured and marked as §6POLISHED§a! Saved to " + outputPath), false);
+                source.sendFeedback(() -> Text.literal("§7Export/exportall will skip this file. Use 'export <biome> <size> force' to overwrite."), false);
+            } else {
+                source.sendError(Text.literal("Failed to capture structure"));
+            }
+
+            return exported ? 1 : 0;
+
+        } catch (Exception e) {
+            VillageCastles.LOGGER.error("Failed to capture structure at player pos", e);
+            source.sendError(Text.literal("Capture failed: " + e.getMessage()));
+            return 0;
+        }
+    }
+
+    /**
+     * Generate a single castle and export it as NBT.
+     * Refuses to overwrite polished files unless force=true.
+     */
+    private static int executeExport(CommandContext<ServerCommandSource> ctx, String sizeStr, boolean force) {
         ServerCommandSource source = ctx.getSource();
         String biomeStr = StringArgumentType.getString(ctx, "biome");
 
@@ -319,6 +539,17 @@ public class GenerateCastleCommand {
             size = CastleGenerator.CastleSize.valueOf(sizeStr.toUpperCase());
         } catch (IllegalArgumentException e) {
             source.sendError(Text.translatable("commands.villagecastles.error.unknown_size", sizeStr));
+            return 0;
+        }
+
+        // Check for polished marker BEFORE generating
+        Path runDir = source.getServer().getRunDirectory();
+        String structurePath = palette.id + "/castle_" + size.name().toLowerCase();
+        Path outputPath = NbtExporter.getStructureOutputPath(structurePath, runDir);
+
+        if (!force && NbtExporter.isPolished(outputPath)) {
+            source.sendError(Text.literal("§c" + structurePath + " is marked as POLISHED (hand-edited)."));
+            source.sendError(Text.literal("§cUse '/villagecastles export " + biomeStr + " " + sizeStr + " force' to overwrite."));
             return 0;
         }
 
@@ -338,14 +569,16 @@ public class GenerateCastleCommand {
             CastleGenerator generator = new CastleGenerator(palette, seed, size);
             CastleGenerator.CastleBounds bounds = generator.generate(world, generatePos);
 
-            Path runDir = source.getServer().getRunDirectory();
-            String structurePath = palette.id + "/castle_" + size.name().toLowerCase();
-            Path outputPath = NbtExporter.getStructureOutputPath(structurePath, runDir);
-
             boolean exported = NbtExporter.exportRegion(world, bounds.min, bounds.max, outputPath);
 
             if (exported) {
-                source.sendFeedback(() -> Text.literal("\u00a7aExported " + structurePath + ".nbt"), true);
+                if (force) {
+                    // Remove polished marker since we just overwrote with generated output
+                    try { Files.deleteIfExists(NbtExporter.getPolishedMarkerPath(outputPath)); } catch (Exception ignored) {}
+                    source.sendFeedback(() -> Text.literal("§aForce-exported " + structurePath + ".nbt §7(polished marker removed)"), true);
+                } else {
+                    source.sendFeedback(() -> Text.literal("§aExported " + structurePath + ".nbt"), true);
+                }
             } else {
                 source.sendError(Text.literal("Failed to export " + structurePath));
             }
@@ -426,6 +659,13 @@ public class GenerateCastleCommand {
 
                     String structurePath = palette.id + "/castle_" + size.name().toLowerCase();
                     Path outputPath = NbtExporter.getStructureOutputPath(structurePath, runDir);
+
+                    // Skip polished files
+                    if (NbtExporter.isPolished(outputPath)) {
+                        final String path = structurePath;
+                        source.sendFeedback(() -> Text.literal("  §6⊘ " + path + " (polished — skipped)"), false);
+                        continue;
+                    }
 
                     if (NbtExporter.exportRegion(world, bounds.min, bounds.max, outputPath)) {
                         exported++;

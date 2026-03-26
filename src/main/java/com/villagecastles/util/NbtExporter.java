@@ -75,4 +75,30 @@ public class NbtExporter {
         return projectRoot.resolve("src/main/resources/data/villagecastles/structure")
             .resolve(structurePath + ".nbt");
     }
+
+    /**
+     * Get the .polished marker path for a structure NBT.
+     */
+    public static Path getPolishedMarkerPath(Path nbtPath) {
+        String name = nbtPath.getFileName().toString().replace(".nbt", ".polished");
+        return nbtPath.getParent().resolve(name);
+    }
+
+    /**
+     * Check if a structure has been marked as hand-polished.
+     */
+    public static boolean isPolished(Path nbtPath) {
+        return Files.exists(getPolishedMarkerPath(nbtPath));
+    }
+
+    /**
+     * Mark a structure as hand-polished. Creates a .polished marker file
+     * that prevents export/exportall from overwriting it.
+     */
+    public static void markPolished(Path nbtPath) throws IOException {
+        Path marker = getPolishedMarkerPath(nbtPath);
+        Files.createDirectories(marker.getParent());
+        Files.writeString(marker, "Hand-polished. Use 'export <biome> <size> force' to overwrite.\n");
+        VillageCastles.LOGGER.info("Marked as polished: {}", marker);
+    }
 }
