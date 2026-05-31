@@ -1,14 +1,14 @@
 package com.villagecastles.util;
 
 import com.villagecastles.VillageCastles;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.structure.StructureTemplate;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Vec3i;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -30,7 +30,7 @@ public class NbtExporter {
      * @param output The file path to write the NBT to
      * @return true if export succeeded
      */
-    public static boolean exportRegion(ServerWorld world, BlockPos min, BlockPos max, Path output) {
+    public static boolean exportRegion(ServerLevel world, BlockPos min, BlockPos max, Path output) {
         Vec3i size = new Vec3i(
             max.getX() - min.getX() + 1,
             max.getY() - min.getY() + 1,
@@ -39,9 +39,9 @@ public class NbtExporter {
 
         try {
             StructureTemplate template = new StructureTemplate();
-            template.saveFromWorld(world, min, size, true, List.of(Blocks.STRUCTURE_VOID));
+            template.fillFromWorld(world, min, size, true, List.of(Blocks.STRUCTURE_VOID));
 
-            NbtCompound nbt = template.writeNbt(new NbtCompound());
+            CompoundTag nbt = template.save(new CompoundTag());
 
             // Ensure parent directories exist
             Files.createDirectories(output.getParent());

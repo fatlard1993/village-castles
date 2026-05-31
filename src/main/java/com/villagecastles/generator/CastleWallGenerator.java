@@ -1,12 +1,12 @@
 package com.villagecastles.generator;
 
 import com.villagecastles.util.StructureHelper;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.LanternBlock;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LanternBlock;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 
 import java.util.Random;
 
@@ -36,7 +36,7 @@ public class CastleWallGenerator {
     /**
      * Generate a wall segment between two points.
      */
-    public void generate(ServerWorld world, BlockPos start, BlockPos end) {
+    public void generate(ServerLevel world, BlockPos start, BlockPos end) {
         int dx = end.getX() - start.getX();
         int dz = end.getZ() - start.getZ();
 
@@ -73,21 +73,21 @@ public class CastleWallGenerator {
     /**
      * Build a single wall section (vertical slice).
      */
-    private void buildWallSection(ServerWorld world, BlockPos base, Direction facing) {
-        Direction perpendicular = facing.rotateYClockwise();
+    private void buildWallSection(ServerLevel world, BlockPos base, Direction facing) {
+        Direction perpendicular = facing.getClockWise();
 
         // Foundation
         for (int p = -WALL_HALF_WIDTH; p <= WALL_HALF_WIDTH; p++) {
-            BlockPos foundPos = base.offset(perpendicular, p).down(2);
+            BlockPos foundPos = base.relative(perpendicular, p).below(2);
             for (int y = 0; y < 3; y++) {
-                world.setBlockState(foundPos.up(y), Blocks.COBBLESTONE.getDefaultState(), StructureHelper.SET_FLAGS);
+                world.setBlock(foundPos.above(y), Blocks.COBBLESTONE.defaultBlockState(), StructureHelper.SET_FLAGS);
             }
         }
 
         // Main wall body
         for (int y = 0; y < getWallHeight(); y++) {
             for (int p = -WALL_HALF_WIDTH; p <= WALL_HALF_WIDTH; p++) {
-                BlockPos wallPos = base.offset(perpendicular, p).up(y);
+                BlockPos wallPos = base.relative(perpendicular, p).above(y);
                 BlockState wallBlock;
                 if (palette == BiomePalette.SAVANNA) {
                     // Chevron/zigzag pattern: alternate primary and secondary wall blocks
@@ -100,21 +100,21 @@ public class CastleWallGenerator {
                 } else {
                     wallBlock = palette.getRandomWallBlock(random);
                 }
-                world.setBlockState(wallPos, wallBlock, StructureHelper.SET_FLAGS);
+                world.setBlock(wallPos, wallBlock, StructureHelper.SET_FLAGS);
             }
         }
 
         // Walkway (interior side hollow)
         for (int y = WALKWAY_HEIGHT; y < getWallHeight(); y++) {
             // Clear walkway space (one side)
-            BlockPos walkwayPos = base.offset(perpendicular, WALL_HALF_WIDTH).up(y);
+            BlockPos walkwayPos = base.relative(perpendicular, WALL_HALF_WIDTH).above(y);
             if (y < getWallHeight() - 1) {
-                world.setBlockState(walkwayPos, Blocks.AIR.getDefaultState(), StructureHelper.SET_FLAGS);
+                world.setBlock(walkwayPos, Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
             }
         }
 
         // Floor of walkway
-        world.setBlockState(base.offset(perpendicular, WALL_HALF_WIDTH).up(WALKWAY_HEIGHT - 1),
+        world.setBlock(base.relative(perpendicular, WALL_HALF_WIDTH).above(WALKWAY_HEIGHT - 1),
             palette.getFloorState(), StructureHelper.SET_FLAGS);
 
         // Alternating pattern hash for crenellation and railing
@@ -122,20 +122,20 @@ public class CastleWallGenerator {
 
         // Railing on inner edge of walkway (every other block for crenellation look)
         if (posHash % 2 == 0) {
-            world.setBlockState(base.offset(perpendicular, WALL_HALF_WIDTH).up(WALKWAY_HEIGHT),
+            world.setBlock(base.relative(perpendicular, WALL_HALF_WIDTH).above(WALKWAY_HEIGHT),
                 palette.getFenceState(), StructureHelper.SET_FLAGS);
         }
 
         // Crenellations on top
         if (posHash % 2 == 0) {
-            world.setBlockState(base.up(getWallHeight()), palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
+            world.setBlock(base.above(getWallHeight()), palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
         }
     }
 
     /**
      * Generate a wall with arrow slits at intervals.
      */
-    public void generateWithArrowSlits(ServerWorld world, BlockPos start, BlockPos end, int slitInterval) {
+    public void generateWithArrowSlits(ServerLevel world, BlockPos start, BlockPos end, int slitInterval) {
         int dx = end.getX() - start.getX();
         int dz = end.getZ() - start.getZ();
         int length = Math.max(Math.abs(dx), Math.abs(dz));
@@ -167,25 +167,25 @@ public class CastleWallGenerator {
     /**
      * Add an arrow slit (narrow window) to the wall.
      */
-    private void addArrowSlit(ServerWorld world, BlockPos base, Direction facing) {
-        Direction perpendicular = facing.rotateYClockwise();
+    private void addArrowSlit(ServerLevel world, BlockPos base, Direction facing) {
+        Direction perpendicular = facing.getClockWise();
         // Arrow slits are 1 wide, 3 tall, at eye level, on the OUTER face of the wall.
         // Outer face is at -WALL_HALF_WIDTH perpendicular offset.
         int slitHeight = 3;
         int slitStart = 3;
 
         for (int y = slitStart; y < slitStart + slitHeight; y++) {
-            BlockPos outerPos = base.offset(perpendicular, -WALL_HALF_WIDTH).up(y);
+            BlockPos outerPos = base.relative(perpendicular, -WALL_HALF_WIDTH).above(y);
             // Place bars on the outer face -- visible from outside,
             // wall remains solid on the inside
-            world.setBlockState(outerPos, palette.getBarsState(), StructureHelper.SET_FLAGS);
+            world.setBlock(outerPos, palette.getBarsState(), StructureHelper.SET_FLAGS);
         }
     }
 
     /**
      * Generate wall with torch/lantern placement.
      */
-    public void generateWithLighting(ServerWorld world, BlockPos start, BlockPos end, int lightInterval) {
+    public void generateWithLighting(ServerLevel world, BlockPos start, BlockPos end, int lightInterval) {
         generateWithArrowSlits(world, start, end, 6);
 
         int dx = end.getX() - start.getX();
@@ -198,7 +198,7 @@ public class CastleWallGenerator {
         } else {
             facing = dz > 0 ? Direction.SOUTH : Direction.NORTH;
         }
-        Direction perpendicular = facing.rotateYClockwise();
+        Direction perpendicular = facing.getClockWise();
 
         // Add lights on walkway (sitting on floor)
         for (int i = lightInterval / 2; i <= length; i += lightInterval) {
@@ -207,9 +207,9 @@ public class CastleWallGenerator {
             int z = start.getZ() + (int) (dz * t);
 
             BlockPos lightPos = new BlockPos(x, start.getY() + WALKWAY_HEIGHT, z)
-                .offset(perpendicular, WALL_HALF_WIDTH);
+                .relative(perpendicular, WALL_HALF_WIDTH);
             // Lantern sitting on the walkway floor
-            world.setBlockState(lightPos, palette.light.getDefaultState().with(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
+            world.setBlock(lightPos, palette.light.defaultBlockState().setValue(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
         }
     }
 

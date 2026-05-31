@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Villages with teeth. A Fabric mod for Minecraft 1.21.11 that adds castle structures to village generation. Each biome gets its own architectural language — not palette swaps, but genuinely different shapes, proportions, and character. A desert citadel doesn't look like a taiga fortress with the blocks changed.
+Villages with teeth. A Fabric mod for Minecraft 26.1.2 that adds castle structures to village generation. Each biome gets its own architectural language — not palette swaps, but genuinely different shapes, proportions, and character. A desert citadel doesn't look like a taiga fortress with the blocks changed.
 
 The mod stands alone. Village Builder and Village Quests stand alone. Together they're better.
 
@@ -111,31 +111,32 @@ Ruins place independently via structure sets as wilderness landmarks. Darker tha
 ## Current State
 
 ### What Works
-- **Post-assembly attachment mixin** (`VillageCastleAttachmentMixin`): Intercepts `StructurePoolBasedGenerator.method_39824` after village jigsaw assembly completes. Detects village biome, rolls for castle size, finds clear position at village edge, adds castle as `PoolStructurePiece` via `StructurePiecesCollector.addPiece()`. Overlap checking prevents castle from cutting through existing buildings.
+- **Post-assembly attachment mixin** (`VillageCastleAttachmentMixin`): Injects into `JigsawPlacement.lambda$addPieces$2` (the per-piece recursive lambda in MC 26.1.2). Detects village biome via pool element string, rolls for castle size (85% chance, 35/35/30 small/medium/large), finds clear position at village edge, adds castle as `PoolElementStructurePiece` via `StructurePiecesBuilder.addPiece()`. Overlap checking uses the village bounding box.
 - **Castle generators**: All 5 biomes × 3 sizes produce complete, furnished structures. Desert-large has a pyramid variant. Snowy-small has an igloo variant. Biome palettes cover 21+ block types per biome.
-- **NBT export pipeline**: `/villagecastles exportall` or `./gradlew runExportStructures` generates and saves all 15 castle NBTs automatically.
+- **NBT export pipeline**: `/villagecastles exportall` or `./gradlew runExportStructures` generates and saves all 15 castle NBTs automatically. Both paths honor `.polished` markers.
 - **15 castle NBTs exist** (3 sizes × 5 biomes). Raw generator output — unpolished.
-- **Commands**: generate, export, exportall, ruins, status, list, help. All functional.
-- **Village Builder integration**: Reflection-based, guarded, registers castle variants with material costs.
-- **Village Quests integration**: 16 profession-specific quests + 10 dialogue options. Thematic content.
-- **castle_aging processor**: Light weathering for village castles.
+- **Commands**: generate, export, exportall, exportruins, ruins, showcase, place, wall, walls, capture, status, list, help. All functional.
+- **Village Builder integration**: Reflection-based, guarded, registers castle and wall segment variants with material costs.
+- **Village Quests integration**: 16 profession-specific quests + 11 dialogue options. Thematic content.
+- **castle_aging processor**: Light weathering applied at village placement (mossy stone, cracked bricks, blue ice, etc.). Wired to the active placement path via `StructurePoolElement.single(id, processorHolder)`.
 - **DecayEngine**: 5-phase ruins degradation pipeline. Ready but no NBTs generated yet.
+- **Village wall generator**: 5 segment types × 4 wall styles. Commands functional, no NBTs exported yet.
 
 ### What Needs Work
-- **Architectural variety**: Plains/desert/taiga/savanna small and medium castles share the same structural template with different materials. Each biome/size needs a unique design.
+- **Architectural variety**: Some biome/size combinations share structural templates. Each of the 15 combinations should be identifiable by silhouette alone.
 - **Foundations**: Generator uses cobblestone universally. Should use biome-appropriate materials or omit where terrain allows.
-- **Terrain integration**: Castles sit at a fixed Y with no blending. Need smoother transition to surrounding terrain.
+- **Terrain integration**: Castles sit at village bounding-box Y with no terrain blending. Need smoother transition and height sampling at the castle's actual X/Z.
 - **Stairwell traversal**: Fixed in generator code but needs re-export and verification.
 - **Item drops**: Fixed with SKIP_DROPS flag but needs verification.
-- **0/10 ruins NBTs**: DecayEngine ready, export command exists, needs generation pass.
-- **Debug cleanup**: Current code has INFO-level diagnostic logging, 100% castle chance, and test values that need production tuning.
+- **0/10 ruins NBTs**: DecayEngine ready, export command exists, needs a generation + export session.
+- **0/25 village wall NBTs**: Generator and commands ready, needs export session.
+- **Ruins worldgen wiring**: No `worldgen/structure/` or `worldgen/structure_set/` JSON files exist. Ruins will not appear in the wild until these are authored.
 
 ### What Was Tried and Abandoned
 - **Pool injection into `town_centers`**: Castles replaced the village center. Bounding box too large — jigsaw system couldn't attach streets. Villages had no houses or villagers.
 - **Pool injection into `houses`**: Same bounding box overlap problem.
 - **Jigsaw connectors on castles**: 8 connectors pointing to street pools. Streets couldn't generate due to bbox overlap with the monolithic castle piece.
-- **VillageSizeMixin**: Increased jigsaw depth 6→10. Didn't help because the bbox overlap was the fundamental issue, not depth.
-- **Wall segments**: Separate wall NBTs injected into street pools. Caused overlaps with castle geometry. Removed entirely — castles are self-contained.
+- **VillageSizeMixin**: Increased jigsaw depth 6→10. Didn't help because the bbox overlap was the fundamental issue, not depth. Removed.
 - **Standalone castle structure sets**: Castles as independent wilderness structures. Removed — ruins fill the wilderness role.
 
 ## Next Steps
@@ -172,7 +173,7 @@ Rewrite generators so each biome/size produces a structurally unique castle:
 
 ## Constraints
 
-- Minecraft 1.21.11 / Fabric / Java 21
+- Minecraft 26.1.2 / Fabric Loader 0.19.2+ / Java 25
 - No hard dependencies beyond Fabric API
 - Must not break vanilla village generation — only augment
 - All three mods (Village Castles, Village Builder, Village Quests) function independently

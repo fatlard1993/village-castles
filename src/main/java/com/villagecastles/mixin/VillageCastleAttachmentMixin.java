@@ -2,76 +2,94 @@ package com.villagecastles.mixin;
 
 import com.villagecastles.VillageCastles;
 import com.villagecastles.util.StructureHelper;
-import net.minecraft.registry.Registry;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.structure.PoolStructurePiece;
-import net.minecraft.structure.StructureLiquidSettings;
-import net.minecraft.structure.StructurePiecesCollector;
-import net.minecraft.structure.StructureTemplateManager;
-import net.minecraft.structure.pool.StructurePool;
-import net.minecraft.structure.pool.StructurePoolBasedGenerator;
-import net.minecraft.structure.pool.StructurePoolElement;
-import net.minecraft.structure.pool.alias.StructurePoolAliasLookup;
-import net.minecraft.util.BlockRotation;
-import net.minecraft.util.math.BlockBox;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.random.Random;
-import net.minecraft.world.HeightLimitView;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
-import net.minecraft.util.math.random.ChunkRandom;
-import net.minecraft.world.gen.structure.DimensionPadding;
-import net.minecraft.world.gen.structure.JigsawStructure;
-import net.minecraft.world.gen.structure.Structure;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Holder;
+import net.minecraft.world.level.levelgen.structure.PoolElementStructurePiece;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureProcessorList;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.levelgen.structure.templatesystem.LiquidSettings;
+import net.minecraft.world.level.levelgen.structure.pieces.StructurePiecesBuilder;
+import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplateManager;
+import net.minecraft.world.level.levelgen.structure.pools.StructureTemplatePool;
+import net.minecraft.world.level.levelgen.structure.pools.JigsawPlacement;
+import net.minecraft.world.level.levelgen.structure.pools.StructurePoolElement;
+import net.minecraft.world.level.levelgen.structure.pools.alias.PoolAliasLookup;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.LevelHeightAccessor;
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.WorldgenRandom;
+import net.minecraft.world.level.levelgen.structure.pools.DimensionPadding;
+import net.minecraft.world.level.levelgen.structure.structures.JigsawStructure;
+import net.minecraft.world.level.levelgen.structure.Structure;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.Optional;
 
 /**
  * After a village finishes jigsaw assembly, attach a castle to the village edge.
- * Targets the collector-based generate method (method_39824) which is the code path
- * villages use in 1.21.11.
+ *
+ * Targets {@code lambda$addPieces$2} in JigsawPlacement — the per-piece recursive lambda
+ * extracted from the private {@code addPieces()} call in MC 26.1. This lambda receives
+ * StructurePiecesBuilder and Structure.GenerationContext, equivalent to {@code method_39824}
+ * from 1.21.11.
+ *
+ * FRAGILITY: The {@code $2} suffix is a compiler-generated ordinal (0-indexed count of
+ * lambdas inside addPieces). If Mojang adds or removes lambdas before this one, the
+ * number shifts and injection fails with InvalidInjectionException at world-gen time.
+ * When that happens: run {@code javap -p JigsawPlacement.class}, find the lambda whose
+ * parameter list starts with {@code PoolElementStructurePiece, int, int, JigsawStructure$MaxDistance}
+ * and ends with {@code StructurePiecesBuilder}, and update this descriptor.
+ *
+ * NOTE: biome detection uses getElement().toString() — a heuristic on the internal pool
+ * element string. Works for vanilla villages; fragile if Mojang changes the toString format.
  */
-@Mixin(StructurePoolBasedGenerator.class)
+@Mixin(JigsawPlacement.class)
 public class VillageCastleAttachmentMixin {
 
     private static final String[] BIOMES = {"plains", "desert", "savanna", "taiga", "snowy"};
     private static final int CLEARANCE = 5;
 
     @Inject(
-        method = "method_39824(Lnet/minecraft/structure/PoolStructurePiece;IILnet/minecraft/world/gen/structure/JigsawStructure$MaxDistanceFromCenter;ILnet/minecraft/world/HeightLimitView;Lnet/minecraft/world/gen/structure/DimensionPadding;ILnet/minecraft/util/math/BlockBox;Lnet/minecraft/world/gen/structure/Structure$Context;ZLnet/minecraft/world/gen/chunk/ChunkGenerator;Lnet/minecraft/structure/StructureTemplateManager;Lnet/minecraft/util/math/random/ChunkRandom;Lnet/minecraft/registry/Registry;Lnet/minecraft/structure/pool/alias/StructurePoolAliasLookup;Lnet/minecraft/structure/StructureLiquidSettings;Lnet/minecraft/structure/StructurePiecesCollector;)V",
+        method = "lambda$addPieces$2(Lnet/minecraft/world/level/levelgen/structure/PoolElementStructurePiece;IILnet/minecraft/world/level/levelgen/structure/structures/JigsawStructure$MaxDistance;ILnet/minecraft/world/level/LevelHeightAccessor;Lnet/minecraft/world/level/levelgen/structure/pools/DimensionPadding;ILnet/minecraft/world/level/levelgen/structure/BoundingBox;Lnet/minecraft/world/level/levelgen/structure/Structure$GenerationContext;ZLnet/minecraft/world/level/chunk/ChunkGenerator;Lnet/minecraft/world/level/levelgen/structure/templatesystem/StructureTemplateManager;Lnet/minecraft/world/level/levelgen/WorldgenRandom;Lnet/minecraft/core/Registry;Lnet/minecraft/world/level/levelgen/structure/pools/alias/PoolAliasLookup;Lnet/minecraft/world/level/levelgen/structure/templatesystem/LiquidSettings;Lnet/minecraft/world/level/levelgen/structure/pieces/StructurePiecesBuilder;)V",
         at = @At("RETURN")
     )
     private static void villagecastles$attachCastle(
-        PoolStructurePiece firstPiece,
-        int p1,
-        int p2,
-        JigsawStructure.MaxDistanceFromCenter maxDist,
-        int p4,
-        HeightLimitView heightLimitView,
+        PoolElementStructurePiece firstPiece,
+        int depth,           // current jigsaw recursion depth (0 = root)
+        int maxDepth,        // configured max depth from JigsawStructure
+        JigsawStructure.MaxDistance maxDist,
+        int boundaryY,       // Y height constraint for piece placement
+        LevelHeightAccessor heightLimitView,
         DimensionPadding dimensionPadding,
-        int p7,
-        BlockBox structureBox,
-        Structure.Context context,
-        boolean p10,
+        int minY,            // minimum allowed Y for pieces
+        BoundingBox structureBox,
+        Structure.GenerationContext context,
+        boolean keepJigsaws, // preserve jigsaw blocks in output (debug)
         ChunkGenerator chunkGenerator,
         StructureTemplateManager structureTemplateManager,
-        ChunkRandom chunkRandom,
-        Registry<StructurePool> poolRegistry,
-        StructurePoolAliasLookup aliasLookup,
-        StructureLiquidSettings liquidSettings,
-        StructurePiecesCollector collector,
+        WorldgenRandom chunkRandom,
+        Registry<StructureTemplatePool> poolRegistry,
+        PoolAliasLookup aliasLookup,
+        LiquidSettings liquidSettings,
+        StructurePiecesBuilder collector,
         CallbackInfo ci
     ) {
         try {
         String biome = detectVillageBiome(firstPiece);
-        if (biome == null) return;
+        if (biome == null) {
+            VillageCastles.LOGGER.debug("[VillageCastles] biome detection returned null for: {}",
+                firstPiece.getElement().toString());
+            return;
+        }
 
-        Random random = chunkRandom;
+        RandomSource random = chunkRandom;
 
         // 85% of villages get a castle (15% skip)
         if (random.nextInt(100) >= 85) return;
@@ -83,19 +101,25 @@ public class VillageCastleAttachmentMixin {
             return;
         }
 
-        StructurePoolElement element = StructurePoolElement.ofSingle(structureId)
-            .apply(StructurePool.Projection.RIGID);
+        Registry<StructureProcessorList> processorRegistry = context.registryAccess()
+            .lookupOrThrow(Registries.PROCESSOR_LIST);
+        Optional<Holder.Reference<StructureProcessorList>> processorOpt =
+            processorRegistry.get(Identifier.fromNamespaceAndPath("villagecastles", "castle_aging"));
+
+        StructurePoolElement element = processorOpt.isPresent()
+            ? StructurePoolElement.single(structureId, processorOpt.get()).apply(StructureTemplatePool.Projection.RIGID)
+            : StructurePoolElement.single(structureId).apply(StructureTemplatePool.Projection.RIGID);
 
         // Village center from structure bounding box
-        int centerX = (structureBox.getMinX() + structureBox.getMaxX()) / 2;
-        int centerZ = (structureBox.getMinZ() + structureBox.getMaxZ()) / 2;
+        int centerX = (structureBox.minX() + structureBox.maxX()) / 2;
+        int centerZ = (structureBox.minZ() + structureBox.maxZ()) / 2;
 
         // Try placing the castle extending outward from each edge of the structure box
         int[][] offsets = {
-            {structureBox.getMaxX() + CLEARANCE, centerZ, 1, 0},   // East
-            {structureBox.getMinX() - CLEARANCE, centerZ, -1, 0},  // West
-            {centerX, structureBox.getMaxZ() + CLEARANCE, 0, 1},   // South
-            {centerX, structureBox.getMinZ() - CLEARANCE, 0, -1},  // North
+            {structureBox.maxX() + CLEARANCE, centerZ, 1, 0},   // East
+            {structureBox.minX() - CLEARANCE, centerZ, -1, 0},  // West
+            {centerX, structureBox.maxZ() + CLEARANCE, 0, 1},   // South
+            {centerX, structureBox.minZ() - CLEARANCE, 0, -1},  // North
         };
 
         // Shuffle to avoid bias
@@ -112,23 +136,23 @@ public class VillageCastleAttachmentMixin {
             int dx = offset[2];
             int dz = offset[3];
 
-            BlockRotation rotation;
-            if (dx > 0) rotation = BlockRotation.CLOCKWISE_90;
-            else if (dx < 0) rotation = BlockRotation.COUNTERCLOCKWISE_90;
-            else if (dz > 0) rotation = BlockRotation.NONE;
-            else rotation = BlockRotation.CLOCKWISE_180;
+            Rotation rotation;
+            if (dx > 0) rotation = Rotation.CLOCKWISE_90;
+            else if (dx < 0) rotation = Rotation.COUNTERCLOCKWISE_90;
+            else if (dz > 0) rotation = Rotation.NONE;
+            else rotation = Rotation.CLOCKWISE_180;
 
-            int castleY = structureBox.getMinY();
+            int castleY = structureBox.minY();
             BlockPos castlePos = new BlockPos(castleX, castleY, castleZ);
 
-            BlockBox castleBox = element.getBoundingBox(structureTemplateManager, castlePos, rotation);
+            BoundingBox castleBox = element.getBoundingBox(structureTemplateManager, castlePos, rotation);
 
             // Check overlap with the raw village bounding box (no expansion)
             if (castleBox.intersects(structureBox)) {
                 continue;
             }
 
-            PoolStructurePiece castlePiece = new PoolStructurePiece(
+            PoolElementStructurePiece castlePiece = new PoolElementStructurePiece(
                 structureTemplateManager,
                 element,
                 castlePos,
@@ -151,8 +175,8 @@ public class VillageCastleAttachmentMixin {
         }
     }
 
-    private static String detectVillageBiome(PoolStructurePiece firstPiece) {
-        String elementStr = firstPiece.getPoolElement().toString();
+    private static String detectVillageBiome(PoolElementStructurePiece firstPiece) {
+        String elementStr = firstPiece.getElement().toString();
         for (String biome : BIOMES) {
             if (elementStr.contains("village/" + biome + "/")) {
                 return biome;
@@ -166,7 +190,7 @@ public class VillageCastleAttachmentMixin {
      * ~35% small, ~35% medium, ~30% large.
      * Overall: 15% nothing, 30% small, 30% medium, 25% large.
      */
-    private static String pickCastleSize(Random random) {
+    private static String pickCastleSize(RandomSource random) {
         int roll = random.nextInt(100);
         if (roll < 35) return "small";
         if (roll < 70) return "medium";

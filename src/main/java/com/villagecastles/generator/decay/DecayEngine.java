@@ -3,16 +3,16 @@ package com.villagecastles.generator.decay;
 import com.villagecastles.generator.BiomePalette;
 import com.villagecastles.util.StructureHelper;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.LanternBlock;
-import net.minecraft.block.SnowBlock;
-import net.minecraft.block.VineBlock;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.state.property.BooleanProperty;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LanternBlock;
+import net.minecraft.world.level.block.SnowLayerBlock;
+import net.minecraft.world.level.block.VineBlock;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -22,12 +22,12 @@ import java.util.Set;
 
 /**
  * Decay engine that transforms generated castle structures into ruins.
- * Works directly on ServerWorld within a bounded region, applying weathering,
+ * Works directly on ServerLevel within a bounded region, applying weathering,
  * structural damage, collapse, vegetation, and atmospheric effects in phases.
  */
 public class DecayEngine {
 
-    private final ServerWorld world;
+    private final ServerLevel world;
     private final BlockPos min;
     private final BlockPos max;
     private final Random random;
@@ -41,7 +41,7 @@ public class DecayEngine {
     // Track original light source positions for soul lantern placement
     private final List<BlockPos> lightPositions = new ArrayList<>();
 
-    public DecayEngine(ServerWorld world, BlockPos min, BlockPos max, Random random, double intensity, BiomePalette palette) {
+    public DecayEngine(ServerLevel world, BlockPos min, BlockPos max, Random random, double intensity, BiomePalette palette) {
         this.world = world;
         this.min = min;
         this.max = max;
@@ -49,7 +49,7 @@ public class DecayEngine {
         this.intensity = Math.max(0.0, Math.min(1.0, intensity));
         this.palette = palette;
         this.midY = (min.getY() + max.getY()) / 2;
-        this.air = Blocks.AIR.getDefaultState();
+        this.air = Blocks.AIR.defaultBlockState();
     }
 
     /**
@@ -66,7 +66,7 @@ public class DecayEngine {
     // ── Phase 1: Weathering ──────────────────────────────────────────────
 
     private void phaseWeathering() {
-        BlockPos.Mutable pos = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
         for (int x = min.getX(); x <= max.getX(); x++) {
             for (int y = min.getY(); y <= max.getY(); y++) {
@@ -77,33 +77,33 @@ public class DecayEngine {
 
                     if (block == Blocks.STONE_BRICKS) {
                         if (shouldDecay(0.40)) {
-                            setBlock(pos, Blocks.CRACKED_STONE_BRICKS.getDefaultState());
+                            setBlock(pos, Blocks.CRACKED_STONE_BRICKS.defaultBlockState());
                         } else if (shouldDecay(0.30)) {
-                            setBlock(pos, Blocks.MOSSY_STONE_BRICKS.getDefaultState());
+                            setBlock(pos, Blocks.MOSSY_STONE_BRICKS.defaultBlockState());
                         }
                     } else if (block == Blocks.COBBLESTONE) {
                         if (shouldDecay(0.25)) {
-                            setBlock(pos, Blocks.MOSSY_COBBLESTONE.getDefaultState());
+                            setBlock(pos, Blocks.MOSSY_COBBLESTONE.defaultBlockState());
                         }
                     } else if (block == Blocks.SANDSTONE) {
                         if (shouldDecay(0.15)) {
-                            setBlock(pos, Blocks.CUT_SANDSTONE.getDefaultState());
+                            setBlock(pos, Blocks.CUT_SANDSTONE.defaultBlockState());
                         }
                     } else if (block == Blocks.CUT_SANDSTONE) {
                         if (shouldDecay(0.15)) {
-                            setBlock(pos, Blocks.SAND.getDefaultState());
+                            setBlock(pos, Blocks.SAND.defaultBlockState());
                         }
                     } else if (block == Blocks.MUD_BRICKS) {
                         if (shouldDecay(0.20)) {
-                            setBlock(pos, Blocks.PACKED_MUD.getDefaultState());
+                            setBlock(pos, Blocks.PACKED_MUD.defaultBlockState());
                         }
                     } else if (block == Blocks.PACKED_ICE) {
                         if (shouldDecay(0.15)) {
-                            setBlock(pos, Blocks.ICE.getDefaultState());
+                            setBlock(pos, Blocks.ICE.defaultBlockState());
                         }
                     } else if (block == Blocks.DEEPSLATE_TILES) {
                         if (shouldDecay(0.30)) {
-                            setBlock(pos, Blocks.CRACKED_DEEPSLATE_TILES.getDefaultState());
+                            setBlock(pos, Blocks.CRACKED_DEEPSLATE_TILES.defaultBlockState());
                         }
                     }
                 }
@@ -115,7 +115,7 @@ public class DecayEngine {
 
     private void phaseStructuralDamage() {
         Set<BlockPos> toRemove = new HashSet<>();
-        BlockPos.Mutable pos = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
         for (int x = min.getX(); x <= max.getX(); x++) {
             for (int y = min.getY(); y <= max.getY(); y++) {
@@ -126,14 +126,14 @@ public class DecayEngine {
 
                     // Fragile blocks: 100% removal
                     if (isFragile(block)) {
-                        toRemove.add(pos.toImmutable());
+                        toRemove.add(pos.immutable());
                         continue;
                     }
 
                     // Glass and glass panes: 90%
                     if (isGlass(block)) {
                         if (shouldDecay(0.90)) {
-                            toRemove.add(pos.toImmutable());
+                            toRemove.add(pos.immutable());
                         }
                         continue;
                     }
@@ -141,7 +141,7 @@ public class DecayEngine {
                     // Doors and trapdoors: 80%
                     if (isDoor(block)) {
                         if (shouldDecay(0.80)) {
-                            toRemove.add(pos.toImmutable());
+                            toRemove.add(pos.immutable());
                         }
                         continue;
                     }
@@ -149,14 +149,14 @@ public class DecayEngine {
                     // Ladders: 70%
                     if (block == Blocks.LADDER) {
                         if (shouldDecay(0.70)) {
-                            toRemove.add(pos.toImmutable());
+                            toRemove.add(pos.immutable());
                         }
                         continue;
                     }
 
                     // Structural block removal with spatial clustering
                     if (state.isAir()) continue;
-                    if (!state.isOpaqueFullCube() && !isSolidBuildingBlock(block)) continue;
+                    if (!state.isSolidRender() && !isSolidBuildingBlock(block)) continue;
 
                     if (isExposed(pos)) {
                         double baseProbability = 0.12 * intensity;
@@ -172,9 +172,9 @@ public class DecayEngine {
                         }
 
                         if (random.nextDouble() < baseProbability) {
-                            toRemove.add(pos.toImmutable());
+                            toRemove.add(pos.immutable());
                             // Cascade to neighbors with 40% chance
-                            cascadeRemoval(pos.toImmutable(), toRemove);
+                            cascadeRemoval(pos.immutable(), toRemove);
                         }
                     }
                 }
@@ -192,7 +192,7 @@ public class DecayEngine {
 
     private void cascadeRemoval(BlockPos origin, Set<BlockPos> toRemove) {
         for (Direction dir : Direction.values()) {
-            BlockPos neighbor = origin.offset(dir);
+            BlockPos neighbor = origin.relative(dir);
             if (!isInBounds(neighbor)) continue;
             if (toRemove.contains(neighbor)) continue;
 
@@ -214,7 +214,7 @@ public class DecayEngine {
         while (changed && passes < 10) {
             changed = false;
             passes++;
-            BlockPos.Mutable pos = new BlockPos.Mutable();
+            BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
             for (int y = max.getY(); y >= min.getY(); y--) {
                 for (int x = min.getX(); x <= max.getX(); x++) {
@@ -222,10 +222,10 @@ public class DecayEngine {
                         pos.set(x, y, z);
                         BlockState state = world.getBlockState(pos);
                         if (state.isAir()) continue;
-                        if (!state.isOpaqueFullCube()) continue;
+                        if (!state.isSolidRender()) continue;
 
                         if (isFloating(pos)) {
-                            removedAboveMid.add(pos.toImmutable());
+                            removedAboveMid.add(pos.immutable());
                             setBlock(pos, air);
                             changed = true;
                         }
@@ -246,7 +246,7 @@ public class DecayEngine {
             if (rubbleHeight[idx] >= 3) continue;
 
             // Find ground level below
-            BlockPos.Mutable ground = new BlockPos.Mutable(removed.getX(), min.getY(), removed.getZ());
+            BlockPos.MutableBlockPos ground = new BlockPos.MutableBlockPos(removed.getX(), min.getY(), removed.getZ());
             for (int y = removed.getY() - 1; y >= min.getY(); y--) {
                 ground.setY(y);
                 BlockState belowState = world.getBlockState(ground);
@@ -259,7 +259,7 @@ public class DecayEngine {
             // Stack rubble
             int placeY = ground.getY() + rubbleHeight[idx];
             if (placeY <= max.getY()) {
-                BlockPos.Mutable rubblePos = new BlockPos.Mutable(removed.getX(), placeY, removed.getZ());
+                BlockPos.MutableBlockPos rubblePos = new BlockPos.MutableBlockPos(removed.getX(), placeY, removed.getZ());
                 BlockState rubbleState = world.getBlockState(rubblePos);
                 if (rubbleState.isAir()) {
                     setBlock(rubblePos, getRandomRubble());
@@ -269,7 +269,7 @@ public class DecayEngine {
         }
 
         // Pass 3: Ground-level scatter
-        BlockPos.Mutable pos = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int x = min.getX(); x <= max.getX(); x++) {
             for (int z = min.getZ(); z <= max.getZ(); z++) {
                 // Find ground level
@@ -277,12 +277,12 @@ public class DecayEngine {
                     pos.set(x, y, z);
                     BlockState state = world.getBlockState(pos);
                     if (state.isAir() && y > min.getY()) {
-                        BlockState below = world.getBlockState(pos.down());
-                        if (!below.isAir() && below.isOpaqueFullCube()) {
+                        BlockState below = world.getBlockState(pos.below());
+                        if (!below.isAir() && below.isSolidRender()) {
                             if (random.nextDouble() < 0.05) {
                                 BlockState scatter = random.nextBoolean()
-                                    ? Blocks.COBBLESTONE.getDefaultState()
-                                    : Blocks.GRAVEL.getDefaultState();
+                                    ? Blocks.COBBLESTONE.defaultBlockState()
+                                    : Blocks.GRAVEL.defaultBlockState();
                                 setBlock(pos, scatter);
                             }
                             break;
@@ -298,7 +298,7 @@ public class DecayEngine {
     private void phaseVegetation() {
         boolean isSnowy = palette == BiomePalette.SNOWY;
         boolean isDesert = palette == BiomePalette.DESERT;
-        BlockPos.Mutable pos = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
         for (int x = min.getX(); x <= max.getX(); x++) {
             for (int y = min.getY(); y <= max.getY(); y++) {
@@ -315,30 +315,30 @@ public class DecayEngine {
                         if (isSnowy) {
                             // Snow layers on top surfaces
                             if (shouldDecay(0.25)) {
-                                setBlock(pos.up(), Blocks.SNOW.getDefaultState().with(SnowBlock.LAYERS, random.nextInt(3) + 1));
+                                setBlock(pos.above(), Blocks.SNOW.defaultBlockState().setValue(SnowLayerBlock.LAYERS, random.nextInt(3) + 1));
                             }
                         } else if (isDesert) {
                             // Sand replacement at ground level
                             if (y <= midY && shouldDecay(0.15)) {
-                                setBlock(pos, Blocks.SAND.getDefaultState());
+                                setBlock(pos, Blocks.SAND.defaultBlockState());
                                 // Dead bush on sand
                                 if (random.nextDouble() < 0.10) {
-                                    setBlock(pos.up(), Blocks.DEAD_BUSH.getDefaultState());
+                                    setBlock(pos.above(), Blocks.DEAD_BUSH.defaultBlockState());
                                 }
                             }
                         } else {
                             // Moss carpet on stone/brick surfaces
                             if (isStoneOrBrick(block) && shouldDecay(0.15)) {
-                                setBlock(pos.up(), Blocks.MOSS_CARPET.getDefaultState());
+                                setBlock(pos.above(), Blocks.MOSS_CARPET.defaultBlockState());
                             }
 
                             // Grass/fern on dirt/grass blocks
                             if (block == Blocks.DIRT || block == Blocks.GRASS_BLOCK) {
                                 if (random.nextDouble() < 0.10) {
                                     BlockState plant = random.nextBoolean()
-                                        ? Blocks.SHORT_GRASS.getDefaultState()
-                                        : Blocks.FERN.getDefaultState();
-                                    setBlock(pos.up(), plant);
+                                        ? Blocks.SHORT_GRASS.defaultBlockState()
+                                        : Blocks.FERN.defaultBlockState();
+                                    setBlock(pos.above(), plant);
                                 }
                             }
                         }
@@ -347,7 +347,7 @@ public class DecayEngine {
                     // Vine placement (non-snowy, non-desert)
                     if (!isSnowy && !isDesert && !state.isAir()) {
                         for (Direction dir : new Direction[]{Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST}) {
-                            BlockPos adjacent = pos.offset(dir);
+                            BlockPos adjacent = pos.relative(dir);
                             if (!world.getBlockState(adjacent).isAir()) continue;
 
                             // The vine hangs on the block face that is toward air
@@ -357,7 +357,7 @@ public class DecayEngine {
                                 if (faceProp == null) continue;
 
                                 int vineLength = random.nextInt(6) + 3; // 3-8 blocks
-                                BlockPos.Mutable vinePos = new BlockPos.Mutable();
+                                BlockPos.MutableBlockPos vinePos = new BlockPos.MutableBlockPos();
 
                                 for (int v = 0; v < vineLength; v++) {
                                     vinePos.set(adjacent.getX(), adjacent.getY() - v, adjacent.getZ());
@@ -365,7 +365,7 @@ public class DecayEngine {
                                     BlockState vineTarget = world.getBlockState(vinePos);
                                     if (!vineTarget.isAir()) break;
 
-                                    BlockState vineState = Blocks.VINE.getDefaultState().with(faceProp, true);
+                                    BlockState vineState = Blocks.VINE.defaultBlockState().setValue(faceProp, true);
                                     setBlock(vinePos, vineState);
                                 }
                                 break; // Only one vine direction per block
@@ -376,7 +376,7 @@ public class DecayEngine {
                     // Desert: soul fire on sandstone
                     if (isDesert && isTopSurface(pos) && isSandstone(block)) {
                         if (random.nextDouble() < 0.05 * intensity) {
-                            setBlock(pos.up(), Blocks.SOUL_FIRE.getDefaultState());
+                            setBlock(pos.above(), Blocks.SOUL_FIRE.defaultBlockState());
                         }
                     }
                 }
@@ -388,7 +388,7 @@ public class DecayEngine {
 
     private void phaseAtmosphere() {
         // First pass: collect light positions and remove all light sources
-        BlockPos.Mutable pos = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
         for (int x = min.getX(); x <= max.getX(); x++) {
             for (int y = min.getY(); y <= max.getY(); y++) {
@@ -398,7 +398,7 @@ public class DecayEngine {
                     Block block = state.getBlock();
 
                     if (isLightSource(block)) {
-                        lightPositions.add(pos.toImmutable());
+                        lightPositions.add(pos.immutable());
                         setBlock(pos, air);
                     }
                 }
@@ -410,10 +410,10 @@ public class DecayEngine {
         for (BlockPos lightPos : lightPositions) {
             if (random.nextDouble() < soulLanternRate) {
                 // Only place hanging lanterns (must have solid block above)
-                BlockState above = world.getBlockState(lightPos.up());
-                if (above.isOpaqueFullCube()) {
-                    BlockState hangingLantern = Blocks.SOUL_LANTERN.getDefaultState()
-                        .with(LanternBlock.HANGING, true);
+                BlockState above = world.getBlockState(lightPos.above());
+                if (above.isSolidRender()) {
+                    BlockState hangingLantern = Blocks.SOUL_LANTERN.defaultBlockState()
+                        .setValue(LanternBlock.HANGING, true);
                     setBlock(lightPos, hangingLantern);
                 }
             }
@@ -428,22 +428,22 @@ public class DecayEngine {
                     if (!state.isAir()) continue;
 
                     // Check: block above is solid
-                    BlockState above = world.getBlockState(pos.up());
-                    if (!above.isOpaqueFullCube()) continue;
+                    BlockState above = world.getBlockState(pos.above());
+                    if (!above.isSolidRender()) continue;
 
                     // Count solid neighbors (horizontal + below)
                     int solidNeighbors = 0;
                     for (Direction dir : Direction.values()) {
                         if (dir == Direction.UP) continue;
-                        BlockPos neighbor = pos.offset(dir);
+                        BlockPos neighbor = pos.relative(dir);
                         BlockState neighborState = world.getBlockState(neighbor);
-                        if (neighborState.isOpaqueFullCube()) {
+                        if (neighborState.isSolidRender()) {
                             solidNeighbors++;
                         }
                     }
 
                     if (solidNeighbors >= 2 && shouldDecay(0.25)) {
-                        setBlock(pos, Blocks.COBWEB.getDefaultState());
+                        setBlock(pos, Blocks.COBWEB.defaultBlockState());
                     }
                 }
             }
@@ -453,7 +453,7 @@ public class DecayEngine {
     // ── Helpers ──────────────────────────────────────────────────────────
 
     private void setBlock(BlockPos pos, BlockState state) {
-        world.setBlockState(pos, state, StructureHelper.SET_FLAGS);
+        world.setBlock(pos, state, StructureHelper.SET_FLAGS);
     }
 
     private boolean shouldDecay(double baseProbability) {
@@ -468,7 +468,7 @@ public class DecayEngine {
 
     private boolean isExposed(BlockPos pos) {
         for (Direction dir : Direction.values()) {
-            if (world.getBlockState(pos.offset(dir)).isAir()) {
+            if (world.getBlockState(pos.relative(dir)).isAir()) {
                 return true;
             }
         }
@@ -478,18 +478,18 @@ public class DecayEngine {
     private boolean isTopSurface(BlockPos pos) {
         BlockState state = world.getBlockState(pos);
         if (state.isAir()) return false;
-        return world.getBlockState(pos.up()).isAir();
+        return world.getBlockState(pos.above()).isAir();
     }
 
     private boolean isFloating(BlockPos pos) {
         // A block is floating if there is air below AND no horizontal support
-        BlockState below = world.getBlockState(pos.down());
+        BlockState below = world.getBlockState(pos.below());
         if (!below.isAir()) return false;
 
         // Check horizontal neighbors for support
         for (Direction dir : new Direction[]{Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST}) {
-            BlockState neighbor = world.getBlockState(pos.offset(dir));
-            if (!neighbor.isAir() && neighbor.isOpaqueFullCube()) {
+            BlockState neighbor = world.getBlockState(pos.relative(dir));
+            if (!neighbor.isAir() && neighbor.isSolidRender()) {
                 return false;
             }
         }
@@ -656,11 +656,11 @@ public class DecayEngine {
     private BlockState getRandomRubble() {
         int choice = random.nextInt(4);
         return switch (choice) {
-            case 0 -> Blocks.COBBLESTONE.getDefaultState();
-            case 1 -> Blocks.MOSSY_COBBLESTONE.getDefaultState();
-            case 2 -> Blocks.GRAVEL.getDefaultState();
-            case 3 -> Blocks.STONE_BRICK_SLAB.getDefaultState();
-            default -> Blocks.COBBLESTONE.getDefaultState();
+            case 0 -> Blocks.COBBLESTONE.defaultBlockState();
+            case 1 -> Blocks.MOSSY_COBBLESTONE.defaultBlockState();
+            case 2 -> Blocks.GRAVEL.defaultBlockState();
+            case 3 -> Blocks.STONE_BRICK_SLAB.defaultBlockState();
+            default -> Blocks.COBBLESTONE.defaultBlockState();
         };
     }
 }

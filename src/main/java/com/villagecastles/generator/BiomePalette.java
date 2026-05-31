@@ -1,8 +1,8 @@
 package com.villagecastles.generator;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
 
 /**
  * Defines material palettes for each village biome type.
@@ -229,59 +229,59 @@ public enum BiomePalette {
     }
 
     public BlockState getPrimaryWallState() {
-        return primaryWall.getDefaultState();
+        return primaryWall.defaultBlockState();
     }
 
     public BlockState getSecondaryWallState() {
-        return secondaryWall.getDefaultState();
+        return secondaryWall.defaultBlockState();
     }
 
     public BlockState getAccentWallState() {
-        return accentWall.getDefaultState();
+        return accentWall.defaultBlockState();
     }
 
     public BlockState getPlanksState() {
-        return planks.getDefaultState();
+        return planks.defaultBlockState();
     }
 
     public BlockState getLogState() {
-        return log.getDefaultState();
+        return log.defaultBlockState();
     }
 
     public BlockState getFloorState() {
-        return floor.getDefaultState();
+        return floor.defaultBlockState();
     }
 
     public BlockState getRoofState() {
-        return roofBlock.getDefaultState();
+        return roofBlock.defaultBlockState();
     }
 
     public BlockState getLightState() {
-        return light.getDefaultState();
+        return light.defaultBlockState();
     }
 
     public BlockState getWallState() {
-        return wall.getDefaultState();
+        return wall.defaultBlockState();
     }
 
     public BlockState getBarsState() {
-        return bars.getDefaultState();
+        return bars.defaultBlockState();
     }
 
     public BlockState getFenceState() {
-        return fence.getDefaultState();
+        return fence.defaultBlockState();
     }
 
     public BlockState getFenceGateState() {
-        return fenceGate.getDefaultState();
+        return fenceGate.defaultBlockState();
     }
 
     public BlockState getBedState() {
-        return bed.getDefaultState();
+        return bed.defaultBlockState();
     }
 
     public BlockState getCarpetState() {
-        return carpet.getDefaultState();
+        return carpet.defaultBlockState();
     }
 
     /**
@@ -301,8 +301,8 @@ public enum BiomePalette {
      */
     public BlockState getRandomWallBlock(java.util.Random random) {
         int roll = random.nextInt(10);
-        if (roll < 6) return primaryWall.getDefaultState();
-        if (roll < 9) return secondaryWall.getDefaultState();
-        return accentWall.getDefaultState();
+        if (roll < 6) return primaryWall.defaultBlockState();
+        if (roll < 9) return secondaryWall.defaultBlockState();
+        return accentWall.defaultBlockState();
     }
 }

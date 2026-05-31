@@ -2,9 +2,9 @@ package com.villagecastles.integration;
 
 import com.villagecastles.VillageCastles;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.item.Item;
-import net.minecraft.item.Items;
-import net.minecraft.util.Identifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraft.resources.Identifier;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -115,7 +115,7 @@ public class VillageBuilderIntegration {
      * Returns count of successfully registered structures.
      */
     private static int registerStructures() {
-        return registerBiomeCastles();
+        return registerBiomeCastles() + registerWallSegments();
     }
 
     private static boolean structureExists(String path) {
@@ -204,7 +204,7 @@ public class VillageBuilderIntegration {
                 : Set.of(needDefense);
 
             registerStructure(
-                Identifier.of("villagecastles", castle[0]),
+                Identifier.fromNamespaceAndPath("villagecastles", castle[0]),
                 castle[1],
                 needs,
                 materials,
@@ -239,7 +239,7 @@ public class VillageBuilderIntegration {
                 int clearanceSize = segment.equals("wall_straight") ? 5 : 8;
 
                 registerStructure(
-                    Identifier.of("villagecastles", path),
+                    Identifier.fromNamespaceAndPath("villagecastles", path),
                     displayName + " (" + capitalize(segDisplay) + ")",
                     Set.of(needDefense),
                     materials,

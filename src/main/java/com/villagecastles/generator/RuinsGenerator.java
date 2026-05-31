@@ -6,16 +6,16 @@ import com.villagecastles.generator.CastleGenerator.CastleSize;
 import com.villagecastles.generator.decay.DecayEngine;
 import com.villagecastles.util.StructureHelper;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.MobSpawnerBlockEntity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.loot.LootTable;
-import net.minecraft.loot.LootTables;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.BuiltInLootTables;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -136,7 +136,7 @@ public class RuinsGenerator {
      * @param center The center position of the ruins
      * @return CastleBounds describing the generated structure's extents
      */
-    public CastleBounds generate(ServerWorld world, BlockPos center) {
+    public CastleBounds generate(ServerLevel world, BlockPos center) {
         VillageCastles.LOGGER.info("Generating ruins: {} at {}", variant.displayName, center.toShortString());
 
         int radius = variant.baseSize.diameter / 2;
@@ -182,14 +182,14 @@ public class RuinsGenerator {
      * Searches from the bottom of the structure upward (foundations are thickest).
      * Places 1-3 secret rooms depending on available space.
      */
-    private void addSecrets(ServerWorld world, CastleBounds bounds) {
+    private void addSecrets(ServerLevel world, CastleBounds bounds) {
         int targetCount = 1 + random.nextInt(3); // 1-3 secret rooms
         int placed = 0;
 
         // Loot table depends on biome
-        RegistryKey<LootTable> lootTable = getSecretLootTable();
+        ResourceKey<LootTable> lootTable = getSecretLootTable();
 
-        BlockPos.Mutable probe = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos();
         List<BlockPos> usedPositions = new ArrayList<>();
 
         // Scan the structure volume for solid 3x3x3 pockets
@@ -215,7 +215,7 @@ public class RuinsGenerator {
 
             // Hollow out a 3x3x2 room (3 wide, 3 deep, 2 tall)
             carveSecretRoom(world, x, y, z, lootTable);
-            usedPositions.add(probe.toImmutable());
+            usedPositions.add(probe.immutable());
             placed++;
         }
 
@@ -229,25 +229,25 @@ public class RuinsGenerator {
      * Places a chest, cobwebs, and leaves a cracked block as a visual hint
      * on the outer shell so observant players can find it.
      */
-    private void carveSecretRoom(ServerWorld world, int x, int y, int z,
-                                  RegistryKey<LootTable> lootTable) {
-        BlockState air = Blocks.AIR.getDefaultState();
-        BlockState cobweb = Blocks.COBWEB.getDefaultState();
-        BlockPos.Mutable pos = new BlockPos.Mutable();
+    private void carveSecretRoom(ServerLevel world, int x, int y, int z,
+                                  ResourceKey<LootTable> lootTable) {
+        BlockState air = Blocks.AIR.defaultBlockState();
+        BlockState cobweb = Blocks.COBWEB.defaultBlockState();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
         // Clear the interior: 3x2x3 (x,z = 3 wide, y = 2 tall)
         for (int dx = 0; dx < 3; dx++) {
             for (int dz = 0; dz < 3; dz++) {
                 for (int dy = 0; dy < 2; dy++) {
                     pos.set(x + dx, y + dy, z + dz);
-                    world.setBlockState(pos, air, StructureHelper.SET_FLAGS);
+                    world.setBlock(pos, air, StructureHelper.SET_FLAGS);
                 }
             }
         }
 
         // Place cobwebs in upper corners
-        world.setBlockState(new BlockPos(x, y + 1, z), cobweb, StructureHelper.SET_FLAGS);
-        world.setBlockState(new BlockPos(x + 2, y + 1, z + 2), cobweb, StructureHelper.SET_FLAGS);
+        world.setBlock(new BlockPos(x, y + 1, z), cobweb, StructureHelper.SET_FLAGS);
+        world.setBlock(new BlockPos(x + 2, y + 1, z + 2), cobweb, StructureHelper.SET_FLAGS);
 
         // Place treasure chest against the back wall
         StructureHelper.placeChest(world, new BlockPos(x + 1, y, z + 2), Direction.NORTH, lootTable);
@@ -259,7 +259,7 @@ public class RuinsGenerator {
         for (int[] offset : hintOffsets) {
             pos.set(x + offset[0], y + offset[1], z + offset[2]);
             if (!world.getBlockState(pos).isAir()) {
-                world.setBlockState(pos, crackedHint, StructureHelper.SET_FLAGS);
+                world.setBlock(pos, crackedHint, StructureHelper.SET_FLAGS);
                 break;
             }
         }
@@ -274,14 +274,14 @@ public class RuinsGenerator {
      * An "enclosed space" is defined as: solid floor below, solid ceiling above,
      * and walls on at least 2 sides. These are naturally dark and dangerous.
      */
-    private void addSpawners(ServerWorld world, CastleBounds bounds) {
+    private void addSpawners(ServerLevel world, CastleBounds bounds) {
         int targetCount = 2 + random.nextInt(3); // 2-4 spawners
         int placed = 0;
 
         EntityType<?> mobType = getSpawnerMobType();
-        BlockState cobweb = Blocks.COBWEB.getDefaultState();
+        BlockState cobweb = Blocks.COBWEB.defaultBlockState();
 
-        BlockPos.Mutable probe = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos();
         List<BlockPos> usedPositions = new ArrayList<>();
 
         int minX = bounds.min.getX() + 1;
@@ -304,12 +304,12 @@ public class RuinsGenerator {
             if (!world.getBlockState(probe).isAir()) continue;
 
             // Must have solid floor below
-            if (world.getBlockState(probe.down()).isAir()) continue;
+            if (world.getBlockState(probe.below()).isAir()) continue;
 
             // Must have solid ceiling above (within 3 blocks)
             boolean hasCeiling = false;
             for (int dy = 1; dy <= 3; dy++) {
-                if (!world.getBlockState(probe.up(dy)).isAir()) {
+                if (!world.getBlockState(probe.above(dy)).isAir()) {
                     hasCeiling = true;
                     break;
                 }
@@ -318,9 +318,9 @@ public class RuinsGenerator {
 
             // Must have walls on at least 2 of 4 cardinal sides (within 2 blocks)
             int wallCount = 0;
-            for (Direction dir : Direction.Type.HORIZONTAL) {
+            for (Direction dir : Direction.Plane.HORIZONTAL) {
                 for (int dist = 1; dist <= 2; dist++) {
-                    BlockPos neighbor = probe.offset(dir, dist);
+                    BlockPos neighbor = probe.relative(dir, dist);
                     if (!world.getBlockState(neighbor).isAir()) {
                         wallCount++;
                         break;
@@ -331,17 +331,17 @@ public class RuinsGenerator {
 
             // First spawner is always a zombie villager — the inhabitants didn't all leave
             EntityType<?> thisSpawnerMob = (placed == 0) ? EntityType.ZOMBIE_VILLAGER : mobType;
-            placeSpawner(world, probe.toImmutable(), thisSpawnerMob);
+            placeSpawner(world, probe.immutable(), thisSpawnerMob);
 
             // Surround with cobwebs for atmosphere
-            for (Direction dir : Direction.Type.HORIZONTAL) {
-                BlockPos webPos = probe.offset(dir);
+            for (Direction dir : Direction.Plane.HORIZONTAL) {
+                BlockPos webPos = probe.relative(dir);
                 if (world.getBlockState(webPos).isAir() && random.nextFloat() < 0.5f) {
-                    world.setBlockState(webPos, cobweb, StructureHelper.SET_FLAGS);
+                    world.setBlock(webPos, cobweb, StructureHelper.SET_FLAGS);
                 }
             }
 
-            usedPositions.add(probe.toImmutable());
+            usedPositions.add(probe.immutable());
             placed++;
         }
 
@@ -353,10 +353,10 @@ public class RuinsGenerator {
     /**
      * Places a mob spawner block and configures its entity type.
      */
-    private void placeSpawner(ServerWorld world, BlockPos pos, EntityType<?> entityType) {
-        world.setBlockState(pos, Blocks.SPAWNER.getDefaultState(), StructureHelper.SET_FLAGS);
-        if (world.getBlockEntity(pos) instanceof MobSpawnerBlockEntity spawner) {
-            spawner.setEntityType(entityType, world.getRandom());
+    private void placeSpawner(ServerLevel world, BlockPos pos, EntityType<?> entityType) {
+        world.setBlock(pos, Blocks.SPAWNER.defaultBlockState(), StructureHelper.SET_FLAGS);
+        if (world.getBlockEntity(pos) instanceof SpawnerBlockEntity spawner) {
+            spawner.setEntityId(entityType, world.getRandom());
         }
     }
 
@@ -369,11 +369,11 @@ public class RuinsGenerator {
      * These are the "easy finds" -- reward for exploring the surface before
      * venturing deeper into spawner-guarded rooms and secret chambers.
      */
-    private void addGroundLevelLoot(ServerWorld world, CastleBounds bounds, BlockPos center) {
+    private void addGroundLevelLoot(ServerLevel world, CastleBounds bounds, BlockPos center) {
         int targetCount = 2 + random.nextInt(3); // 2-4 chests
         int placed = 0;
 
-        BlockPos.Mutable probe = new BlockPos.Mutable();
+        BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos();
         List<BlockPos> usedPositions = new ArrayList<>();
 
         // Ground level is approximately the center Y
@@ -396,8 +396,8 @@ public class RuinsGenerator {
 
                 // Need air at chest position and above it, solid floor below
                 if (!world.getBlockState(probe).isAir()) continue;
-                if (!world.getBlockState(probe.up()).isAir()) continue;
-                if (world.getBlockState(probe.down()).isAir()) continue;
+                if (!world.getBlockState(probe.above()).isAir()) continue;
+                if (world.getBlockState(probe.below()).isAir()) continue;
 
                 // Skip if too close to another chest
                 if (isTooCloseToAny(probe, usedPositions, 6)) break;
@@ -406,10 +406,10 @@ public class RuinsGenerator {
                 Direction[] horizontals = {Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST};
                 Direction facing = horizontals[random.nextInt(4)];
 
-                StructureHelper.placeChest(world, probe.toImmutable(), facing,
-                    LootTables.SIMPLE_DUNGEON_CHEST);
+                StructureHelper.placeChest(world, probe.immutable(), facing,
+                    BuiltInLootTables.SIMPLE_DUNGEON);
 
-                usedPositions.add(probe.toImmutable());
+                usedPositions.add(probe.immutable());
                 placed++;
                 foundSpot = true;
                 break;
@@ -428,11 +428,11 @@ public class RuinsGenerator {
     /**
      * Returns the appropriate loot table for secret rooms based on biome.
      */
-    private RegistryKey<LootTable> getSecretLootTable() {
+    private ResourceKey<LootTable> getSecretLootTable() {
         return switch (variant.palette) {
-            case DESERT -> LootTables.DESERT_PYRAMID_CHEST;
-            case SNOWY -> LootTables.IGLOO_CHEST_CHEST;
-            default -> LootTables.SIMPLE_DUNGEON_CHEST; // Plains, Taiga, Savanna
+            case DESERT -> BuiltInLootTables.DESERT_PYRAMID;
+            case SNOWY -> BuiltInLootTables.IGLOO_CHEST;
+            default -> BuiltInLootTables.SIMPLE_DUNGEON; // Plains, Taiga, Savanna
         };
     }
 
@@ -456,11 +456,11 @@ public class RuinsGenerator {
      */
     private BlockState getCrackedHintBlock() {
         return switch (variant.palette) {
-            case PLAINS -> Blocks.CRACKED_STONE_BRICKS.getDefaultState();
-            case DESERT -> Blocks.CHISELED_SANDSTONE.getDefaultState();
-            case SAVANNA -> Blocks.CRACKED_STONE_BRICKS.getDefaultState();
-            case TAIGA -> Blocks.MOSSY_COBBLESTONE.getDefaultState();
-            case SNOWY -> Blocks.CRACKED_STONE_BRICKS.getDefaultState();
+            case PLAINS -> Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
+            case DESERT -> Blocks.CHISELED_SANDSTONE.defaultBlockState();
+            case SAVANNA -> Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
+            case TAIGA -> Blocks.MOSSY_COBBLESTONE.defaultBlockState();
+            case SNOWY -> Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
         };
     }
 
@@ -472,8 +472,8 @@ public class RuinsGenerator {
      * Checks whether an entire region is solid (non-air) blocks.
      * Used to find thick walls and foundations suitable for secret rooms.
      */
-    private boolean isRegionSolid(ServerWorld world, int x1, int y1, int z1, int x2, int y2, int z2) {
-        BlockPos.Mutable pos = new BlockPos.Mutable();
+    private boolean isRegionSolid(ServerLevel world, int x1, int y1, int z1, int x2, int y2, int z2) {
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int x = x1; x <= x2; x++) {
             for (int y = y1; y <= y2; y++) {
                 for (int z = z1; z <= z2; z++) {

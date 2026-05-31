@@ -8,9 +8,10 @@ import com.villagecastles.util.NbtExporter;
 import com.villagecastles.util.StructureHelper;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 
 import java.nio.file.Path;
 import java.util.Random;
@@ -31,13 +32,13 @@ public class StructureExporter implements ServerTickEvents.EndTick {
         if (tickDelay-- > 0) return;
         if (!executed.compareAndSet(false, true)) return;
 
-        ServerWorld world = server.getOverworld();
+        ServerLevel world = server.overworld();
         if (world == null) {
             VillageCastles.LOGGER.error("Overworld not available, cannot export structures");
             return;
         }
 
-        Path runDir = server.getRunDirectory();
+        Path runDir = server.getServerDirectory();
         VillageCastles.LOGGER.info("=== Starting structure export ===");
 
         int exported = 0;
@@ -47,7 +48,7 @@ public class StructureExporter implements ServerTickEvents.EndTick {
         // Use Y=64 on superflat, or find surface
         int baseY = 4; // superflat grass level is Y=4 on default superflat; we'll use a safe default
         // Try to find actual ground level at 0,0
-        BlockPos probe = world.getTopPosition(net.minecraft.world.Heightmap.Type.WORLD_SURFACE, new BlockPos(0, 0, 0));
+        BlockPos probe = world.getHeightmapPos(Heightmap.Types.WORLD_SURFACE, new BlockPos(0, 0, 0));
         if (probe.getY() > 0) {
             baseY = probe.getY();
         }
@@ -71,6 +72,12 @@ public class StructureExporter implements ServerTickEvents.EndTick {
                     String structurePath = palette.id + "/castle_" + size.name().toLowerCase();
                     Path outputPath = NbtExporter.getStructureOutputPath(structurePath, runDir);
 
+                    if (NbtExporter.isPolished(outputPath)) {
+                        VillageCastles.LOGGER.info("  SKIP {} (polished)", structurePath);
+                        exported++;
+                        continue;
+                    }
+
                     if (NbtExporter.exportRegion(world, bounds.min, bounds.max, outputPath)) {
                         exported++;
                         VillageCastles.LOGGER.info("  OK {}", structurePath);
@@ -89,7 +96,7 @@ public class StructureExporter implements ServerTickEvents.EndTick {
 
         // Stop the server after export
         VillageCastles.LOGGER.info("Stopping server...");
-        server.stop(false);
+        server.halt(false);
     }
 
 }
