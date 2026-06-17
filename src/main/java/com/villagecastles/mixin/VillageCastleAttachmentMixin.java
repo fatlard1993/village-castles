@@ -21,6 +21,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
 import net.minecraft.world.level.levelgen.structure.pools.DimensionPadding;
 import net.minecraft.world.level.levelgen.structure.structures.JigsawStructure;
@@ -82,6 +83,10 @@ public class VillageCastleAttachmentMixin {
         CallbackInfo ci
     ) {
         try {
+        // Only process the root piece (depth == 0 = town center template).
+        // The lambda fires once per jigsaw piece, not once per village.
+        if (depth > 0) return;
+
         String biome = detectVillageBiome(firstPiece);
         if (biome == null) {
             VillageCastles.LOGGER.debug("[VillageCastles] biome detection returned null for: {}",
@@ -142,13 +147,24 @@ public class VillageCastleAttachmentMixin {
             else if (dz > 0) rotation = Rotation.NONE;
             else rotation = Rotation.CLOCKWISE_180;
 
-            int castleY = structureBox.minY();
+            // Sample actual surface Y at the castle's anchor position.
+            // structureBox.minY() is the village floor — fine for flat terrain, wrong when the
+            // castle sits on a cliff or hillside 5-70 blocks from the village center.
+            int castleY = chunkGenerator.getFirstOccupiedHeight(
+                castleX, castleZ,
+                Heightmap.Types.WORLD_SURFACE_WG,
+                heightLimitView,
+                context.randomState()
+            );
             BlockPos castlePos = new BlockPos(castleX, castleY, castleZ);
 
             BoundingBox castleBox = element.getBoundingBox(structureTemplateManager, castlePos, rotation);
 
-            // Check overlap with the raw village bounding box (no expansion)
-            if (castleBox.intersects(structureBox)) {
+            // X/Z-only overlap check. A large castle bounding box extends 35+ blocks back toward
+            // the village from its anchor — the overlap check must catch this. 3D intersects()
+            // misses it when castle Y differs from village Y (no Y-range overlap → false clear).
+            if (castleBox.minX() <= structureBox.maxX() && castleBox.maxX() >= structureBox.minX() &&
+                castleBox.minZ() <= structureBox.maxZ() && castleBox.maxZ() >= structureBox.minZ()) {
                 continue;
             }
 
@@ -164,8 +180,8 @@ public class VillageCastleAttachmentMixin {
 
             collector.addPiece(castlePiece);
 
-            VillageCastles.LOGGER.info("Attached {} {} castle to {} village at {}",
-                size, biome, biome, castlePos.toShortString());
+            VillageCastles.LOGGER.info("Attached {} {} castle to {} village at {} (aging: {})",
+                size, biome, biome, castlePos.toShortString(), processorOpt.isPresent() ? "yes" : "no");
             return;
         }
 

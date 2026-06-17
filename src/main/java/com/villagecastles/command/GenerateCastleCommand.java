@@ -563,26 +563,30 @@ public class GenerateCastleCommand {
         BlockPos generatePos = playerPos.relative(facing, size.diameter / 2 + 10);
 
         try {
-            long seed = world.getSeed() + generatePos.hashCode();
-            CastleGenerator generator = new CastleGenerator(palette, seed, size);
-            CastleGenerator.CastleBounds bounds = generator.generate(world, generatePos);
+            StructureHelper.forceLoadChunks(world, generatePos, size.diameter / 2 + 5);
+            try {
+                long seed = world.getSeed() + generatePos.hashCode();
+                CastleGenerator generator = new CastleGenerator(palette, seed, size);
+                CastleGenerator.CastleBounds bounds = generator.generate(world, generatePos);
 
-            boolean exported = NbtExporter.exportRegion(world, bounds.min, bounds.max, outputPath);
+                boolean exported = NbtExporter.exportRegion(world, bounds.min, bounds.max, outputPath);
 
-            if (exported) {
-                if (force) {
-                    // Remove polished marker since we just overwrote with generated output
-                    try { Files.deleteIfExists(NbtExporter.getPolishedMarkerPath(outputPath)); } catch (Exception ignored) {}
-                    source.sendSuccess(() -> Component.literal("§aForce-exported " + structurePath + ".nbt §7(polished marker removed)"), true);
+                if (exported) {
+                    if (force) {
+                        // Remove polished marker since we just overwrote with generated output
+                        try { Files.deleteIfExists(NbtExporter.getPolishedMarkerPath(outputPath)); } catch (Exception ignored) {}
+                        source.sendSuccess(() -> Component.literal("§aForce-exported " + structurePath + ".nbt §7(polished marker removed)"), true);
+                    } else {
+                        source.sendSuccess(() -> Component.literal("§aExported " + structurePath + ".nbt"), true);
+                    }
                 } else {
-                    source.sendSuccess(() -> Component.literal("§aExported " + structurePath + ".nbt"), true);
+                    source.sendFailure(Component.literal("Failed to export " + structurePath));
                 }
-            } else {
-                source.sendFailure(Component.literal("Failed to export " + structurePath));
+
+                return exported ? 1 : 0;
+            } finally {
+                StructureHelper.unforceChunks(world, generatePos, size.diameter / 2 + 5);
             }
-
-            return exported ? 1 : 0;
-
         } catch (Exception e) {
             VillageCastles.LOGGER.error("Failed to export castle", e);
             source.sendFailure(Component.literal("Export failed: " + e.getMessage()));
@@ -651,26 +655,27 @@ public class GenerateCastleCommand {
                 xOffset += size.diameter + 20;
 
                 try {
-                    long seed = world.getSeed() + generatePos.hashCode();
-                    CastleGenerator generator = new CastleGenerator(palette, seed, size);
-                    CastleGenerator.CastleBounds bounds = generator.generate(world, generatePos);
+                    StructureHelper.forceLoadChunks(world, generatePos, size.diameter / 2 + 5);
+                    try {
+                        long seed = world.getSeed() + generatePos.hashCode();
+                        CastleGenerator generator = new CastleGenerator(palette, seed, size);
+                        CastleGenerator.CastleBounds bounds = generator.generate(world, generatePos);
 
-                    String structurePath = palette.id + "/castle_" + size.name().toLowerCase();
-                    Path outputPath = NbtExporter.getStructureOutputPath(structurePath, runDir);
+                        String structurePath = palette.id + "/castle_" + size.name().toLowerCase();
+                        Path outputPath = NbtExporter.getStructureOutputPath(structurePath, runDir);
 
-                    // Skip polished files
-                    if (NbtExporter.isPolished(outputPath)) {
-                        final String path = structurePath;
-                        source.sendSuccess(() -> Component.literal("  §6⊘ " + path + " (polished — skipped)"), false);
-                        continue;
-                    }
-
-                    if (NbtExporter.exportRegion(world, bounds.min, bounds.max, outputPath)) {
-                        exported++;
-                        final String path = structurePath;
-                        source.sendSuccess(() -> Component.literal("  \u00a7a\u2713 " + path), false);
-                    } else {
-                        failed++;
+                        if (NbtExporter.isPolished(outputPath)) {
+                            final String path = structurePath;
+                            source.sendSuccess(() -> Component.literal("  §6⊘ " + path + " (polished — skipped)"), false);
+                        } else if (NbtExporter.exportRegion(world, bounds.min, bounds.max, outputPath)) {
+                            exported++;
+                            final String path = structurePath;
+                            source.sendSuccess(() -> Component.literal("  \u00a7a\u2713 " + path), false);
+                        } else {
+                            failed++;
+                        }
+                    } finally {
+                        StructureHelper.unforceChunks(world, generatePos, size.diameter / 2 + 5);
                     }
                 } catch (Exception e) {
                     VillageCastles.LOGGER.error("Failed to export {} {}", palette.id, size, e);

@@ -430,7 +430,7 @@ public class VillageQuestsIntegration {
             VillageQuestsIntegration.class.getClassLoader(),
             new Class<?>[]{ Class.forName("justfatlard.village_quests.api.DialogueRegistry$DialogueHandler") },
             (proxy, method, args) -> {
-                if (!"handle".equals(method.getName())) return response;
+                if (!"handle".equals(method.getName())) return null;
                 return response;
             }
         );

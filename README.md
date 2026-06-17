@@ -53,10 +53,15 @@ See [VISION.md](VISION.md) for the full design philosophy and roadmap.
 ## Building
 
 ```bash
-./gradlew build
+# macOS/Linux — JDK 25 must be set explicitly if it isn't your system default
+JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-25.jdk/Contents/Home ./gradlew build
+
+# Windows
+set JAVA_HOME=C:\Program Files\Eclipse Adoptium\jdk-25...
+gradlew.bat build
 ```
 
-Requires JDK 25. The mod JAR will be in `build/libs/`.
+Requires JDK 25. The system default is often JDK 21; running `./gradlew build` without setting `JAVA_HOME` will fail immediately with `release version 25 not supported`. The JAR builds to `build/libs/`.
 
 ## Installation
 

@@ -125,7 +125,7 @@ Ruins place independently via structure sets as wilderness landmarks. Darker tha
 ### What Needs Work
 - **Architectural variety**: Some biome/size combinations share structural templates. Each of the 15 combinations should be identifiable by silhouette alone.
 - **Foundations**: Generator uses cobblestone universally. Should use biome-appropriate materials or omit where terrain allows.
-- **Terrain integration**: Castles sit at village bounding-box Y with no terrain blending. Need smoother transition and height sampling at the castle's actual X/Z.
+- **Terrain integration**: Height sampling fixed — mixin now queries `getFirstOccupiedHeight` at the castle's actual X/Z instead of using the village bounding-box minY. Terrain blending (smooth biome-appropriate foundations at edges) still needed in the generators.
 - **Stairwell traversal**: Fixed in generator code but needs re-export and verification.
 - **Item drops**: Fixed with SKIP_DROPS flag but needs verification.
 - **0/10 ruins NBTs**: DecayEngine ready, export command exists, needs a generation + export session.

@@ -94,7 +94,7 @@ public class CastleGenerator {
      * @return CastleBounds containing the generated structure's bounds
      */
     public CastleBounds generate(ServerLevel world, BlockPos center) {
-        VillageCastles.LOGGER.info("Generating {} {} castle at {}",
+        VillageCastles.LOGGER.debug("Generating {} {} castle at {}",
             size.name().toLowerCase(), palette.displayName, center.toShortString());
 
         int radius = size.diameter / 2;
@@ -385,7 +385,7 @@ public class CastleGenerator {
 
         placeJigsawConnectors(world, center, yardRadius);
 
-        VillageCastles.LOGGER.info("Plains manor generation complete!");
+        VillageCastles.LOGGER.debug("Plains manor generation complete!");
         return new CastleBounds(
             center.offset(-yardRadius - 2, 0, -yardRadius - 2),
             center.offset(yardRadius + 2, totalWall + roofPeak + 5, yardRadius + 2)
@@ -582,7 +582,7 @@ public class CastleGenerator {
 
         placeJigsawConnectors(world, center, Math.max(halfWidth, halfDepth));
 
-        VillageCastles.LOGGER.info("Desert villa generation complete!");
+        VillageCastles.LOGGER.debug("Desert villa generation complete!");
         return new CastleBounds(
             center.offset(-halfWidth - 2, 0, -halfDepth - 2),
             center.offset(halfWidth + 2, wallHeight + 5, halfDepth + 2)
@@ -728,7 +728,7 @@ public class CastleGenerator {
 
         placeJigsawConnectors(world, center, yardRadius);
 
-        VillageCastles.LOGGER.info("Savanna homestead generation complete!");
+        VillageCastles.LOGGER.debug("Savanna homestead generation complete!");
         return new CastleBounds(
             center.offset(-yardRadius - 2, 0, -yardRadius - 2),
             center.offset(yardRadius + 2, 12, yardRadius + 2)
@@ -1133,7 +1133,7 @@ public class CastleGenerator {
         int boundsRadius = Math.max(palisadeRadiusX, palisadeRadiusZ) + 2;
         placeJigsawConnectors(world, center, boundsRadius);
 
-        VillageCastles.LOGGER.info("Taiga longhouse (mead hall) generation complete!");
+        VillageCastles.LOGGER.debug("Taiga longhouse (mead hall) generation complete!");
         return new CastleBounds(
             center.offset(-boundsRadius, -1, -boundsRadius),
             center.offset(boundsRadius, wallHeight + roofPeak + 2, boundsRadius)
@@ -1514,7 +1514,7 @@ public class CastleGenerator {
         // Jigsaw connectors at perimeter for village street integration
         placeJigsawConnectors(world, center, groundRadius);
 
-        VillageCastles.LOGGER.info("Fortified igloo generation complete!");
+        VillageCastles.LOGGER.debug("Fortified igloo generation complete!");
 
         // Return bounds encompassing the igloo dome + tunnel + jigsaw connectors
         return new CastleBounds(
@@ -1551,7 +1551,7 @@ public class CastleGenerator {
      */
     private CastleBounds generateDesertCompound(ServerLevel world, BlockPos center, int radius,
                                                   int keepHalfWidth, int keepHalfDepth) {
-        VillageCastles.LOGGER.info("Generating fortified caravanserai palace at {}", center.toShortString());
+        VillageCastles.LOGGER.debug("Generating fortified caravanserai palace at {}", center.toShortString());
 
         int baseY = center.getY();
         int ox = center.getX();
@@ -2196,7 +2196,7 @@ public class CastleGenerator {
 
         placeJigsawConnectors(world, center, Math.max(halfW, halfD));
 
-        VillageCastles.LOGGER.info("Fortified caravanserai palace generation complete!");
+        VillageCastles.LOGGER.debug("Fortified caravanserai palace generation complete!");
         return new CastleBounds(
             center.offset(-halfW - 2, 0, -halfD - 2),
             center.offset(halfW + 2, wallHeight + 4, halfD + 2)
@@ -2464,7 +2464,7 @@ public class CastleGenerator {
 
         placeJigsawConnectors(world, center, compoundRadius);
 
-        VillageCastles.LOGGER.info("Savanna chief's compound generation complete!");
+        VillageCastles.LOGGER.debug("Savanna chief's compound generation complete!");
         return new CastleBounds(
             center.offset(-compoundRadius - 2, 0, -compoundRadius - 2),
             center.offset(compoundRadius + 2, 15, compoundRadius + 2)
@@ -2741,7 +2741,7 @@ public class CastleGenerator {
 
         placeJigsawConnectors(world, center, fenceRadius);
 
-        VillageCastles.LOGGER.info("Savanna sunken longhouse generation complete!");
+        VillageCastles.LOGGER.debug("Savanna sunken longhouse generation complete!");
         return new CastleBounds(
             center.offset(-fenceRadius - 2, -depth - 1, -fenceRadius - 2),
             center.offset(fenceRadius + 2, wallHeight + 5, fenceRadius + 2)
@@ -3003,7 +3003,7 @@ public class CastleGenerator {
 
         placeJigsawConnectors(world, center, Math.max(halfWidth, halfDepth));
 
-        VillageCastles.LOGGER.info("Winter castle generation complete!");
+        VillageCastles.LOGGER.debug("Winter castle generation complete!");
         return new CastleBounds(
             center.offset(-halfWidth - 2, 0, -halfDepth - 2),
             center.offset(halfWidth + 2, towerHeight + towerHW + 5, halfDepth + 2)
@@ -3063,7 +3063,7 @@ public class CastleGenerator {
         // 8. Jigsaw connectors at perimeter for village street integration
         placeJigsawConnectors(world, buildCenter, radius);
 
-        VillageCastles.LOGGER.info("Standard fort generation complete!");
+        VillageCastles.LOGGER.debug("Standard fort generation complete!");
 
         // Bounds: include jigsaw connectors (at radius+1) plus 1 block margin
         return new CastleBounds(
@@ -3852,7 +3852,7 @@ public class CastleGenerator {
 
         placeJigsawConnectors(world, center, hexR);
 
-        VillageCastles.LOGGER.info("Ancient Ice Citadel generation complete!");
+        VillageCastles.LOGGER.debug("Ancient Ice Citadel generation complete!");
         return new CastleBounds(
             center.offset(-hexR - 5, -dungeonDepth - chamberR - 2, -hexR - 5),
             center.offset(hexR + 5, bigSpireH + 10, hexR + 5)
@@ -3918,7 +3918,7 @@ public class CastleGenerator {
         // Jigsaw connectors at perimeter for village street integration
         placeJigsawConnectors(world, center, radius);
 
-        VillageCastles.LOGGER.info("Grand castle generation complete!");
+        VillageCastles.LOGGER.debug("Grand castle generation complete!");
 
         int boundsExtra = (palette == BiomePalette.PLAINS) ? 6 : 2; // Moat for plains, jigsaw margin for others
         return new CastleBounds(
@@ -3940,7 +3940,7 @@ public class CastleGenerator {
      * underground cistern with treasure.
      */
     private CastleBounds generateDesertPyramid(ServerLevel world, BlockPos center, int radius) {
-        VillageCastles.LOGGER.info("Generating desert alcazar at {}", center.toShortString());
+        VillageCastles.LOGGER.debug("Generating desert alcazar at {}", center.toShortString());
 
         int baseY = center.getY();
         int ox = center.getX();
@@ -4604,7 +4604,7 @@ public class CastleGenerator {
 
         int totalHeight = palaceH1 + palaceH2 + 2;
 
-        VillageCastles.LOGGER.info("Desert alcazar generation complete!");
+        VillageCastles.LOGGER.debug("Desert alcazar generation complete!");
 
         return new CastleBounds(
             center.offset(-half - 4, -cisternDepth - 2, -half - 4),
@@ -5133,7 +5133,7 @@ public class CastleGenerator {
 
         placeJigsawConnectors(world, center, fortRadius);
 
-        VillageCastles.LOGGER.info("Taiga ring fort generation complete!");
+        VillageCastles.LOGGER.debug("Taiga ring fort generation complete!");
         return new CastleBounds(
             center.offset(-fortRadius - 2, 0, -fortRadius - 2),
             center.offset(fortRadius + 2, lhWallH + lhRoofPeak + 5, fortRadius + 2)
@@ -5567,7 +5567,7 @@ public class CastleGenerator {
         int boundsRadius = courtRadius + 2;
         placeJigsawConnectors(world, center, boundsRadius);
 
-        VillageCastles.LOGGER.info("Taiga tower-house fortress generation complete!");
+        VillageCastles.LOGGER.debug("Taiga tower-house fortress generation complete!");
         return new CastleBounds(
             center.offset(-boundsRadius, -1, -boundsRadius),
             center.offset(boundsRadius, spireBase + 3 + 2, boundsRadius)

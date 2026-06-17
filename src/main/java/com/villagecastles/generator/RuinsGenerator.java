@@ -137,7 +137,7 @@ public class RuinsGenerator {
      * @return CastleBounds describing the generated structure's extents
      */
     public CastleBounds generate(ServerLevel world, BlockPos center) {
-        VillageCastles.LOGGER.info("Generating ruins: {} at {}", variant.displayName, center.toShortString());
+        VillageCastles.LOGGER.debug("Generating ruins: {} at {}", variant.displayName, center.toShortString());
 
         int radius = variant.baseSize.diameter / 2;
 
@@ -167,7 +167,7 @@ public class RuinsGenerator {
             boundsHolder[0] = bounds;
         });
 
-        VillageCastles.LOGGER.info("Ruins generation complete: {}", variant.displayName);
+        VillageCastles.LOGGER.debug("Ruins generation complete: {}", variant.displayName);
         return boundsHolder[0];
     }
 

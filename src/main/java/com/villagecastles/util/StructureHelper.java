@@ -156,7 +156,7 @@ public class StructureHelper {
 
     /**
      * Force-load chunks in the generation area.
-     * Caller is responsible for calling unforcedChunks when done.
+     * Caller is responsible for calling unforceChunks when done.
      */
     public static void forceLoadChunks(ServerLevel world, BlockPos center, int radius) {
         int chunkRadius = (radius >> 4) + 1;
@@ -262,17 +262,14 @@ public class StructureHelper {
             world.setBlock(center.above(y), pillarBlock, SET_FLAGS);
         }
 
-        // Spiral stairs
+        // Spiral stairs — one step per block of height, rotating 45° per step.
+        // 8 cardinal+diagonal positions per rotation; steps at y=0,1,2... are climbable.
         double stepsPerRotation = 8;
-        for (int step = 0; step < height * stepsPerRotation / 4; step++) {
+        for (int step = 0; step < height; step++) {
             double angle = (step / stepsPerRotation) * 2 * Math.PI;
             int x = (int) Math.round((radius - 1) * Math.cos(angle));
             int z = (int) Math.round((radius - 1) * Math.sin(angle));
-            int y = (int) (step * 4 / stepsPerRotation);
-
-            if (y < height) {
-                world.setBlock(center.offset(x, y, z), stairBlock, SET_FLAGS);
-            }
+            world.setBlock(center.offset(x, step, z), stairBlock, SET_FLAGS);
         }
     }
 }
