@@ -103,7 +103,7 @@ public class TowerGenerator {
         int floorThreshSq = (radius - 1) * (radius - 1);
 
         // Foundation
-        StructureHelper.buildCylinder(world, center.below(2), radius + 1, 3, Blocks.COBBLESTONE.defaultBlockState(), false);
+        StructureHelper.buildSolidCylinder(world, center.below(2), radius + 1, 3, Blocks.COBBLESTONE.defaultBlockState());
 
         // Main tower walls
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();

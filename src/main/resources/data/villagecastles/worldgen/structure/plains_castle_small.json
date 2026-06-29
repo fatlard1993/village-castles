@@ -1,0 +1,12 @@
+{
+  "type": "villagecastles:castle",
+  "biome_variant": "plains",
+  "biomes": [
+    "minecraft:plains",
+    "minecraft:sunflower_plains",
+    "minecraft:meadow"
+  ],
+  "spawn_overrides": {},
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin"
+}

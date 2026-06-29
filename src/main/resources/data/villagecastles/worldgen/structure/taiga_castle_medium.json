@@ -1,0 +1,11 @@
+{
+  "type": "villagecastles:castle",
+  "biome_variant": "taiga",
+  "size_variant": "medium",
+  "biomes": [
+    "minecraft:taiga","minecraft:old_growth_pine_taiga","minecraft:old_growth_spruce_taiga"
+  ],
+  "spawn_overrides": {},
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin"
+}

@@ -3,6 +3,7 @@ package com.villagecastles.generator;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.item.DyeColor;
 
 /**
  * Defines material palettes for each village biome type.
@@ -36,8 +37,8 @@ public enum BiomePalette {
         Blocks.IRON_BARS,
         Blocks.LANTERN,
         // Furnishing
-        Blocks.RED_BED,
-        Blocks.RED_CARPET
+        Blocks.BED.pick(DyeColor.RED),
+        Blocks.CARPET.pick(DyeColor.RED)
     ),
 
     DESERT(
@@ -67,8 +68,8 @@ public enum BiomePalette {
         Blocks.IRON_BARS,
         Blocks.SOUL_LANTERN,
         // Furnishing
-        Blocks.YELLOW_BED,
-        Blocks.YELLOW_CARPET
+        Blocks.BED.pick(DyeColor.YELLOW),
+        Blocks.CARPET.pick(DyeColor.YELLOW)
     ),
 
     SAVANNA(
@@ -88,7 +89,7 @@ public enum BiomePalette {
         Blocks.ACACIA_DOOR,
         Blocks.ACACIA_TRAPDOOR,
         // Roof and accent
-        Blocks.ORANGE_TERRACOTTA,
+        Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE),
         Blocks.MUD_BRICK_STAIRS,
         Blocks.MUD_BRICK_SLAB,
         Blocks.MUD_BRICK_WALL,
@@ -98,8 +99,8 @@ public enum BiomePalette {
         Blocks.IRON_BARS,
         Blocks.LANTERN,
         // Furnishing
-        Blocks.ORANGE_BED,
-        Blocks.ORANGE_CARPET
+        Blocks.BED.pick(DyeColor.ORANGE),
+        Blocks.CARPET.pick(DyeColor.ORANGE)
     ),
 
     TAIGA(
@@ -129,8 +130,8 @@ public enum BiomePalette {
         Blocks.IRON_BARS,
         Blocks.LANTERN,
         // Furnishing
-        Blocks.BROWN_BED,
-        Blocks.BROWN_CARPET
+        Blocks.BED.pick(DyeColor.BROWN),
+        Blocks.CARPET.pick(DyeColor.BROWN)
     ),
 
     SNOWY(
@@ -160,8 +161,8 @@ public enum BiomePalette {
         Blocks.IRON_BARS,
         Blocks.SOUL_LANTERN,
         // Furnishing
-        Blocks.LIGHT_BLUE_BED,
-        Blocks.LIGHT_BLUE_CARPET
+        Blocks.BED.pick(DyeColor.LIGHT_BLUE),
+        Blocks.CARPET.pick(DyeColor.LIGHT_BLUE)
     );
 
     public final String id;

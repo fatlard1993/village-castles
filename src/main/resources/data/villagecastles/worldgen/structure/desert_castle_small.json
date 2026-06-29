@@ -1,0 +1,10 @@
+{
+  "type": "villagecastles:castle",
+  "biome_variant": "desert",
+  "biomes": [
+    "minecraft:desert"
+  ],
+  "spawn_overrides": {},
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin"
+}

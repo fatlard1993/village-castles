@@ -1,6 +1,7 @@
 package com.villagecastles.generator;
 
 import com.villagecastles.util.StructureHelper;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
@@ -602,7 +603,7 @@ public class KeepGenerator {
             palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
 
         // Wool "tapestries" on walls (colored wool blocks)
-        BlockState wool = Blocks.LIGHT_BLUE_WOOL.defaultBlockState();
+        BlockState wool = Blocks.WOOL.pick(DyeColor.LIGHT_BLUE).defaultBlockState();
         int tapestrySpacing = 4;
         for (int x = -halfWidth + 3; x <= halfWidth - 3; x += tapestrySpacing) {
             // North wall tapestries
@@ -649,13 +650,13 @@ public class KeepGenerator {
 
         // 2x2 raised platform of yellow terracotta
         world.setBlock(new BlockPos(shrineX, shrineY, shrineZ),
-            Blocks.YELLOW_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.YELLOW).defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(shrineX + 1, shrineY, shrineZ),
-            Blocks.YELLOW_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.YELLOW).defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(shrineX, shrineY, shrineZ + 1),
-            Blocks.YELLOW_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.YELLOW).defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(shrineX + 1, shrineY, shrineZ + 1),
-            Blocks.YELLOW_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.YELLOW).defaultBlockState(), StructureHelper.SET_FLAGS);
 
         // Soul lantern on top — ancestral flame
         world.setBlock(new BlockPos(shrineX, shrineY + 1, shrineZ),
@@ -1052,7 +1053,7 @@ public class KeepGenerator {
         // Gold roof accent stripe along the ridge peak — Valhalla's golden shields
         for (int x = -halfWidth; x <= halfWidth; x++) {
             world.setBlock(new BlockPos(ox + x, roofY + peakHeight + 2, oz),
-                Blocks.YELLOW_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+                Blocks.DYED_TERRACOTTA.pick(DyeColor.YELLOW).defaultBlockState(), StructureHelper.SET_FLAGS);
         }
     }
 
@@ -1123,7 +1124,7 @@ public class KeepGenerator {
         StructureHelper.fillFloor(world, roofCorner1, roofCorner2, roofY, palette.getPrimaryWallState());
 
         // Decorative terracotta rim — 1-high wall of orange_terracotta around edge
-        BlockState terracotta = Blocks.ORANGE_TERRACOTTA.defaultBlockState();
+        BlockState terracotta = Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState();
         // North and South walls
         for (int x = -halfWidth; x <= halfWidth; x++) {
             world.setBlock(new BlockPos(ox + x, roofY + 1, oz - halfDepth), terracotta, StructureHelper.SET_FLAGS);
@@ -1160,7 +1161,7 @@ public class KeepGenerator {
         };
 
         for (BlockPos corner : corners) {
-            StructureHelper.buildCylinder(world, corner, turretRadius, turretHeight, palette.getPrimaryWallState(), true);
+            StructureHelper.buildHollowCylinder(world, corner, turretRadius, turretHeight, palette.getPrimaryWallState());
             StructureHelper.addCircularCrenellations(world, corner, turretRadius, turretHeight, palette.getPrimaryWallState());
 
             // Conical roof hint (just the top layer sloped)

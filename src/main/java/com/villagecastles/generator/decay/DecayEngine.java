@@ -3,6 +3,7 @@ package com.villagecastles.generator.decay;
 import com.villagecastles.generator.BiomePalette;
 import com.villagecastles.util.StructureHelper;
 
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
@@ -512,26 +513,14 @@ public class DecayEngine {
     }
 
     private boolean isGlass(Block block) {
-        return block == Blocks.GLASS
-            || block == Blocks.GLASS_PANE
-            || block == Blocks.WHITE_STAINED_GLASS
-            || block == Blocks.WHITE_STAINED_GLASS_PANE
-            || block == Blocks.ORANGE_STAINED_GLASS
-            || block == Blocks.ORANGE_STAINED_GLASS_PANE
-            || block == Blocks.LIGHT_BLUE_STAINED_GLASS
-            || block == Blocks.LIGHT_BLUE_STAINED_GLASS_PANE
-            || block == Blocks.YELLOW_STAINED_GLASS
-            || block == Blocks.YELLOW_STAINED_GLASS_PANE
-            || block == Blocks.BROWN_STAINED_GLASS
-            || block == Blocks.BROWN_STAINED_GLASS_PANE
-            || block == Blocks.GRAY_STAINED_GLASS
-            || block == Blocks.GRAY_STAINED_GLASS_PANE
-            || block == Blocks.LIGHT_GRAY_STAINED_GLASS
-            || block == Blocks.LIGHT_GRAY_STAINED_GLASS_PANE
-            || block == Blocks.RED_STAINED_GLASS
-            || block == Blocks.RED_STAINED_GLASS_PANE
-            || block == Blocks.BLACK_STAINED_GLASS
-            || block == Blocks.BLACK_STAINED_GLASS_PANE;
+        if (block == Blocks.GLASS || block == Blocks.GLASS_PANE) return true;
+        for (DyeColor color : DyeColor.values()) {
+            if (block == Blocks.STAINED_GLASS.pick(color)
+                    || block == Blocks.STAINED_GLASS_PANE.pick(color)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isDoor(Block block) {
@@ -562,45 +551,28 @@ public class DecayEngine {
     }
 
     private boolean isCarpet(Block block) {
-        return block == Blocks.WHITE_CARPET
-            || block == Blocks.ORANGE_CARPET
-            || block == Blocks.LIGHT_BLUE_CARPET
-            || block == Blocks.YELLOW_CARPET
-            || block == Blocks.RED_CARPET
-            || block == Blocks.BROWN_CARPET
-            || block == Blocks.GRAY_CARPET
-            || block == Blocks.LIGHT_GRAY_CARPET
-            || block == Blocks.BLACK_CARPET
-            || block == Blocks.MOSS_CARPET;
+        if (block == Blocks.MOSS_CARPET) return true;
+        for (DyeColor color : DyeColor.values()) {
+            if (block == Blocks.CARPET.pick(color)) return true;
+        }
+        return false;
     }
 
     private boolean isBed(Block block) {
-        return block == Blocks.WHITE_BED
-            || block == Blocks.ORANGE_BED
-            || block == Blocks.LIGHT_BLUE_BED
-            || block == Blocks.YELLOW_BED
-            || block == Blocks.RED_BED
-            || block == Blocks.BROWN_BED
-            || block == Blocks.GRAY_BED
-            || block == Blocks.LIGHT_GRAY_BED
-            || block == Blocks.BLACK_BED;
+        for (DyeColor color : DyeColor.values()) {
+            if (block == Blocks.BED.pick(color)) return true;
+        }
+        return false;
     }
 
     private boolean isBanner(Block block) {
-        return block == Blocks.WHITE_BANNER
-            || block == Blocks.WHITE_WALL_BANNER
-            || block == Blocks.ORANGE_BANNER
-            || block == Blocks.ORANGE_WALL_BANNER
-            || block == Blocks.LIGHT_BLUE_BANNER
-            || block == Blocks.LIGHT_BLUE_WALL_BANNER
-            || block == Blocks.RED_BANNER
-            || block == Blocks.RED_WALL_BANNER
-            || block == Blocks.BLACK_BANNER
-            || block == Blocks.BLACK_WALL_BANNER
-            || block == Blocks.BROWN_BANNER
-            || block == Blocks.BROWN_WALL_BANNER
-            || block == Blocks.GRAY_BANNER
-            || block == Blocks.GRAY_WALL_BANNER;
+        for (DyeColor color : DyeColor.values()) {
+            if (block == Blocks.BANNER.pick(color)
+                    || block == Blocks.WALL_BANNER.pick(color)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isLightSource(Block block) {
@@ -639,7 +611,7 @@ public class DecayEngine {
             || block == Blocks.PACKED_ICE
             || block == Blocks.BLUE_ICE
             || block == Blocks.TERRACOTTA
-            || block == Blocks.ORANGE_TERRACOTTA
+            || block == Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE)
             || block == Blocks.SNOW_BLOCK;
     }
 

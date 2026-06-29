@@ -1,0 +1,11 @@
+{
+  "type": "villagecastles:castle",
+  "biome_variant": "savanna",
+  "size_variant": "medium",
+  "biomes": [
+    "minecraft:savanna","minecraft:savanna_plateau","minecraft:windswept_savanna"
+  ],
+  "spawn_overrides": {},
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin"
+}

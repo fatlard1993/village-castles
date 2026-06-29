@@ -2,6 +2,7 @@ package com.villagecastles.generator;
 
 import com.villagecastles.VillageCastles;
 import com.villagecastles.util.StructureHelper;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
@@ -44,6 +45,11 @@ import java.util.Random;
  * T = Tower, [Keep] = Central building
  */
 public class CastleGenerator {
+
+    /** Final-state string used when a jigsaw block transitions to a path surface. */
+    private static final String JIGSAW_FINAL_DIRT_PATH = "minecraft:dirt_path";
+    /** Final-state string used when a jigsaw block transitions to empty space. */
+    private static final String JIGSAW_FINAL_AIR = "minecraft:air";
 
     public enum CastleSize {
         SMALL(30, 0),   // ~30 blocks diameter, small keep
@@ -353,37 +359,39 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(ox + halfWidth - 1, baseY + groundHeight + 3, oz),
             Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
 
-        // === COURTYARD ===
+        // === COURTYARD — skipped for SMALL size (standalone worldgen structure) ===
         int yardRadius = Math.max(halfWidth, halfDepth) + 5;
-        generatePerimeterFence(world, center, yardRadius, halfWidth, halfDepth);
+        if (size != CastleSize.SMALL) {
+            generatePerimeterFence(world, center, yardRadius, halfWidth, halfDepth);
 
-        // Bell on post
-        world.setBlock(center.offset(-halfWidth - 2, 0, 0), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(center.offset(-halfWidth - 2, 1, 0), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(center.offset(-halfWidth - 2, 2, 0), Blocks.BELL.defaultBlockState(), StructureHelper.SET_FLAGS);
+            // Bell on post
+            world.setBlock(center.offset(-halfWidth - 2, 0, 0), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
+            world.setBlock(center.offset(-halfWidth - 2, 1, 0), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
+            world.setBlock(center.offset(-halfWidth - 2, 2, 0), Blocks.BELL.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Stable area (NW of yard) — fence pen with hay
-        int stableX = ox - halfWidth - 3;
-        int stableZ = oz - halfDepth;
-        for (int x = 0; x <= 4; x++) {
-            world.setBlock(new BlockPos(stableX + x, baseY, stableZ), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(stableX + x, baseY, stableZ + 4), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
+            // Stable area (NW of yard) — fence pen with hay
+            int stableX = ox - halfWidth - 3;
+            int stableZ = oz - halfDepth;
+            for (int x = 0; x <= 4; x++) {
+                world.setBlock(new BlockPos(stableX + x, baseY, stableZ), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
+                world.setBlock(new BlockPos(stableX + x, baseY, stableZ + 4), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
+            }
+            for (int z = 0; z <= 4; z++) {
+                world.setBlock(new BlockPos(stableX, baseY, stableZ + z), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
+                world.setBlock(new BlockPos(stableX + 4, baseY, stableZ + z), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
+            }
+            world.setBlock(new BlockPos(stableX + 2, baseY, stableZ + 4),
+                palette.fenceGate.defaultBlockState().setValue(FenceGateBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+            world.setBlock(new BlockPos(stableX + 1, baseY, stableZ + 1), Blocks.HAY_BLOCK.defaultBlockState(), StructureHelper.SET_FLAGS);
+            world.setBlock(new BlockPos(stableX + 1, baseY + 1, stableZ + 1), Blocks.HAY_BLOCK.defaultBlockState(), StructureHelper.SET_FLAGS);
+            world.setBlock(new BlockPos(stableX + 3, baseY, stableZ + 1), Blocks.CAULDRON.defaultBlockState(), StructureHelper.SET_FLAGS);
+
+            // Lantern at front entrance
+            world.setBlock(new BlockPos(ox - 2, baseY + 3, oz + halfDepth),
+                Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
+
+            placeJigsawConnectors(world, center, yardRadius);
         }
-        for (int z = 0; z <= 4; z++) {
-            world.setBlock(new BlockPos(stableX, baseY, stableZ + z), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(stableX + 4, baseY, stableZ + z), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-        }
-        world.setBlock(new BlockPos(stableX + 2, baseY, stableZ + 4),
-            palette.fenceGate.defaultBlockState().setValue(FenceGateBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(stableX + 1, baseY, stableZ + 1), Blocks.HAY_BLOCK.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(stableX + 1, baseY + 1, stableZ + 1), Blocks.HAY_BLOCK.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(stableX + 3, baseY, stableZ + 1), Blocks.CAULDRON.defaultBlockState(), StructureHelper.SET_FLAGS);
-
-        // Lantern at front entrance
-        world.setBlock(new BlockPos(ox - 2, baseY + 3, oz + halfDepth),
-            Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
-
-        placeJigsawConnectors(world, center, yardRadius);
 
         VillageCastles.LOGGER.debug("Plains manor generation complete!");
         return new CastleBounds(
@@ -547,7 +555,7 @@ public class CastleGenerator {
             palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
         // Terracotta accent behind throne
         world.setBlock(new BlockPos(ox + halfWidth - wallThickness - 2, roomFloor + 1, oz + halfDepth - wallThickness),
-            Blocks.ORANGE_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState(), StructureHelper.SET_FLAGS);
         // Guest seating
         world.setBlock(new BlockPos(dividerX + 2, roomFloor, oz + courtHW + 2),
             palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
@@ -580,7 +588,9 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(ox, baseY + wallHeight + 2, oz + halfDepth - 1),
             Blocks.BELL.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        placeJigsawConnectors(world, center, Math.max(halfWidth, halfDepth));
+        if (size != CastleSize.SMALL) {
+            placeJigsawConnectors(world, center, Math.max(halfWidth, halfDepth));
+        }
 
         VillageCastles.LOGGER.debug("Desert villa generation complete!");
         return new CastleBounds(
@@ -616,22 +626,24 @@ public class CastleGenerator {
             }
         }
 
-        // Acacia palisade fence with dead bush thorn effect
-        for (int angle = 0; angle < 360; angle += 2) {
-            double rad = Math.toRadians(angle);
-            int fx = ox + (int)(yardRadius * Math.cos(rad));
-            int fz = oz + (int)(yardRadius * Math.sin(rad));
-            world.setBlock(new BlockPos(fx, baseY, fz), fence, StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(fx, baseY + 1, fz), fence, StructureHelper.SET_FLAGS);
-        }
-        // Dead bush thorn barriers outside palisade (every ~30 degrees)
-        for (int angle = 0; angle < 360; angle += 30) {
-            double rad = Math.toRadians(angle);
-            int bx = ox + (int)((yardRadius + 1) * Math.cos(rad));
-            int bz = oz + (int)((yardRadius + 1) * Math.sin(rad));
-            // Dead bush needs a valid support block beneath it — place at baseY-1 to replace terrain
-            world.setBlock(new BlockPos(bx, baseY - 1, bz), coarseDirt, StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(bx, baseY, bz), deadBush, StructureHelper.SET_FLAGS);
+        // Acacia palisade fence with dead bush thorn effect — skipped for SMALL (standalone worldgen structure)
+        if (size != CastleSize.SMALL) {
+            for (int angle = 0; angle < 360; angle += 2) {
+                double rad = Math.toRadians(angle);
+                int fx = ox + (int)(yardRadius * Math.cos(rad));
+                int fz = oz + (int)(yardRadius * Math.sin(rad));
+                world.setBlock(new BlockPos(fx, baseY, fz), fence, StructureHelper.SET_FLAGS);
+                world.setBlock(new BlockPos(fx, baseY + 1, fz), fence, StructureHelper.SET_FLAGS);
+            }
+            // Dead bush thorn barriers outside palisade (every ~30 degrees)
+            for (int angle = 0; angle < 360; angle += 30) {
+                double rad = Math.toRadians(angle);
+                int bx = ox + (int)((yardRadius + 1) * Math.cos(rad));
+                int bz = oz + (int)((yardRadius + 1) * Math.sin(rad));
+                // Dead bush needs a valid support block beneath it — place at baseY-1 to replace terrain
+                world.setBlock(new BlockPos(bx, baseY - 1, bz), coarseDirt, StructureHelper.SET_FLAGS);
+                world.setBlock(new BlockPos(bx, baseY, bz), deadBush, StructureHelper.SET_FLAGS);
+            }
         }
 
         // Main dwelling hut (north-west, radius 4, wall height 4)
@@ -664,10 +676,10 @@ public class CastleGenerator {
                 palette.log.defaultBlockState(), StructureHelper.SET_FLAGS);
         }
         // Terracotta accent blocks around fire pit
-        world.setBlock(center.offset(-1, 0, -1), Blocks.ORANGE_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(center.offset(1, 0, -1), Blocks.ORANGE_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(center.offset(-1, 0, 1), Blocks.BROWN_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(center.offset(1, 0, 1), Blocks.BROWN_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+        world.setBlock(center.offset(-1, 0, -1), Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState(), StructureHelper.SET_FLAGS);
+        world.setBlock(center.offset(1, 0, -1), Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState(), StructureHelper.SET_FLAGS);
+        world.setBlock(center.offset(-1, 0, 1), Blocks.DYED_TERRACOTTA.pick(DyeColor.BROWN).defaultBlockState(), StructureHelper.SET_FLAGS);
+        world.setBlock(center.offset(1, 0, 1), Blocks.DYED_TERRACOTTA.pick(DyeColor.BROWN).defaultBlockState(), StructureHelper.SET_FLAGS);
 
         // Animal pen (south-west, acacia fence)
         for (int x = -8; x <= -3; x++) {
@@ -709,24 +721,27 @@ public class CastleGenerator {
         // Crafting table near dwelling
         world.setBlock(center.offset(-1, 0, -3), Blocks.CRAFTING_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Entrance gate south — with 2+ blocks clearance outside
-        world.setBlock(new BlockPos(ox, baseY, oz + yardRadius),
-            palette.fenceGate.defaultBlockState().setValue(FenceGateBlock.FACING, Direction.SOUTH),
-            StructureHelper.SET_FLAGS);
+        // Entrance gate, torch posts, bell, and jigsaw — skipped for SMALL (standalone worldgen structure)
+        if (size != CastleSize.SMALL) {
+            // Entrance gate south — with 2+ blocks clearance outside
+            world.setBlock(new BlockPos(ox, baseY, oz + yardRadius),
+                palette.fenceGate.defaultBlockState().setValue(FenceGateBlock.FACING, Direction.SOUTH),
+                StructureHelper.SET_FLAGS);
 
-        // Torch posts — fence base so torch has a solid support block
-        int[][] torchPosts = {{-2, yardRadius}, {2, yardRadius}, {0, 3}, {-9, 0}, {9, 0}};
-        for (int[] tp : torchPosts) {
-            world.setBlock(new BlockPos(ox + tp[0], baseY, oz + tp[1]), fence, StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + tp[0], baseY + 1, oz + tp[1]), fence, StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + tp[0], baseY + 2, oz + tp[1]), Blocks.TORCH.defaultBlockState(), StructureHelper.SET_FLAGS);
+            // Torch posts — fence base so torch has a solid support block
+            int[][] torchPosts = {{-2, yardRadius}, {2, yardRadius}, {0, 3}, {-9, 0}, {9, 0}};
+            for (int[] tp : torchPosts) {
+                world.setBlock(new BlockPos(ox + tp[0], baseY, oz + tp[1]), fence, StructureHelper.SET_FLAGS);
+                world.setBlock(new BlockPos(ox + tp[0], baseY + 1, oz + tp[1]), fence, StructureHelper.SET_FLAGS);
+                world.setBlock(new BlockPos(ox + tp[0], baseY + 2, oz + tp[1]), Blocks.TORCH.defaultBlockState(), StructureHelper.SET_FLAGS);
+            }
+
+            // Bell on a fence post
+            world.setBlock(center.offset(0, 0, 5), fence, StructureHelper.SET_FLAGS);
+            world.setBlock(center.offset(0, 1, 5), Blocks.BELL.defaultBlockState(), StructureHelper.SET_FLAGS);
+
+            placeJigsawConnectors(world, center, yardRadius);
         }
-
-        // Bell on a fence post
-        world.setBlock(center.offset(0, 0, 5), fence, StructureHelper.SET_FLAGS);
-        world.setBlock(center.offset(0, 1, 5), Blocks.BELL.defaultBlockState(), StructureHelper.SET_FLAGS);
-
-        placeJigsawConnectors(world, center, yardRadius);
 
         VillageCastles.LOGGER.debug("Savanna homestead generation complete!");
         return new CastleBounds(
@@ -1284,10 +1299,10 @@ public class CastleGenerator {
 
         // Beds along the north wall (3 beds, light_blue, facing south)
         // FACING=SOUTH: HEAD at higher Z (south), FOOT at lower Z (north)
-        BlockState bedFoot = Blocks.LIGHT_BLUE_BED.defaultBlockState()
+        BlockState bedFoot = Blocks.BED.pick(DyeColor.LIGHT_BLUE).defaultBlockState()
             .setValue(BedBlock.PART, BedPart.FOOT)
             .setValue(BedBlock.FACING, Direction.SOUTH);
-        BlockState bedHead = Blocks.LIGHT_BLUE_BED.defaultBlockState()
+        BlockState bedHead = Blocks.BED.pick(DyeColor.LIGHT_BLUE).defaultBlockState()
             .setValue(BedBlock.PART, BedPart.HEAD)
             .setValue(BedBlock.FACING, Direction.SOUTH);
 
@@ -1565,7 +1580,7 @@ public class CastleGenerator {
         BlockState cutSandstone = Blocks.CUT_SANDSTONE.defaultBlockState();
         BlockState smoothSandstone = Blocks.SMOOTH_SANDSTONE.defaultBlockState();
         BlockState chiseledSandstone = Blocks.CHISELED_SANDSTONE.defaultBlockState();
-        BlockState orangeTerracotta = Blocks.ORANGE_TERRACOTTA.defaultBlockState();
+        BlockState orangeTerracotta = Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState();
         BlockState soulLantern = Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true);
         BlockState floorLantern = Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, false);
         BlockState wallBlock = palette.wall.defaultBlockState();
@@ -2290,7 +2305,7 @@ public class CastleGenerator {
             double rad = Math.toRadians(angle);
             int ax = (int)(7 * Math.cos(rad));
             int az = (int)(7 * Math.sin(rad));
-            world.setBlock(chiefPos.offset(ax, 0, az), Blocks.ORANGE_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+            world.setBlock(chiefPos.offset(ax, 0, az), Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState(), StructureHelper.SET_FLAGS);
         }
 
         // Throne inside chief's hut: platform is at y+2, floor carpet at y+3, throne ON platform at y+3
@@ -2298,7 +2313,7 @@ public class CastleGenerator {
         world.setBlock(chiefPos.offset(0, 3, -3),
             palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
         // Brown terracotta behind throne
-        world.setBlock(chiefPos.offset(0, 4, -4), Blocks.BROWN_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+        world.setBlock(chiefPos.offset(0, 4, -4), Blocks.DYED_TERRACOTTA.pick(DyeColor.BROWN).defaultBlockState(), StructureHelper.SET_FLAGS);
 
         // Chief's bed: FACING=EAST means HEAD at higher X (-2), FOOT at lower X (-3)
         world.setBlock(chiefPos.offset(-3, 3, 0), palette.bed.defaultBlockState()
@@ -2392,7 +2407,7 @@ public class CastleGenerator {
         // Terracotta ring around fire
         for (int[] off : new int[][]{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) {
             world.setBlock(center.offset(off[0], 0, off[1]),
-                Blocks.ORANGE_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+                Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState(), StructureHelper.SET_FLAGS);
         }
         for (int angle = 0; angle < 360; angle += 45) {
             double rad = Math.toRadians(angle);
@@ -2418,8 +2433,8 @@ public class CastleGenerator {
         world.setBlock(center.offset(-12, 0, 5), Blocks.DECORATED_POT.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(center.offset(0, 0, 12), Blocks.DECORATED_POT.defaultBlockState(), StructureHelper.SET_FLAGS);
         // Brown terracotta accent blocks
-        world.setBlock(center.offset(-14, 0, 0), Blocks.BROWN_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(center.offset(14, 0, 0), Blocks.BROWN_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+        world.setBlock(center.offset(-14, 0, 0), Blocks.DYED_TERRACOTTA.pick(DyeColor.BROWN).defaultBlockState(), StructureHelper.SET_FLAGS);
+        world.setBlock(center.offset(14, 0, 0), Blocks.DYED_TERRACOTTA.pick(DyeColor.BROWN).defaultBlockState(), StructureHelper.SET_FLAGS);
 
         // Hay storage near granary
         world.setBlock(center.offset(10, 0, 10), hayBlock, StructureHelper.SET_FLAGS);
@@ -2580,7 +2595,7 @@ public class CastleGenerator {
             // Orange terracotta border around fire pits
             for (int[] off : new int[][]{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) {
                 world.setBlock(new BlockPos(ox + off[0], floorY + 1, oz + z + off[1]),
-                    Blocks.ORANGE_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+                    Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState(), StructureHelper.SET_FLAGS);
             }
             // Smoke hole in roof above each fire
             world.setBlock(new BlockPos(ox, roofY, oz + z), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -2607,14 +2622,14 @@ public class CastleGenerator {
             palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
         // Brown terracotta behind throne
         world.setBlock(new BlockPos(ox, floorY + 3, oz - halfLength + 2),
-            Blocks.BROWN_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.BROWN).defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox, floorY + 4, oz - halfLength + 2),
-            Blocks.BROWN_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.BROWN).defaultBlockState(), StructureHelper.SET_FLAGS);
         // Terracotta accents flanking throne
         world.setBlock(new BlockPos(ox - 2, floorY + 3, oz - halfLength + 3),
-            Blocks.ORANGE_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + 2, floorY + 3, oz - halfLength + 3),
-            Blocks.ORANGE_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+            Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState(), StructureHelper.SET_FLAGS);
 
         // Orange carpet runner from throne down the hall
         for (int z = -halfLength + 7; z <= 0; z++) {
@@ -3065,10 +3080,13 @@ public class CastleGenerator {
 
         VillageCastles.LOGGER.debug("Standard fort generation complete!");
 
-        // Bounds: include jigsaw connectors (at radius+1) plus 1 block margin
+        // For plains/medium the motte slope extends to baseRadius+2 = (radius+22)+2 = radius+24
+        // from the original (ground-level) center. Use whichever is larger so the full motte
+        // is always captured.
+        int xzCapture = hasMotte ? (radius + 24) : (radius + 2);
         return new CastleBounds(
-            originalCenter.offset(-radius - 2, 0, -radius - 2),
-            buildCenter.offset(radius + 2, keepHeight + 10, radius + 2)
+            originalCenter.offset(-xzCapture, 0, -xzCapture),
+            buildCenter.offset(xzCapture, keepHeight + 10, xzCapture)
         );
     }
 
@@ -3955,7 +3973,7 @@ public class CastleGenerator {
         BlockState air = Blocks.AIR.defaultBlockState();
         BlockState hangLantern = Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true);
         BlockState floorLantern = Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, false);
-        BlockState orangeTerracotta = Blocks.ORANGE_TERRACOTTA.defaultBlockState();
+        BlockState orangeTerracotta = Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState();
         BlockState chiseledSandstone = Blocks.CHISELED_SANDSTONE.defaultBlockState();
         BlockState carpet = palette.getCarpetState();
         BlockState wallBlock = palette.wall.defaultBlockState();
@@ -5681,7 +5699,7 @@ public class CastleGenerator {
             jigsaw.setPool(targetPool);
             jigsaw.setName(Identifier.fromNamespaceAndPath("minecraft", "bottom"));
             jigsaw.setTarget(Identifier.fromNamespaceAndPath("minecraft", "bottom"));
-            jigsaw.setFinalState("minecraft:dirt_path");
+            jigsaw.setFinalState(JIGSAW_FINAL_DIRT_PATH);
             jigsaw.setJoint(JigsawBlockEntity.JointType.ROLLABLE);
             jigsaw.setChanged();
         }
@@ -5702,7 +5720,7 @@ public class CastleGenerator {
             jigsaw.setPool(targetPool);
             jigsaw.setName(Identifier.fromNamespaceAndPath("villagecastles", "wall_end"));
             jigsaw.setTarget(Identifier.fromNamespaceAndPath("villagecastles", "wall_end"));
-            jigsaw.setFinalState("minecraft:air");
+            jigsaw.setFinalState(JIGSAW_FINAL_AIR);
             jigsaw.setJoint(JigsawBlockEntity.JointType.ALIGNED);
             jigsaw.setChanged();
         }

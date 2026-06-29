@@ -79,9 +79,21 @@ public class StructureHelper {
     }
 
     /**
-     * Build a cylindrical tower.
+     * Build a solid (filled) cylindrical column.
      */
-    public static void buildCylinder(ServerLevel world, BlockPos center, int radius, int height, BlockState state, boolean hollow) {
+    public static void buildSolidCylinder(ServerLevel world, BlockPos center, int radius, int height, BlockState state) {
+        buildCylinderImpl(world, center, radius, height, state, false);
+    }
+
+    /**
+     * Build a hollow cylindrical tower (only the outer shell, interior cleared to air).
+     */
+    public static void buildHollowCylinder(ServerLevel world, BlockPos center, int radius, int height, BlockState state) {
+        buildCylinderImpl(world, center, radius, height, state, true);
+    }
+
+    /** Shared implementation for solid and hollow cylinder placement. */
+    private static void buildCylinderImpl(ServerLevel world, BlockPos center, int radius, int height, BlockState state, boolean hollow) {
         int radiusSq = radius * radius;
         double innerSq = (radius - 1.5) * (radius - 1.5);
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();

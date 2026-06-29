@@ -10,6 +10,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.SpawnerBlockEntity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.BuiltInLootTables;
 import net.minecraft.resources.ResourceKey;
@@ -102,11 +103,11 @@ public class RuinsGenerator {
     private final Random random;
 
     // Spawner mob type per biome
-    private static final EntityType<?> PLAINS_MOB = EntityType.ZOMBIE;
-    private static final EntityType<?> DESERT_MOB = EntityType.HUSK;
-    private static final EntityType<?> SAVANNA_MOB = EntityType.SPIDER;
-    private static final EntityType<?> TAIGA_MOB = EntityType.SKELETON;
-    private static final EntityType<?> SNOWY_MOB = EntityType.STRAY;
+    private static final EntityType<?> PLAINS_MOB = EntityTypes.ZOMBIE;
+    private static final EntityType<?> DESERT_MOB = EntityTypes.HUSK;
+    private static final EntityType<?> SAVANNA_MOB = EntityTypes.SPIDER;
+    private static final EntityType<?> TAIGA_MOB = EntityTypes.SKELETON;
+    private static final EntityType<?> SNOWY_MOB = EntityTypes.STRAY;
 
     // ---------------------------------------------------------------
     // Constructor
@@ -330,7 +331,7 @@ public class RuinsGenerator {
             if (wallCount < 2) continue;
 
             // First spawner is always a zombie villager — the inhabitants didn't all leave
-            EntityType<?> thisSpawnerMob = (placed == 0) ? EntityType.ZOMBIE_VILLAGER : mobType;
+            EntityType<?> thisSpawnerMob = (placed == 0) ? EntityTypes.ZOMBIE_VILLAGER : mobType;
             placeSpawner(world, probe.immutable(), thisSpawnerMob);
 
             // Surround with cobwebs for atmosphere

@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "villagecastles:snowy_castle_medium",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 32,
+    "separation": 12,
+    "salt": 280562386
+  }
+}

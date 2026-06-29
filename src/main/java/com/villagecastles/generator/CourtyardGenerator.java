@@ -1,6 +1,7 @@
 package com.villagecastles.generator;
 
 import com.villagecastles.util.StructureHelper;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
@@ -287,9 +288,9 @@ public class CourtyardGenerator {
         }
 
         // Terracotta targets on the wall
-        world.setBlock(center.offset(-1, 2, 4), Blocks.RED_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(center.offset(1, 2, 4), Blocks.RED_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(center.offset(0, 2, 4), Blocks.WHITE_TERRACOTTA.defaultBlockState(), StructureHelper.SET_FLAGS);
+        world.setBlock(center.offset(-1, 2, 4), Blocks.DYED_TERRACOTTA.pick(DyeColor.RED).defaultBlockState(), StructureHelper.SET_FLAGS);
+        world.setBlock(center.offset(1, 2, 4), Blocks.DYED_TERRACOTTA.pick(DyeColor.RED).defaultBlockState(), StructureHelper.SET_FLAGS);
+        world.setBlock(center.offset(0, 2, 4), Blocks.DYED_TERRACOTTA.pick(DyeColor.WHITE).defaultBlockState(), StructureHelper.SET_FLAGS);
 
         // Shooting positions marked with slabs
         for (int i = -2; i <= 2; i += 2) {

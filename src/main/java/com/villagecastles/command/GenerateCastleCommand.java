@@ -1,6 +1,7 @@
 package com.villagecastles.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
@@ -16,6 +17,7 @@ import net.minecraft.commands.CommandSource;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.server.permissions.Permissions;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructurePlaceSettings;
 import net.minecraft.world.level.levelgen.structure.templatesystem.StructureTemplate;
 import net.minecraft.world.level.block.Rotation;
@@ -44,13 +46,18 @@ import java.util.Arrays;
  */
 public class GenerateCastleCommand {
 
-    // Last generated bounds — used by /villagecastles capture
     private static CastleGenerator.CastleBounds lastBounds = null;
     private static String lastBiome = null;
     private static String lastSize = null;
+    // Center of the last generate — used as flood-fill origin for auto-bounds on capture
+    private static BlockPos lastGenerateCenter = null;
+
+    // Mutable capture region (used by bounds show/expand/shrink if needed)
+    private static BlockPos captureMin = null;
+    private static BlockPos captureMax = null;
 
     private static final java.util.function.Predicate<CommandSourceStack> REQUIRES_OP =
-        source -> source.permissions().hasPermission(new net.minecraft.server.permissions.Permission.HasCommandLevel(net.minecraft.server.permissions.PermissionLevel.GAMEMASTERS));
+        source -> source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER);
 
     private static final SuggestionProvider<CommandSourceStack> BIOME_SUGGESTIONS =
         (context, builder) -> SharedSuggestionProvider.suggest(
@@ -165,13 +172,23 @@ public class GenerateCastleCommand {
                 )
                 .then(Commands.literal("capture")
                     .requires(REQUIRES_OP)
-                    .executes(GenerateCastleCommand::executeCapture)
+                    .executes(ctx -> executeCapture(ctx, 1))
                     .then(Commands.argument("biome", StringArgumentType.word())
                         .suggests(BIOME_SUGGESTIONS)
                         .then(Commands.argument("size", StringArgumentType.word())
                             .suggests(SIZE_SUGGESTIONS)
-                            .executes(GenerateCastleCommand::executeCaptureAtPlayer)
+                            .executes(ctx -> executeCaptureAtPlayer(ctx, 1))
+                            .then(Commands.argument("yOffset", IntegerArgumentType.integer(-64, 64))
+                                .executes(ctx -> executeCaptureAtPlayer(ctx, IntegerArgumentType.getInteger(ctx, "yOffset")))
+                            )
                         )
+                    )
+                )
+                .then(Commands.literal("bounds")
+                    .requires(REQUIRES_OP)
+                    .executes(GenerateCastleCommand::executeBoundsShow)
+                    .then(Commands.literal("show")
+                        .executes(GenerateCastleCommand::executeBoundsShow)
                     )
                 )
                 .then(Commands.literal("status")
@@ -244,6 +261,9 @@ public class GenerateCastleCommand {
             lastBounds = bounds;
             lastBiome = palette.id;
             lastSize = size.name().toLowerCase();
+            lastGenerateCenter = generatePos;
+            captureMin = bounds.min;
+            captureMax = bounds.max;
 
             source.sendSuccess(() -> Component.translatable("commands.villagecastles.generate.success",
                 bounds.getWidth(), bounds.getHeight(), bounds.getDepth()), false);
@@ -303,10 +323,14 @@ public class GenerateCastleCommand {
             StructureTemplate template = new StructureTemplate();
             template.load(world.registryAccess().lookupOrThrow(Registries.BLOCK), nbt);
 
-            // Place centered on player — offset by half the structure size
+            // Place in front of player at their feet. local Y=0 = player's feet Y.
+            // Stand at the position where you want the ground floor to appear.
+            net.minecraft.core.Direction facing = source.getPlayerOrException().getDirection();
             int halfX = template.getSize().getX() / 2;
             int halfZ = template.getSize().getZ() / 2;
-            BlockPos placePos = playerPos.offset(-halfX, 0, -halfZ);
+            int frontDist = Math.max(halfX, halfZ) + 2;
+            BlockPos frontCenter = playerPos.relative(facing, frontDist);
+            BlockPos placePos = frontCenter.offset(-halfX, 0, -halfZ);
 
             StructurePlaceSettings placement = new StructurePlaceSettings()
                 .setRotation(Rotation.NONE)
@@ -411,25 +435,68 @@ public class GenerateCastleCommand {
      * Capture the CURRENT world state at the last generated bounds and save as NBT.
      * This lets you: generate → hand-edit in creative → capture the polished result.
      */
-    private static int executeCapture(CommandContext<CommandSourceStack> ctx) {
+    private static int executeCapture(CommandContext<CommandSourceStack> ctx, int yOffset) {
         CommandSourceStack source = ctx.getSource();
 
-        if (lastBounds == null || lastBiome == null || lastSize == null) {
+        if (lastGenerateCenter == null || lastBiome == null || lastSize == null) {
             source.sendFailure(Component.literal("Nothing to capture. Generate a structure first with /villagecastles generate"));
             return 0;
         }
 
         try {
             ServerLevel world = source.getLevel();
+
+            // --- Auto-derive tight bounding box from non-air blocks near the generation center ---
+            // The castle was generated in an air-cleared region, so every non-air block is structure.
+            int searchR = 80; // large enough for any castle size
+            BlockPos center = lastGenerateCenter;
+            int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+            int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+            int found = 0;
+            for (int x = center.getX() - searchR; x <= center.getX() + searchR; x++) {
+                for (int y = center.getY() - 10; y <= center.getY() + searchR; y++) {
+                    for (int z = center.getZ() - searchR; z <= center.getZ() + searchR; z++) {
+                        if (!world.getBlockState(new BlockPos(x, y, z)).isAir()) {
+                            if (x < minX) minX = x; if (x > maxX) maxX = x;
+                            if (y < minY) minY = y; if (y > maxY) maxY = y;
+                            if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+                            found++;
+                        }
+                    }
+                }
+            }
+            if (found == 0) {
+                source.sendFailure(Component.literal("No structure blocks found near the generation center. Did you clear it accidentally?"));
+                return 0;
+            }
+            final BlockPos tightMin = new BlockPos(minX, minY, minZ);
+            final BlockPos tightMax = new BlockPos(maxX, maxY, maxZ);
+            final int blockCount = found;
+
+            // Use the generate position Y as local Y=0, matching the batch exporter convention.
+            // The batch exporter exports from bounds.min.Y = originalCenter.Y = generatePos.Y.
+            // Worldgen places at surfaceH - 3, so local Y=3 = surfaceH (visual floor).
+            // originY = player's feet - yOffset. Default yOffset=1 → block below feet.
+            // Use /villagecastles capture <biome> <size> <yOffset> to adjust.
+            BlockPos captureStandPos = BlockPos.containing(source.getPosition());
+            int originY = captureStandPos.getY() - yOffset;
+
+            final int fw = tightMax.getX() - tightMin.getX();
+            final int fh = tightMax.getY() - tightMin.getY();
+            final int fd = tightMax.getZ() - tightMin.getZ();
+            source.sendSuccess(() -> Component.literal("§eFound " + blockCount + " blocks, bounds " +
+                fw + "×" + fh + "×" + fd + ". Ground reference Y=" + originY + " (your feet)"), true);
+
+            BlockPos exportMin = new BlockPos(tightMin.getX(), originY, tightMin.getZ());
+            BlockPos exportMax = tightMax;
+            captureMin = exportMin;
+            captureMax = exportMax;
+
             String structurePath = lastBiome + "/castle_" + lastSize;
             Path runDir = source.getServer().getServerDirectory();
             Path outputPath = NbtExporter.getStructureOutputPath(structurePath, runDir);
 
-            source.sendSuccess(() -> Component.literal("§eSaving world state at " +
-                lastBounds.getWidth() + "x" + lastBounds.getHeight() + "x" + lastBounds.getDepth() +
-                " to " + structurePath + "..."), true);
-
-            boolean exported = NbtExporter.exportRegion(world, lastBounds.min, lastBounds.max, outputPath);
+            boolean exported = NbtExporter.exportRegion(world, exportMin, exportMax, outputPath);
 
             if (exported) {
                 NbtExporter.markPolished(outputPath);
@@ -454,7 +521,7 @@ public class GenerateCastleCommand {
      *   /villagecastles capture <biome> <size>
      * This saves your hand-edited work without regenerating.
      */
-    private static int executeCaptureAtPlayer(CommandContext<CommandSourceStack> ctx) {
+    private static int executeCaptureAtPlayer(CommandContext<CommandSourceStack> ctx, int yOffset) {
         CommandSourceStack source = ctx.getSource();
         String biomeStr = StringArgumentType.getString(ctx, "biome");
         String sizeStr = StringArgumentType.getString(ctx, "size");
@@ -487,7 +554,9 @@ public class GenerateCastleCommand {
             aboveGround = size == CastleGenerator.CastleSize.LARGE ? 40 : 25;
         }
 
-        BlockPos min = playerPos.offset(-hRadius, -belowGround, -hRadius);
+        // originY = player's feet - yOffset. Default yOffset=1 → block below feet = local Y=0.
+        int captureOriginY = playerPos.getY() - yOffset;
+        BlockPos min = new BlockPos(playerPos.getX() - hRadius, captureOriginY, playerPos.getZ() - hRadius);
         BlockPos max = playerPos.offset(hRadius, aboveGround, hRadius);
 
         try {
@@ -967,6 +1036,21 @@ public class GenerateCastleCommand {
         source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.workflow_3"), false);
         source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.workflow_4"), false);
 
+        return 1;
+    }
+
+    private static int executeBoundsShow(CommandContext<CommandSourceStack> ctx) {
+        CommandSourceStack source = ctx.getSource();
+        if (captureMin == null || captureMax == null) {
+            source.sendFailure(Component.literal("No capture region — run /villagecastles generate first."));
+            return 0;
+        }
+        int w = captureMax.getX() - captureMin.getX();
+        int h = captureMax.getY() - captureMin.getY();
+        int d = captureMax.getZ() - captureMin.getZ();
+        source.sendSuccess(() -> Component.literal("§eLast capture region: " + w + "×" + h + "×" + d), false);
+        source.sendSuccess(() -> Component.literal("  §7Min: " + captureMin.toShortString() + "  Max: " + captureMax.toShortString()), false);
+        source.sendSuccess(() -> Component.literal("§7Run /villagecastles capture from ground level to auto-derive tight bounds and anchor Y."), false);
         return 1;
     }
 }

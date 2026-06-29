@@ -4,6 +4,7 @@ import com.villagecastles.command.GenerateCastleCommand;
 import com.villagecastles.export.StructureExporter;
 import com.villagecastles.integration.VillageBuilderIntegration;
 import com.villagecastles.integration.VillageQuestsIntegration;
+import com.villagecastles.worldgen.CastleStructureRegistration;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
@@ -20,6 +21,9 @@ public class VillageCastles implements ModInitializer {
     @Override
     public void onInitialize() {
         LOGGER.info("Village Castles initializing...");
+
+        // Register structure type + piece type (must happen before world loads)
+        CastleStructureRegistration.register();
 
         // Register commands
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
