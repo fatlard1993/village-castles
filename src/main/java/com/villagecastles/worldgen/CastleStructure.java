@@ -45,7 +45,7 @@ public class CastleStructure extends Structure {
     private static final int MAX_SLOPE = 6;
 
     // Vanilla random_spread parameters for each biome's village structure set.
-    // Same algorithm MC uses internally — lets us predict where the nearest village
+    // Same algorithm MC uses internally: lets us predict where the nearest village
     // would land without querying the live world state.
     private static final int VILLAGE_SPACING    = 32;  // chunks between village grid cells
     private static final int VILLAGE_SEPARATION = 8;   // minimum chunks between villages
@@ -110,7 +110,7 @@ public class CastleStructure extends Structure {
 
     @Override
     public Optional<GenerationStub> findGenerationPoint(GenerationContext context) {
-        // Reject positions not near a village — castle density is handled by the
+        // Reject positions not near a village: castle density is handled by the
         // structure_set spacing; this bailout ensures they only appear near villages.
         if (!hasNearbyVillage(context)) return Optional.empty();
 
@@ -122,7 +122,7 @@ public class CastleStructure extends Structure {
             cx, cz, Heightmap.Types.WORLD_SURFACE_WG,
             context.heightAccessor(), context.randomState()
         );
-        // Reject water/ocean — check center and all 4 corners
+        // Reject water/ocean: check center and all 4 corners
         if (centerH <= SEA_LEVEL + 2) return Optional.empty();
 
         int minH = centerH, maxH = centerH;
@@ -155,7 +155,7 @@ public class CastleStructure extends Structure {
         // getFirstOccupiedHeight(WORLD_SURFACE_WG) returns grassY+1 (first *empty* block).
         // local y=0 = player's feet at capture time (the intended ground floor).
         // Place at surfaceH so local y=0 lands exactly at the terrain surface.
-        // Plains/medium (motte castle): same convention — motte base at ground level.
+        // Plains/medium (motte castle): same convention, motte base at ground level.
         int y = surfaceH;
         VillageCastles.LOGGER.debug("[castle] cx={} cz={} surfaceH={} placing at y={}", cx, cz, surfaceH, y);
 

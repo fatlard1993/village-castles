@@ -25,7 +25,6 @@ public class VillageCastles implements ModInitializer {
         // Register structure type + piece type (must happen before world loads)
         CastleStructureRegistration.register();
 
-        // Register commands
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             GenerateCastleCommand.register(dispatcher);
         });
@@ -36,7 +35,7 @@ public class VillageCastles implements ModInitializer {
 
         // Auto-export mode: generate and save all structures on first server tick, then stop
         if (AUTO_EXPORT) {
-            LOGGER.info("Auto-export mode enabled — will generate all structures on first tick");
+            LOGGER.info("Auto-export mode enabled; will generate all structures on first tick");
             ServerTickEvents.END_SERVER_TICK.register(new StructureExporter());
         }
 

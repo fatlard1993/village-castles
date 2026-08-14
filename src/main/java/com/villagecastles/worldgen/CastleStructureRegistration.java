@@ -14,7 +14,7 @@ import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType;
  * built-in (synchronous) registries.
  *
  * <p>The Structure instance and StructureSet instance are provided via JSON data files
- * (dynamic/datapack registries) — not registered here.
+ * (dynamic/datapack registries): not registered here.
  *
  * <p>Call {@link #register()} from {@link VillageCastles#onInitialize()}.
  */

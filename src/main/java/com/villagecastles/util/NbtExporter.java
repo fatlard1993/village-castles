@@ -43,7 +43,6 @@ public class NbtExporter {
 
             CompoundTag nbt = template.save(new CompoundTag());
 
-            // Ensure parent directories exist
             Files.createDirectories(output.getParent());
 
             NbtIo.writeCompressed(nbt, output);
@@ -87,7 +86,7 @@ public class NbtExporter {
             }
             dir = parent;
         }
-        // Fallback: original behaviour
+        // Fallback: assume runDir is directly inside the project root
         return runDir.toAbsolutePath().getParent()
             .resolve("src/main/resources/data/villagecastles/structure")
             .resolve(structurePath + ".nbt");

@@ -91,9 +91,9 @@ public class CastleGenerator {
     /**
      * Generate a complete castle at the specified position.
      * Structure type varies fundamentally by size:
-     *   SMALL  — Tower Keep: keep + perimeter fence (fortified home)
-     *   MEDIUM — Standard Fort: keep + walls + corner towers + gatehouse
-     *   LARGE  — Grand Castle: everything medium has + wall towers + back gate + stables/barracks
+     *   SMALL:  tower keep with perimeter fence (fortified home)
+     *   MEDIUM: standard fort (keep, walls, corner towers, gatehouse)
+     *   LARGE:  grand castle (medium plus wall towers, back gate, stables, barracks)
      *
      * @param world The server world
      * @param center The center position of the castle courtyard
@@ -120,7 +120,7 @@ public class CastleGenerator {
     }
 
     /**
-     * SMALL — Biome-specific fortified structure.
+     * SMALL: Biome-specific fortified structure.
      * Each biome gets a distinct small fortification with its own architectural language.
      */
     private CastleBounds generateSmall(ServerLevel world, BlockPos center, int radius,
@@ -135,7 +135,7 @@ public class CastleGenerator {
     }
 
     /**
-     * PLAINS SMALL — Manor house.
+     * PLAINS SMALL: Manor house.
      * The village leader's home. Stone brick ground floor, oak-framed upper floor,
      * peaked roof with chimney. Bigger than any vanilla house, smaller than a castle.
      * Ground floor: great room with hearth, dining table, workstations.
@@ -143,8 +143,7 @@ public class CastleGenerator {
      * Fenced courtyard with bell, stable area.
      */
     private CastleBounds generatePlainsManor(ServerLevel world, BlockPos center) {
-        // Building dimensions — wider than tall, L-shaped footprint would be ideal
-        // but rectangular is more reliable for procedural gen
+        // Rectangular footprint: more reliable for procedural gen than L-shaped
         int halfWidth = 7;  // east-west (15 blocks wide)
         int halfDepth = 5;  // north-south (11 blocks deep)
         int groundHeight = 4; // stone brick ground floor
@@ -154,7 +153,7 @@ public class CastleGenerator {
         int ox = center.getX(), oz = center.getZ();
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
 
-        // === GROUND FLOOR — Stone brick ===
+        // === GROUND FLOOR: Stone brick ===
         StructureHelper.fillBox(world,
             center.offset(-halfWidth, 0, -halfDepth),
             center.offset(halfWidth, groundHeight, halfDepth),
@@ -169,7 +168,7 @@ public class CastleGenerator {
             center.offset(halfWidth - 1, 0, halfDepth - 1),
             baseY + 1, palette.getPlanksState());
 
-        // === UPPER FLOOR — Oak log timber frame on stone base ===
+        // === UPPER FLOOR: Oak log timber frame on stone base ===
         // Upper walls: oak log frame with planks infill
         BlockState logBlock = palette.log.defaultBlockState();
         BlockState planksBlock = palette.getPlanksState();
@@ -215,7 +214,7 @@ public class CastleGenerator {
                 palette.getRoofState(), StructureHelper.SET_FLAGS);
         }
 
-        // === CHIMNEY — stone brick, east end ===
+        // === CHIMNEY: stone brick, east end ===
         int chimneyX = ox + halfWidth - 2;
         for (int y = 1; y <= totalWall + roofPeak + 2; y++) {
             world.setBlock(new BlockPos(chimneyX, baseY + y, oz),
@@ -224,7 +223,7 @@ public class CastleGenerator {
                 palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
         }
 
-        // === FRONT ENTRANCE — south, covered porch ===
+        // === FRONT ENTRANCE: south, covered porch ===
         // Door opening (2 wide, 3 tall)
         for (int x = -1; x <= 0; x++) {
             for (int y = 1; y <= 3; y++) {
@@ -248,7 +247,7 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(ox - 1, baseY + 1, oz + halfDepth), palette.getPlanksState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox, baseY + 1, oz + halfDepth), palette.getPlanksState(), StructureHelper.SET_FLAGS);
 
-        // === WINDOWS — glass panes ===
+        // === WINDOWS: glass panes ===
         // Ground floor windows (2 wide each, east and west walls)
         for (int z : new int[]{-2, 2}) {
             world.setBlock(new BlockPos(ox - halfWidth, baseY + 2, oz + z), Blocks.GLASS_PANE.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -264,7 +263,7 @@ public class CastleGenerator {
             world.setBlock(new BlockPos(ox + halfWidth, baseY + groundHeight + 3, oz + z), Blocks.GLASS_PANE.defaultBlockState(), StructureHelper.SET_FLAGS);
         }
 
-        // === STAIRCASE — oak stairs, SW corner, connecting floors ===
+        // === STAIRCASE: oak stairs, SW corner, connecting floors ===
         int stairX = ox - halfWidth + 2;
         int stairZ = oz + halfDepth - 2;
         for (int i = 0; i < groundHeight; i++) {
@@ -286,13 +285,13 @@ public class CastleGenerator {
         }
 
         // === GROUND FLOOR FURNISHING ===
-        // Hearth — campfire against east wall (next to chimney)
+        // Hearth: campfire against east wall (next to chimney)
         world.setBlock(new BlockPos(ox + halfWidth - 3, baseY + 1, oz),
             Blocks.STONE_BRICKS.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + halfWidth - 3, baseY + 2, oz),
             Blocks.CAMPFIRE.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Dining table (center of great room) — oak slabs on fences
+        // Dining table (center of great room): oak slabs on fences
         for (int x = -2; x <= 1; x++) {
             world.setBlock(new BlockPos(ox + x, baseY + 1, oz - 1), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(ox + x, baseY + 2, oz - 1), palette.woodSlab.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -317,7 +316,7 @@ public class CastleGenerator {
             world.setBlock(new BlockPos(ox, baseY + 2, oz + z), palette.carpet.defaultBlockState(), StructureHelper.SET_FLAGS);
         }
 
-        // Wall torches — ground floor
+        // Wall torches: ground floor
         world.setBlock(new BlockPos(ox - halfWidth + 1, baseY + 3, oz - halfDepth + 1),
             Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox - halfWidth + 1, baseY + 3, oz + halfDepth - 1),
@@ -325,7 +324,7 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(ox + halfWidth - 1, baseY + 3, oz - halfDepth + 1),
             Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
 
-        // === UPPER FLOOR FURNISHING — Bedchamber ===
+        // === UPPER FLOOR FURNISHING: Bedchamber ===
         int upFloor = baseY + groundHeight + 2; // furniture Y (on upper floor)
 
         // Master bed (center-north)
@@ -343,7 +342,6 @@ public class CastleGenerator {
         // Personal chest
         StructureHelper.placeChest(world, new BlockPos(ox + halfWidth - 2, upFloor, oz), Direction.WEST, BuiltInLootTables.VILLAGE_PLAINS_HOUSE);
 
-        // Bookshelf
         world.setBlock(new BlockPos(ox + 3, upFloor, oz - halfDepth + 1), Blocks.BOOKSHELF.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + 4, upFloor, oz - halfDepth + 1), Blocks.BOOKSHELF.defaultBlockState(), StructureHelper.SET_FLAGS);
 
@@ -353,13 +351,13 @@ public class CastleGenerator {
         // Flower pot on windowsill (decorative touch)
         world.setBlock(new BlockPos(ox - halfWidth + 1, upFloor, oz - 2), Blocks.FLOWER_POT.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Wall torches — upper floor
+        // Wall torches: upper floor
         world.setBlock(new BlockPos(ox - halfWidth + 1, baseY + groundHeight + 3, oz),
             Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.EAST), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + halfWidth - 1, baseY + groundHeight + 3, oz),
             Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
 
-        // === COURTYARD — skipped for SMALL size (standalone worldgen structure) ===
+        // === COURTYARD: skipped for SMALL size (standalone worldgen structure) ===
         int yardRadius = Math.max(halfWidth, halfDepth) + 5;
         if (size != CastleSize.SMALL) {
             generatePerimeterFence(world, center, yardRadius, halfWidth, halfDepth);
@@ -369,7 +367,7 @@ public class CastleGenerator {
             world.setBlock(center.offset(-halfWidth - 2, 1, 0), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
             world.setBlock(center.offset(-halfWidth - 2, 2, 0), Blocks.BELL.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-            // Stable area (NW of yard) — fence pen with hay
+            // Stable area (NW of yard): fence pen with hay
             int stableX = ox - halfWidth - 3;
             int stableZ = oz - halfDepth;
             for (int x = 0; x <= 4; x++) {
@@ -401,11 +399,11 @@ public class CastleGenerator {
     }
 
     /**
-     * DESERT SMALL — Walled villa.
+     * DESERT SMALL: Walled villa.
      * Rectangular, squat, thick sandstone walls. Flat walkable roof with parapet.
      * Open-air courtyard in the center with a water feature. Rooms around the
-     * perimeter — shaded, cool, furnished. From outside: a solid sandstone block
-     * with a door. From inside: comfortable and lived-in. A desert lord's home.
+     * perimeter are shaded, cool, and furnished. From outside, a solid sandstone block
+     * with a door. From inside, comfortable and lived-in. A desert lord's home.
      */
     private CastleBounds generateDesertOutpost(ServerLevel world, BlockPos center) {
         int halfWidth = 8;   // east-west
@@ -416,7 +414,7 @@ public class CastleGenerator {
         int ox = center.getX(), oz = center.getZ();
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
 
-        // === OUTER WALLS — thick sandstone, the defining visual ===
+        // === OUTER WALLS: thick sandstone, the defining visual ===
         StructureHelper.fillBox(world,
             center.offset(-halfWidth, 0, -halfDepth),
             center.offset(halfWidth, wallHeight, halfDepth),
@@ -444,7 +442,7 @@ public class CastleGenerator {
             center.offset(halfWidth, 0, halfDepth),
             baseY + wallHeight + 1, palette.getPrimaryWallState());
 
-        // === OPEN-AIR COURTYARD — center, 4x4 ===
+        // === OPEN-AIR COURTYARD: center, 4x4 ===
         int courtHW = 2;
         // Remove the roof over the courtyard (let sky in)
         for (int x = -courtHW; x <= courtHW; x++) {
@@ -462,7 +460,7 @@ public class CastleGenerator {
                 palette.stoneStairs.defaultBlockState(), StructureHelper.SET_FLAGS);
         }
 
-        // === INTERIOR PARTITION — divides rooms ===
+        // === INTERIOR PARTITION: divides rooms ===
         // North-south wall dividing east rooms from west
         int dividerX = ox - 2;
         for (int z = -halfDepth + wallThickness; z <= -courtHW - 1; z++) {
@@ -485,7 +483,7 @@ public class CastleGenerator {
                 Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
         }
 
-        // === FRONT ENTRANCE — south wall, recessed doorway ===
+        // === FRONT ENTRANCE: south wall, recessed doorway ===
         for (int y = 1; y <= 3; y++) {
             for (int t = 0; t < wallThickness; t++) {
                 world.setBlock(new BlockPos(ox, baseY + y, oz + halfDepth - t),
@@ -505,7 +503,7 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(ox - 3, baseY + 3, oz - halfDepth), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + 3, baseY + 3, oz - halfDepth), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // === BEDCHAMBER — NW room (west of divider, north of courtyard) ===
+        // === BEDCHAMBER: NW room (west of divider, north of courtyard) ===
         int roomFloor = baseY + 2; // furniture sits on the smooth sandstone floor at baseY+1
         // Master bed against north wall
         world.setBlock(new BlockPos(ox - halfWidth + wallThickness + 1, roomFloor, oz - halfDepth + wallThickness),
@@ -520,11 +518,10 @@ public class CastleGenerator {
         // Chest
         StructureHelper.placeChest(world, new BlockPos(dividerX - 1, roomFloor, oz - halfDepth + wallThickness),
             Direction.SOUTH, BuiltInLootTables.VILLAGE_DESERT_HOUSE);
-        // Carpet
         world.setBlock(new BlockPos(ox - halfWidth + wallThickness + 2, roomFloor, oz - courtHW - 1),
             palette.carpet.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // === STUDY — NE room (east of divider, north of courtyard) ===
+        // === STUDY: NE room (east of divider, north of courtyard) ===
         world.setBlock(new BlockPos(dividerX + 2, roomFloor, oz - halfDepth + wallThickness),
             Blocks.BOOKSHELF.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(dividerX + 3, roomFloor, oz - halfDepth + wallThickness),
@@ -535,11 +532,10 @@ public class CastleGenerator {
             Blocks.LECTERN.defaultBlockState(), StructureHelper.SET_FLAGS);
         StructureHelper.placeChest(world, new BlockPos(ox + halfWidth - wallThickness - 1, roomFloor, oz - halfDepth + wallThickness),
             Direction.SOUTH, BuiltInLootTables.VILLAGE_DESERT_HOUSE);
-        // Decorated pot
         world.setBlock(new BlockPos(ox + halfWidth - wallThickness - 1, roomFloor, oz - courtHW - 1),
             Blocks.DECORATED_POT.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // === KITCHEN — SW room (west of divider, south of courtyard) ===
+        // === KITCHEN: SW room (west of divider, south of courtyard) ===
         world.setBlock(new BlockPos(ox - halfWidth + wallThickness + 1, roomFloor, oz + halfDepth - wallThickness - 1),
             Blocks.SMOKER.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox - halfWidth + wallThickness + 2, roomFloor, oz + halfDepth - wallThickness - 1),
@@ -549,7 +545,7 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(ox - halfWidth + wallThickness + 2, roomFloor, oz + halfDepth - wallThickness),
             Blocks.BARREL.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // === AUDIENCE ROOM — SE room (east of divider, south of courtyard) ===
+        // === AUDIENCE ROOM: SE room (east of divider, south of courtyard) ===
         // Throne/seat facing north (toward the courtyard)
         world.setBlock(new BlockPos(ox + halfWidth - wallThickness - 2, roomFloor, oz + halfDepth - wallThickness),
             palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
@@ -559,7 +555,6 @@ public class CastleGenerator {
         // Guest seating
         world.setBlock(new BlockPos(dividerX + 2, roomFloor, oz + courtHW + 2),
             palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        // Decorated pot
         world.setBlock(new BlockPos(ox + halfWidth - wallThickness - 1, roomFloor, oz + courtHW + 1),
             Blocks.DECORATED_POT.defaultBlockState(), StructureHelper.SET_FLAGS);
 
@@ -575,14 +570,14 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(dividerX + 3, ceilingY - 1, oz + halfDepth - wallThickness - 2),
             Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), StructureHelper.SET_FLAGS);
 
-        // === ROOF ACCESS — ladder in SE corner ===
+        // === ROOF ACCESS: ladder in SE corner ===
         for (int y = 2; y <= wallHeight; y++) {
             world.setBlock(new BlockPos(ox + halfWidth - wallThickness - 1, baseY + y, oz + halfDepth - wallThickness),
                 Blocks.LADDER.defaultBlockState().setValue(LadderBlock.FACING, Direction.NORTH),
                 StructureHelper.SET_FLAGS);
         }
 
-        // === BELL — on the roof ===
+        // === BELL: on the roof ===
         world.setBlock(new BlockPos(ox, baseY + wallHeight + 1, oz + halfDepth - 1),
             palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox, baseY + wallHeight + 2, oz + halfDepth - 1),
@@ -600,7 +595,7 @@ public class CastleGenerator {
     }
 
     /**
-     * SAVANNA SMALL — Fortified homestead.
+     * SAVANNA SMALL: Fortified homestead.
      * Cluster of round mud-brick huts with hay thatch roofs behind an acacia
      * palisade with dead-bush thorn barriers. Central fire pit, animal pen,
      * outdoor work area. Compact, lived-in family compound.
@@ -616,7 +611,7 @@ public class CastleGenerator {
         BlockState fence = palette.fence.defaultBlockState();
         BlockState deadBush = Blocks.DEAD_BUSH.defaultBlockState();
 
-        // Coarse dirt ground throughout compound — placed at baseY-1 to replace
+        // Coarse dirt ground throughout compound: placed at baseY-1 to replace
         // the surface block rather than adding a raised layer on top of terrain
         for (int x = -yardRadius; x <= yardRadius; x++) {
             for (int z = -yardRadius; z <= yardRadius; z++) {
@@ -626,7 +621,7 @@ public class CastleGenerator {
             }
         }
 
-        // Acacia palisade fence with dead bush thorn effect — skipped for SMALL (standalone worldgen structure)
+        // Acacia palisade fence with dead bush thorn effect: skipped for SMALL (standalone worldgen structure)
         if (size != CastleSize.SMALL) {
             for (int angle = 0; angle < 360; angle += 2) {
                 double rad = Math.toRadians(angle);
@@ -640,7 +635,7 @@ public class CastleGenerator {
                 double rad = Math.toRadians(angle);
                 int bx = ox + (int)((yardRadius + 1) * Math.cos(rad));
                 int bz = oz + (int)((yardRadius + 1) * Math.sin(rad));
-                // Dead bush needs a valid support block beneath it — place at baseY-1 to replace terrain
+                // Dead bush needs a valid support block beneath it: place at baseY-1 to replace terrain
                 world.setBlock(new BlockPos(bx, baseY - 1, bz), coarseDirt, StructureHelper.SET_FLAGS);
                 world.setBlock(new BlockPos(bx, baseY, bz), deadBush, StructureHelper.SET_FLAGS);
             }
@@ -648,9 +643,9 @@ public class CastleGenerator {
 
         // Main dwelling hut (north-west, radius 4, wall height 4)
         buildRoundHut(world, center.offset(-4, 0, -5), 4, 4);
-        // Furnish dwelling — interior floor is packed mud with carpet at y+1
+        // Furnish dwelling: interior floor is packed mud with carpet at y+1
         world.setBlock(center.offset(-4, 1, -5), Blocks.CAMPFIRE.defaultBlockState(), StructureHelper.SET_FLAGS);
-        // Bed 1: FACING=SOUTH means HEAD at higher Z (-6), FOOT at lower Z (-7)
+        // Bed 1
         world.setBlock(center.offset(-6, 1, -7), palette.bed.defaultBlockState()
             .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
         world.setBlock(center.offset(-6, 1, -6), palette.bed.defaultBlockState()
@@ -663,7 +658,7 @@ public class CastleGenerator {
         // Decorated pot inside dwelling
         world.setBlock(center.offset(-5, 1, -3), Blocks.DECORATED_POT.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Storage hut (east, radius 4, wall height 3) — radius 4 gives usable 5x5 interior
+        // Storage hut (east, radius 4, wall height 3): radius 4 gives usable 5x5 interior
         buildRoundHut(world, center.offset(5, 0, -2), 4, 3);
         StructureHelper.placeChest(world, center.offset(5, 1, -2), Direction.SOUTH, BuiltInLootTables.VILLAGE_SAVANNA_HOUSE);
         world.setBlock(center.offset(4, 1, -2), Blocks.BARREL.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -696,7 +691,7 @@ public class CastleGenerator {
         world.setBlock(center.offset(-5, 0, 7), Blocks.CAULDRON.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(center.offset(-6, 0, 6), Blocks.HAY_BLOCK.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Outdoor work area (south-east) — loom, smoker, composters
+        // Outdoor work area (south-east): loom, smoker, composters
         world.setBlock(center.offset(6, 0, 5), Blocks.LOOM.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(center.offset(7, 0, 5), Blocks.SMOKER.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(center.offset(8, 0, 6), Blocks.COMPOSTER.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -721,14 +716,14 @@ public class CastleGenerator {
         // Crafting table near dwelling
         world.setBlock(center.offset(-1, 0, -3), Blocks.CRAFTING_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Entrance gate, torch posts, bell, and jigsaw — skipped for SMALL (standalone worldgen structure)
+        // Entrance gate, torch posts, bell, and jigsaw: skipped for SMALL (standalone worldgen structure)
         if (size != CastleSize.SMALL) {
-            // Entrance gate south — with 2+ blocks clearance outside
+            // Entrance gate south, with 2+ blocks clearance outside
             world.setBlock(new BlockPos(ox, baseY, oz + yardRadius),
                 palette.fenceGate.defaultBlockState().setValue(FenceGateBlock.FACING, Direction.SOUTH),
                 StructureHelper.SET_FLAGS);
 
-            // Torch posts — fence base so torch has a solid support block
+            // Torch posts: fence base so torch has a solid support block
             int[][] torchPosts = {{-2, yardRadius}, {2, yardRadius}, {0, 3}, {-9, 0}, {9, 0}};
             for (int[] tp : torchPosts) {
                 world.setBlock(new BlockPos(ox + tp[0], baseY, oz + tp[1]), fence, StructureHelper.SET_FLAGS);
@@ -751,7 +746,7 @@ public class CastleGenerator {
     }
 
     /**
-     * Build a round thatched hut — mud brick walls with toron (protruding acacia fence
+     * Build a round thatched hut: mud brick walls with toron (protruding acacia fence
      * pegs), packed mud floor with orange carpet, conical HAY_BLOCK thatch roof,
      * door opening on south with 2+ block clearance.
      */
@@ -778,7 +773,7 @@ public class CastleGenerator {
             }
         }
 
-        // Tapering transition — inverted MUD_BRICK_STAIRS at top of wall
+        // Tapering transition: inverted MUD_BRICK_STAIRS at top of wall
         BlockState invertedStairs = Blocks.MUD_BRICK_STAIRS.defaultBlockState()
             .setValue(StairBlock.HALF, Half.TOP);
         for (int angle = 0; angle < 360; angle += 10) {
@@ -798,7 +793,7 @@ public class CastleGenerator {
                 invertedStairs.setValue(StairBlock.FACING, facing), StructureHelper.SET_FLAGS);
         }
 
-        // Toron — acacia fence pegs protruding 1 block outward from walls
+        // Toron: acacia fence pegs protruding 1 block outward from walls
         // Every 3 blocks around circumference, every 2 rows vertically
         for (int y = 1; y < wallHeight; y += 2) {
             for (int angle = 0; angle < 360; angle += 30) {
@@ -864,7 +859,7 @@ public class CastleGenerator {
             }
         }
 
-        // Door opening on south — clear both radius and radius-1 positions to
+        // Door opening on south: clear both radius and radius-1 positions to
         // guarantee we hit the actual wall block (cylinder rounding can vary).
         // Clear 1-wide, 3-tall opening through the wall.
         for (int y = 1; y <= 3; y++) {
@@ -886,7 +881,7 @@ public class CastleGenerator {
     }
 
     /**
-     * TAIGA SMALL — Viking chieftain's mead hall.
+     * TAIGA SMALL: Viking chieftain's mead hall.
      * Elongated longhouse with steep 1:1 roof, 2-course stone foundation,
      * spruce log walls with exterior buttresses, central longfire (3 campfires),
      * raised side platforms, iron bar arrow slits, chief's high seat on the
@@ -953,7 +948,7 @@ public class CastleGenerator {
             center.offset(-halfWidth + 1, 1, -halfLength + 1),
             center.offset(halfWidth - 1, wallHeight, halfLength - 1));
 
-        // === INTERIOR FLOOR — spruce planks at baseY+1 ===
+        // === INTERIOR FLOOR: spruce planks at baseY+1 ===
         StructureHelper.fillBox(world, center.offset(-halfWidth + 1, 1, -halfLength + 1),
             center.offset(halfWidth - 1, 1, halfLength - 1), planks);
 
@@ -1045,7 +1040,7 @@ public class CastleGenerator {
             world.setBlock(new BlockPos(ox + halfWidth, baseY + 3, oz + z), ironBars, StructureHelper.SET_FLAGS);
         }
 
-        // === CHIEF'S HIGH SEAT — center of east wall, facing west across the hall ===
+        // === CHIEF'S HIGH SEAT: center of east wall, facing west across the hall ===
         // Historically accurate: chief sits on the long wall, not at the end
         world.setBlock(new BlockPos(ox + halfWidth - 2, baseY + 3, oz),
             palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
@@ -1058,7 +1053,6 @@ public class CastleGenerator {
             palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
 
         // === BEDS on raised platforms at north end (4 beds) ===
-        // FACING=SOUTH: FOOT at lower Z, HEAD at higher Z
         for (int x : new int[]{-halfWidth + 1, -halfWidth + 2, halfWidth - 2, halfWidth - 1}) {
             world.setBlock(new BlockPos(ox + x, baseY + 3, oz - halfLength + 2), palette.bed.defaultBlockState()
                 .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
@@ -1092,7 +1086,7 @@ public class CastleGenerator {
                 Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
         }
 
-        // === SPRUCE LOG PALISADE — rough oval (3 blocks tall) ===
+        // === SPRUCE LOG PALISADE: rough oval (3 blocks tall) ===
         int palisadeRadiusX = halfWidth + 5;  // wider on short axis
         int palisadeRadiusZ = halfLength + 4; // tighter on long axis
         for (int angle = 0; angle < 360; angle += 2) {
@@ -1248,7 +1242,7 @@ public class CastleGenerator {
                                 world.setBlock(mutable, packedIce, StructureHelper.SET_FLAGS);
                             }
                         }
-                        // else: interior — will be cleared in step 3
+                        // else: interior, will be cleared in step 3
                     }
                 }
             }
@@ -1298,7 +1292,6 @@ public class CastleGenerator {
         world.setBlock(mutable, campfireState, StructureHelper.SET_FLAGS);
 
         // Beds along the north wall (3 beds, light_blue, facing south)
-        // FACING=SOUTH: HEAD at higher Z (south), FOOT at lower Z (north)
         BlockState bedFoot = Blocks.BED.pick(DyeColor.LIGHT_BLUE).defaultBlockState()
             .setValue(BedBlock.PART, BedPart.FOOT)
             .setValue(BedBlock.FACING, Direction.SOUTH);
@@ -1441,7 +1434,7 @@ public class CastleGenerator {
             }
         }
 
-        // Soul lantern on fence posts at 4 corners — blue glow mimics aurora light
+        // Soul lantern on fence posts at 4 corners: blue glow mimics aurora light
         int[][] auroraCorners = { {-1, -1}, {1, -1}, {-1, 1}, {1, 1} };
         for (int[] corner : auroraCorners) {
             mutable.set(ox + corner[0], platformY + 1, oz + corner[1]);
@@ -1520,7 +1513,7 @@ public class CastleGenerator {
         StructureHelper.placeChest(world, new BlockPos(ox, cellarBaseY + 1, oz),
             Direction.NORTH, BuiltInLootTables.VILLAGE_SNOWY_HOUSE);
 
-        // Village bell near the entrance — required for villager gathering and raids
+        // Village bell near the entrance: required for villager gathering and raids
         world.setBlock(new BlockPos(ox + 3, baseY + 1, tunnelEndZ - 2),
             Blocks.SPRUCE_FENCE.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + 3, baseY + 2, tunnelEndZ - 2),
@@ -1539,12 +1532,12 @@ public class CastleGenerator {
     }
 
     /**
-     * MEDIUM — Standard Fort.
+     * MEDIUM: Standard Fort.
      * Keep + 4 corner towers + main gatehouse + curtain walls + courtyard.
      * No wall towers, no back gate.
      */
     /**
-     * MEDIUM — Biome-specific fortification.
+     * MEDIUM: Biome-specific fortification.
      * Plains: motte-and-bailey. Desert: walled compound. Savanna: multi-compound.
      * Taiga/Snowy: classic fort with biome-specific materials and tower styles.
      */
@@ -1560,7 +1553,7 @@ public class CastleGenerator {
     }
 
     /**
-     * DESERT MEDIUM — Walled compound.
+     * DESERT MEDIUM: Walled compound.
      * Thick sandstone outer walls with corner bastions, shaded inner courtyard,
      * central keep with flat roof, archery range, cistern. Arid fortress.
      */
@@ -1690,7 +1683,6 @@ public class CastleGenerator {
             }
         }
 
-        // Clear interior
         StructureHelper.clearInterior(world,
             center.offset(-halfW + wallThickness, 0, -halfD + wallThickness),
             center.offset(halfW - wallThickness, wallHeight + 2, halfD - wallThickness));
@@ -1809,7 +1801,7 @@ public class CastleGenerator {
         // ================================================================
         // Step 4: Main courtyard (larger, south-center area)
         // ================================================================
-        // Courtyard bounds — ALL ABSOLUTE coordinates
+        // Courtyard bounds: ALL ABSOLUTE coordinates
         int cyMinX = westRoomX + 1;
         int cyMaxX = eastRoomX - 1;
         int cyMinZ = divideZ + 1;
@@ -1846,7 +1838,7 @@ public class CastleGenerator {
                 world.setBlock(mutable, water, StructureHelper.SET_FLAGS);
             }
         }
-        // Central column (no cascade water at top — too messy)
+        // Central column (no cascade water at top: too messy)
         mutable.set(fountainX, baseY + 1, fountainZ);
         world.setBlock(mutable, wallBlock, StructureHelper.SET_FLAGS);
         mutable.set(fountainX, baseY + 2, fountainZ);
@@ -1924,7 +1916,7 @@ public class CastleGenerator {
             mutable.set(fountainX + 1, baseY, z);
             world.setBlock(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
         }
-        // East channel — water at baseY, borders at baseY to match north/south channels
+        // East channel: water at baseY, borders at baseY to match north/south channels
         for (int x = fountainX + 3; x <= cyMaxX - 1; x++) {
             mutable.set(x, baseY, fountainZ);
             world.setBlock(mutable, water, StructureHelper.SET_FLAGS);
@@ -1934,7 +1926,7 @@ public class CastleGenerator {
             mutable.set(x, baseY, fountainZ + 1);
             world.setBlock(mutable, smoothSandstone, StructureHelper.SET_FLAGS);
         }
-        // West channel — water at baseY, borders at baseY to match north/south channels
+        // West channel: water at baseY, borders at baseY to match north/south channels
         for (int x = cyMinX + 1; x < fountainX - 2; x++) {
             mutable.set(x, baseY, fountainZ);
             world.setBlock(mutable, water, StructureHelper.SET_FLAGS);
@@ -1997,7 +1989,7 @@ public class CastleGenerator {
         mutable.set(ox + pcMaxX - 1, baseY + 1, pcMinZ + 1);
         world.setBlock(mutable, Blocks.DECORATED_POT.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Soul lanterns in private courtyard — with solid block above for hanging
+        // Soul lanterns in private courtyard, with solid block above for hanging
         mutable.set(ox + pcMinX + 1, baseY + 5, pcMinZ + 1);
         world.setBlock(mutable, sandstone, StructureHelper.SET_FLAGS);
         mutable.set(ox + pcMinX + 1, baseY + 4, pcMinZ + 1);
@@ -2074,7 +2066,6 @@ public class CastleGenerator {
         StructureHelper.placeChest(world, new BlockPos(gqMaxX - 1, baseY + 1, gqMinZ + 6),
             Direction.WEST, BuiltInLootTables.VILLAGE_DESERT_HOUSE);
 
-        // Soul lantern
         mutable.set(gqCenterX, baseY + roomWallHeight, gqMinZ + 3);
         world.setBlock(mutable, soulLantern, StructureHelper.SET_FLAGS);
 
@@ -2086,16 +2077,13 @@ public class CastleGenerator {
         int ktMaxX = westRoomX - 1;
         int ktMinZ = divideZ + 1;
 
-        // Smoker
         mutable.set(ktMinX + 1, baseY + 1, ktMinZ + 1);
         world.setBlock(mutable, Blocks.SMOKER.defaultBlockState()
             .setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
 
-        // Crafting table
         mutable.set(ktMinX + 3, baseY + 1, ktMinZ + 1);
         world.setBlock(mutable, Blocks.CRAFTING_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Barrels
         mutable.set(ktMinX + 1, baseY + 1, ktMinZ + 3);
         world.setBlock(mutable, Blocks.BARREL.defaultBlockState(), StructureHelper.SET_FLAGS);
         mutable.set(ktMinX + 1, baseY + 2, ktMinZ + 3);
@@ -2103,11 +2091,9 @@ public class CastleGenerator {
         mutable.set(ktMinX + 2, baseY + 1, ktMinZ + 3);
         world.setBlock(mutable, Blocks.BARREL.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Cauldron
         mutable.set(ktMinX + 4, baseY + 1, ktMinZ + 1);
         world.setBlock(mutable, Blocks.CAULDRON.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Soul lantern
         mutable.set(ktMinX + 3, baseY + roomWallHeight, ktMinZ + 2);
         world.setBlock(mutable, soulLantern, StructureHelper.SET_FLAGS);
 
@@ -2129,7 +2115,6 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(ox + 3, baseY + 1, lcCenterZ + 1),
             bedHead.setValue(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
 
-        // Bookshelf
         mutable.set(ox - 2, baseY + 1, lcMinZ + 1);
         world.setBlock(mutable, Blocks.BOOKSHELF.defaultBlockState(), StructureHelper.SET_FLAGS);
         mutable.set(ox - 1, baseY + 1, lcMinZ + 1);
@@ -2141,11 +2126,9 @@ public class CastleGenerator {
         StructureHelper.placeChest(world, new BlockPos(ox + 2, baseY + 1, lcMinZ + 1),
             Direction.SOUTH, BuiltInLootTables.VILLAGE_DESERT_HOUSE);
 
-        // Decorated pot
         mutable.set(ox + 4, baseY + 1, lcMinZ + 1);
         world.setBlock(mutable, Blocks.DECORATED_POT.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Soul lanterns
         mutable.set(ox, baseY + roomWallHeight, lcCenterZ);
         world.setBlock(mutable, soulLantern, StructureHelper.SET_FLAGS);
 
@@ -2188,7 +2171,7 @@ public class CastleGenerator {
         // ================================================================
         // Step 12: Room ceilings (smooth sandstone slabs over rooms)
         // ================================================================
-        // Ceiling over audience hall (all vars are absolute — no ox/oz prefix needed)
+        // Ceiling over audience hall (all vars are absolute: no ox/oz prefix needed)
         StructureHelper.fillBox(world,
             new BlockPos(westRoomX + 1, baseY + roomWallHeight + 1, ahFloorZ),
             new BlockPos(eastRoomX - 1, baseY + roomWallHeight + 1, ahBackZ),
@@ -2219,7 +2202,7 @@ public class CastleGenerator {
     }
 
     /**
-     * SAVANNA MEDIUM — Chief's compound.
+     * SAVANNA MEDIUM: Chief's compound.
      * Chief's hut on raised packed-mud platform with toron-decorated mud brick walls.
      * Guard hut, open-air cookhouse on acacia log stilts, granary on stilts,
      * barracks hut. Council circle with log seating. Weaving and smithing areas.
@@ -2238,7 +2221,7 @@ public class CastleGenerator {
         BlockState deadBush = Blocks.DEAD_BUSH.defaultBlockState();
         BlockState logBlock = palette.log.defaultBlockState();
 
-        // Coarse dirt ground throughout compound — placed at baseY-1 to replace
+        // Coarse dirt ground throughout compound: placed at baseY-1 to replace
         // the surface block rather than adding a raised layer on top of terrain
         for (int x = -compoundRadius; x <= compoundRadius; x++) {
             for (int z = -compoundRadius; z <= compoundRadius; z++) {
@@ -2257,7 +2240,7 @@ public class CastleGenerator {
             world.setBlock(new BlockPos(fx, baseY + 1, fz), fence, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(fx, baseY + 2, fz), fence, StructureHelper.SET_FLAGS);
         }
-        // Dead bush thorns outside palisade — support block at baseY-1 to replace terrain
+        // Dead bush thorns outside palisade: support block at baseY-1 to replace terrain
         for (int angle = 0; angle < 360; angle += 20) {
             double rad = Math.toRadians(angle);
             int bx = ox + (int)((compoundRadius + 1) * Math.cos(rad));
@@ -2266,7 +2249,7 @@ public class CastleGenerator {
             world.setBlock(new BlockPos(bx, baseY, bz), deadBush, StructureHelper.SET_FLAGS);
         }
 
-        // === Chief's hut — north-center on raised packed-mud platform ===
+        // === Chief's hut: north-center on raised packed-mud platform ===
         BlockPos chiefPos = center.offset(0, 0, -8);
         // Raised platform (2 blocks high, packed mud)
         for (int x = -6; x <= 6; x++) {
@@ -2299,7 +2282,7 @@ public class CastleGenerator {
         // Build chief's hut on platform (radius 5, wall height 5)
         buildRoundHut(world, chiefPos.above(2), 5, 5);
 
-        // Toron on chief's hut walls (extra prominent — already done by buildRoundHut, but add
+        // Toron on chief's hut walls (extra prominent: already done by buildRoundHut, but add
         // additional terracotta accents at the base of the platform)
         for (int angle = 0; angle < 360; angle += 45) {
             double rad = Math.toRadians(angle);
@@ -2315,7 +2298,7 @@ public class CastleGenerator {
         // Brown terracotta behind throne
         world.setBlock(chiefPos.offset(0, 4, -4), Blocks.DYED_TERRACOTTA.pick(DyeColor.BROWN).defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Chief's bed: FACING=EAST means HEAD at higher X (-2), FOOT at lower X (-3)
+        // Chief's bed
         world.setBlock(chiefPos.offset(-3, 3, 0), palette.bed.defaultBlockState()
             .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.EAST), StructureHelper.SET_FLAGS);
         world.setBlock(chiefPos.offset(-2, 3, 0), palette.bed.defaultBlockState()
@@ -2325,15 +2308,15 @@ public class CastleGenerator {
         // Decorated pot inside chief's hut
         world.setBlock(chiefPos.offset(2, 3, -2), Blocks.DECORATED_POT.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // === Guard hut — east (radius 4, wall height 4) — radius 4 gives usable interior ===
+        // === Guard hut: east (radius 4, wall height 4), radius 4 gives usable interior ===
         buildRoundHut(world, center.offset(10, 0, -3), 4, 4);
-        // Bed FACING=SOUTH: HEAD at higher Z (-3), FOOT at lower Z (-4)
+        // Bed
         world.setBlock(center.offset(10, 1, -4), palette.bed.defaultBlockState()
             .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
         world.setBlock(center.offset(10, 1, -3), palette.bed.defaultBlockState()
             .setValue(BedBlock.PART, BedPart.HEAD).setValue(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
 
-        // === Cookhouse — west (open-air on acacia log stilts, hay thatch roof) ===
+        // === Cookhouse: west (open-air on acacia log stilts, hay thatch roof) ===
         BlockPos cookPos = center.offset(-10, 0, -2);
         // Acacia log stilts (4 corners, 3 blocks high)
         for (int[] corner : new int[][]{{-2,-2},{2,-2},{-2,2},{2,2}}) {
@@ -2348,7 +2331,7 @@ public class CastleGenerator {
         world.setBlock(cookPos.offset(1, 0, 0), Blocks.CRAFTING_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(cookPos.offset(-1, 0, 0), Blocks.SMOKER.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // === Granary — south-east (raised hut on acacia log stilts) ===
+        // === Granary: south-east (raised hut on acacia log stilts) ===
         BlockPos granaryPos = center.offset(8, 0, 8);
         // 4 acacia log stilts (2 blocks high)
         for (int[] corner : new int[][]{{-2,-2},{2,-2},{-2,2},{2,2}}) {
@@ -2388,14 +2371,14 @@ public class CastleGenerator {
             world.setBlock(granaryPos.offset(0, y, 2), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
         }
 
-        // === Barracks hut — south-west (radius 4, wall height 4) ===
+        // === Barracks hut: south-west (radius 4, wall height 4) ===
         buildRoundHut(world, center.offset(-8, 0, 8), 4, 4);
-        // Bed 1 FACING=EAST: HEAD at higher X (-9), FOOT at lower X (-10)
+        // Bed 1
         world.setBlock(center.offset(-10, 1, 8), palette.bed.defaultBlockState()
             .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.EAST), StructureHelper.SET_FLAGS);
         world.setBlock(center.offset(-9, 1, 8), palette.bed.defaultBlockState()
             .setValue(BedBlock.PART, BedPart.HEAD).setValue(BedBlock.FACING, Direction.EAST), StructureHelper.SET_FLAGS);
-        // Bed 2 FACING=WEST: HEAD at lower X (-7), FOOT at higher X (-6)
+        // Bed 2
         world.setBlock(center.offset(-6, 1, 8), palette.bed.defaultBlockState()
             .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
         world.setBlock(center.offset(-7, 1, 8), palette.bed.defaultBlockState()
@@ -2452,7 +2435,7 @@ public class CastleGenerator {
             world.setBlock(new BlockPos(ox - 14, baseY + 2, oz + z), palette.carpet.defaultBlockState(), StructureHelper.SET_FLAGS);
         }
 
-        // Torch posts throughout compound — fence base + fence + torch on top (solid support)
+        // Torch posts throughout compound: fence base + fence + torch on top (solid support)
         for (int angle = 0; angle < 360; angle += 60) {
             double rad = Math.toRadians(angle);
             int tx = ox + (int)(12 * Math.cos(rad));
@@ -2487,12 +2470,12 @@ public class CastleGenerator {
     }
 
     /**
-     * Generic medium fort — used by Plains (with motte), Taiga, and Snowy.
+     * Generic medium fort: used by Plains (with motte), Taiga, and Snowy.
      * Keep + 4 corner towers + gatehouse + curtain walls + courtyard.
      * Biome differentiation comes from sub-generators and BiomePalette.
      */
     /**
-     * SAVANNA LARGE — Sunken great longhouse (Great Enclosure).
+     * SAVANNA LARGE: Sunken great longhouse (Great Enclosure).
      * Half-buried great hall excavated 5 blocks below ground. Mud brick retaining
      * walls with acacia log reinforcement and toron pegs. HAY_BLOCK thatched roof
      * barely above ground level. Entrance ramp descending from south with
@@ -2519,7 +2502,7 @@ public class CastleGenerator {
         BlockState deadBush = Blocks.DEAD_BUSH.defaultBlockState();
         BlockState mudBrickStairs = Blocks.MUD_BRICK_STAIRS.defaultBlockState();
 
-        // Excavate the interior — dig down to create the sunken space
+        // Excavate the interior: dig down to create the sunken space
         for (int x = -halfWidth; x <= halfWidth; x++) {
             for (int z = -halfLength; z <= halfLength; z++) {
                 for (int y = floorY; y <= baseY + wallHeight + 1; y++) {
@@ -2555,9 +2538,9 @@ public class CastleGenerator {
         // Every 3 blocks horizontal, every 2 rows vertical
         for (int z = -halfLength + 3; z <= halfLength - 3; z += 3) {
             for (int y = floorY + 2; y <= baseY + wallHeight - 1; y += 2) {
-                // East wall — pegs protrude west (inward)
+                // East wall: pegs protrude west (inward)
                 world.setBlock(new BlockPos(ox + halfWidth - 1, y, oz + z), fence, StructureHelper.SET_FLAGS);
-                // West wall — pegs protrude east (inward)
+                // West wall: pegs protrude east (inward)
                 world.setBlock(new BlockPos(ox - halfWidth + 1, y, oz + z), fence, StructureHelper.SET_FLAGS);
             }
         }
@@ -2568,7 +2551,7 @@ public class CastleGenerator {
             }
         }
 
-        // HAY_BLOCK thatched roof (barely above ground level) — single layer
+        // HAY_BLOCK thatched roof (barely above ground level): single layer
         int roofY = baseY + wallHeight;
         StructureHelper.fillBox(world,
             center.offset(-halfWidth - 1, wallHeight, -halfLength - 1),
@@ -2639,12 +2622,12 @@ public class CastleGenerator {
 
         // === Sleeping alcoves along east/west walls ===
         for (int z = -halfLength + 4; z <= halfLength - 8; z += 4) {
-            // East side beds FACING=WEST: HEAD at lower X (halfWidth-3), FOOT at higher X (halfWidth-2)
+            // East side beds
             world.setBlock(new BlockPos(ox + halfWidth - 2, floorY + 1, oz + z), palette.bed.defaultBlockState()
                 .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(ox + halfWidth - 3, floorY + 1, oz + z), palette.bed.defaultBlockState()
                 .setValue(BedBlock.PART, BedPart.HEAD).setValue(BedBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
-            // West side beds FACING=EAST: HEAD at higher X (-halfWidth+3), FOOT at lower X (-halfWidth+2)
+            // West side beds
             world.setBlock(new BlockPos(ox - halfWidth + 2, floorY + 1, oz + z), palette.bed.defaultBlockState()
                 .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.EAST), StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(ox - halfWidth + 3, floorY + 1, oz + z), palette.bed.defaultBlockState()
@@ -2672,12 +2655,12 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(ox - 4, floorY + 2, oz + halfLength - 4), hayBlock, StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + 4, floorY + 1, oz + halfLength - 4), hayBlock, StructureHelper.SET_FLAGS);
 
-        // === Entrance ramp — south end, MUD_BRICK_STAIRS descending from surface ===
+        // === Entrance ramp: south end, MUD_BRICK_STAIRS descending from surface ===
         // Stairs going south (descending as you walk north into the hall) face SOUTH
         for (int i = 0; i <= depth; i++) {
             int stairZ = halfLength + 2 + (depth - i); // furthest south at surface, closest at floor
             int stairY = baseY - i;
-            // MUD_BRICK_STAIRS — descent going north, so facing SOUTH (you face south walking up)
+            // MUD_BRICK_STAIRS: descent going north, so facing SOUTH (you face south walking up)
             for (int x = -2; x <= 2; x++) {
                 world.setBlock(new BlockPos(ox + x, stairY, oz + stairZ),
                     mudBrickStairs.setValue(StairBlock.FACING, Direction.SOUTH),
@@ -2712,7 +2695,7 @@ public class CastleGenerator {
             }
         }
 
-        // Wall torches along the interior — on valid support blocks (mud brick walls)
+        // Wall torches along the interior: on valid support blocks (mud brick walls)
         for (int z = -halfLength + 2; z <= halfLength - 2; z += 3) {
             // East wall torch: facing EAST means the torch is on the block to its WEST (the wall)
             world.setBlock(new BlockPos(ox - halfWidth + 1, floorY + 3, oz + z),
@@ -2734,7 +2717,7 @@ public class CastleGenerator {
             world.setBlock(new BlockPos(fx, baseY, fz), fence, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(fx, baseY + 1, fz), fence, StructureHelper.SET_FLAGS);
         }
-        // Dead bush thorns outside palisade — support block at baseY-1 to replace terrain
+        // Dead bush thorns outside palisade: support block at baseY-1 to replace terrain
         for (int angle = 0; angle < 360; angle += 20) {
             double rad = Math.toRadians(angle);
             int bx = ox + (int)((fenceRadius + 1) * Math.cos(rad));
@@ -2743,7 +2726,7 @@ public class CastleGenerator {
             world.setBlock(new BlockPos(bx, baseY, bz), deadBush, StructureHelper.SET_FLAGS);
         }
 
-        // Coarse dirt around surface footprint — at baseY-1 to replace terrain, not raise it
+        // Coarse dirt around surface footprint: at baseY-1 to replace terrain, not raise it
         for (int x = -halfWidth - 3; x <= halfWidth + 3; x++) {
             for (int z = -halfLength - 3; z <= halfLength + 3; z++) {
                 int ax = ox + x;
@@ -2764,7 +2747,7 @@ public class CastleGenerator {
     }
 
     /**
-     * SNOWY MEDIUM — Winter castle.
+     * SNOWY MEDIUM: Winter castle.
      * Stone brick and spruce timber. Built for the cold, not from ice.
      * Steep spruce roof to shed snow, massive hearth, enclosed courtyard with
      * covered wooden walkway. Corner watchtower (one, asymmetric). Iron bar windows.
@@ -2789,7 +2772,7 @@ public class CastleGenerator {
         BlockState spruceStairs = Blocks.SPRUCE_STAIRS.defaultBlockState();
         BlockState spruceFence = Blocks.SPRUCE_FENCE.defaultBlockState();
 
-        // === STONE BRICK WALLS — main rectangular keep ===
+        // === STONE BRICK WALLS: main rectangular keep ===
         StructureHelper.fillBox(world,
             center.offset(-halfWidth, 0, -halfDepth),
             center.offset(halfWidth, wallHeight, halfDepth),
@@ -2810,7 +2793,7 @@ public class CastleGenerator {
             center.offset(halfWidth - 1, 0, halfDepth - 1),
             baseY, sprucePlanks);
 
-        // === INTERNAL DIVISION — great hall (south) + courtyard (north) ===
+        // === INTERNAL DIVISION: great hall (south) + courtyard (north) ===
         int dividerZ = oz - 2; // wall separating great hall from courtyard
         for (int x = -halfWidth + 1; x <= halfWidth - 1; x++) {
             for (int y = 1; y <= wallHeight - 1; y++) {
@@ -2851,7 +2834,7 @@ public class CastleGenerator {
                 spruceLog, StructureHelper.SET_FLAGS);
         }
 
-        // Courtyard (north half) stays open-air — no roof
+        // Courtyard (north half) stays open-air: no roof
         // But add a covered walkway around the courtyard edges
         int walkwayY = baseY + wallHeight;
         for (int x = -halfWidth + 1; x <= halfWidth - 1; x++) {
@@ -2862,7 +2845,7 @@ public class CastleGenerator {
             world.setBlock(new BlockPos(ox + halfWidth - 1, walkwayY, z), spruceSlab, StructureHelper.SET_FLAGS);
         }
 
-        // === CORNER WATCHTOWER — NE corner, asymmetric ===
+        // === CORNER WATCHTOWER: NE corner, asymmetric ===
         int towerHW = 3;
         int towerHeight = wallHeight + 6;
         BlockPos towerPos = center.offset(halfWidth - towerHW, 0, -halfDepth + towerHW);
@@ -2918,7 +2901,7 @@ public class CastleGenerator {
         // === GREAT HALL FURNISHING (south of divider) ===
         int hallFloor = baseY + 1; // furniture on the spruce plank floor at baseY
 
-        // Massive double hearth — 2 campfires on stone brick base, against east wall
+        // Massive double hearth: 2 campfires on stone brick base, against east wall
         world.setBlock(new BlockPos(ox + halfWidth - 2, baseY, oz + 2), stoneBrick, StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + halfWidth - 2, baseY, oz + 3), stoneBrick, StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + halfWidth - 2, hallFloor, oz + 2), Blocks.CAMPFIRE.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -2946,7 +2929,7 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(ox, hallFloor, dividerZ + 1),
             spruceStairs.setValue(StairBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
 
-        // Master bed — west side of great hall
+        // Master bed: west side of great hall
         world.setBlock(new BlockPos(ox - halfWidth + 2, hallFloor, oz + halfDepth - 2),
             palette.bed.defaultBlockState().setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox - halfWidth + 2, hallFloor, oz + halfDepth - 3),
@@ -2995,7 +2978,7 @@ public class CastleGenerator {
         world.setBlock(center.offset(0, 1, -halfDepth + 3),
             Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
 
-        // === ENTRANCE — south wall ===
+        // === ENTRANCE: south wall ===
         for (int x = -1; x <= 0; x++) {
             for (int y = 1; y <= 3; y++) {
                 world.setBlock(new BlockPos(ox + x, baseY + y, oz + halfDepth), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -3005,7 +2988,7 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(ox - 1, baseY, oz + halfDepth), sprucePlanks, StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox, baseY, oz + halfDepth), sprucePlanks, StructureHelper.SET_FLAGS);
 
-        // Courtyard entrance — north wall
+        // Courtyard entrance: north wall
         for (int x = -1; x <= 0; x++) {
             for (int y = 1; y <= 3; y++) {
                 world.setBlock(new BlockPos(ox + x, baseY + y, oz - halfDepth), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -3035,7 +3018,7 @@ public class CastleGenerator {
             VillageCastles.LOGGER.debug("Plains biome detected — building motte (dirt hill)...");
             buildMotte(world, center, radius);
             buildCenter = center.above(14); // Raise castle by the motte height
-            // Motte's flat top IS the prepared ground — only clear air above it
+            // Motte's flat top IS the prepared ground: only clear air above it
             clearAirAbove(world, buildCenter, radius);
         } else {
             // 1. Prepare the ground normally
@@ -3091,12 +3074,12 @@ public class CastleGenerator {
     }
 
     /**
-     * LARGE — Grand Castle.
+     * LARGE: Grand Castle.
      * Everything medium has, PLUS wall towers on east/west, back gate on north,
      * and stables + barracks in courtyard.
      */
     /**
-     * LARGE — Biome-specific castle complex.
+     * LARGE: Biome-specific castle complex.
      * The showpiece structures. Each biome's large castle is a landmark.
      */
     private CastleBounds generateLarge(ServerLevel world, BlockPos center, int radius,
@@ -3111,10 +3094,10 @@ public class CastleGenerator {
     }
 
     /**
-     * SNOWY LARGE — Ancient Ice Citadel.
+     * SNOWY LARGE: Ancient Ice Citadel.
      *
      * A hexagonal fortress of six spires connected by thick textured ice walls.
-     * The north spire is the largest — hollow, with a wide spiral staircase
+     * The north spire is the largest: hollow, with a wide spiral staircase
      * going up and down from a mid-level entrance reached by a grand bridge
      * from the courtyard center. Built for beings twice human size.
      *
@@ -3123,7 +3106,7 @@ public class CastleGenerator {
      * tips, campfire camps huddled in corners of the vast courtyard.
      *
      * Texture: blue ice (structural), packed ice (variation), snow block (accents),
-     * regular ice (translucent windows). Not monochrome — intentionally textured.
+     * regular ice (translucent windows). Not monochrome: intentionally textured.
      *
      * Below the big spire: a secret shrine chamber with a diamond block.
      */
@@ -3132,11 +3115,11 @@ public class CastleGenerator {
         int ox = center.getX(), oz = center.getZ();
         BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
 
-        // Block palette — textured, not monochrome
+        // Block palette: textured, not monochrome
         BlockState blueIce = Blocks.BLUE_ICE.defaultBlockState();
         BlockState packedIce = Blocks.PACKED_ICE.defaultBlockState();
         BlockState snowBlock = Blocks.SNOW_BLOCK.defaultBlockState();
-        // No regular ICE — it melts near light sources
+        // No regular ICE: it melts near light sources
         BlockState seaLantern = Blocks.SEA_LANTERN.defaultBlockState();
         BlockState spruce = palette.getPlanksState();
         BlockState fence = palette.getFenceState();
@@ -3144,14 +3127,14 @@ public class CastleGenerator {
         BlockState cobbleStairs = Blocks.COBBLESTONE_STAIRS.defaultBlockState();
         BlockState air = Blocks.AIR.defaultBlockState();
 
-        // Dimensions — built for giants (2x human scale)
+        // Dimensions: built for giants (2x human scale)
         int hexR = 34;             // hexagon vertex radius from center
         int wallH = 14;            // wall height between spires
         int wallThick = 3;         // wall thickness
         int smallSpireR = 5;       // regular spire base radius
         int smallSpireH = 32;      // regular spire height
-        int bigSpireR = 24;        // MASSIVE — dominates the interior
-        int bigSpireH = 85;        // taller — the defining silhouette
+        int bigSpireR = 24;        // massive: dominates the interior
+        int bigSpireH = 85;        // taller: the defining silhouette
         int bigSpireShell = 3;     // thick shell walls
         // Big spire TOUCHING the back (north) wall
         int bigSX = ox;
@@ -3159,7 +3142,7 @@ public class CastleGenerator {
         int bridgeY = baseY + bigSpireH / 3; // entrance 1/3 up (~22 blocks)
         int dungeonDepth = Math.min(10, baseY + 63);
 
-        // ICE-APPROPRIATE GROUND PREP — no cobblestone foundation
+        // ICE-APPROPRIATE GROUND PREP: no cobblestone foundation
         // Floor at baseY-1 so structures start flush at baseY (ground level)
         baseY = baseY - 1; // shift down 1 so the structure sits AT ground level
         {
@@ -3186,7 +3169,7 @@ public class CastleGenerator {
             }
         }
 
-        // Hexagon vertex positions — rotated 30° so NO spire is dead south
+        // Hexagon vertex positions: rotated 30° so NO spire is dead south
         // Entrance passes between two spires, not through one
         // Vertex 0 is still north (big spire position, though spire is offset)
         int[][] verts = new int[6][2];
@@ -3196,9 +3179,9 @@ public class CastleGenerator {
             verts[i][1] = (int) Math.round(-hexR * Math.sin(angle)); // -sin because MC north = -Z
         }
 
-        // Deterministic texture function — mixed ice based on position
+        // Deterministic texture function: mixed ice based on position
         // 60% blue ice, 30% packed ice, 10% snow block
-        // NO regular ice — it melts near light sources and turns to water
+        // NO regular ice: it melts near light sources and turns to water
         java.util.function.Function<BlockPos, BlockState> iceTexture = (BlockPos pos) -> {
             int hash = ((pos.getX() * 31 + pos.getY() * 17 + pos.getZ() * 7) & 0x1F);
             if (hash < 19) return blueIce;
@@ -3211,13 +3194,13 @@ public class CastleGenerator {
         // ============================================================
 
         // === 5 SPIRES at hex vertices 1-5 ===
-        // Vertex 0 (NW) skipped — overlaps with big spire
-        // Vertices 1 (W) and 5 (NE) flank the big spire — taller, larger, no crow's nests
+        // Vertex 0 (NW) skipped: overlaps with big spire
+        // Vertices 1 (W) and 5 (NE) flank the big spire: taller, larger, no crow's nests
         for (int si = 1; si < 6; si++) {
             int sx = ox + verts[si][0];
             int sz = oz + verts[si][1];
 
-            // Back spires (1=W, 5=NE) flank the big spire — 50% larger and taller
+            // Back spires (1=W, 5=NE) flank the big spire: 50% larger and taller
             boolean isBackSpire = (si == 1 || si == 5);
             int thisSpireR = isBackSpire ? (int)(smallSpireR * 1.5) : smallSpireR; // 7 vs 5
             int thisSpireH = isBackSpire ? (int)(smallSpireH * 1.5) : smallSpireH; // 48 vs 32
@@ -3291,7 +3274,7 @@ public class CastleGenerator {
             }
         }
 
-        // === MASSIVE BIG SPIRE — hollow, with solid exterior spiral bands ===
+        // === MASSIVE BIG SPIRE: hollow, with solid exterior spiral bands ===
         // THREE spiral ledges wrap the exterior like the interior staircase but outside
         // Each ledge is 2 blocks wide, 1 block thick shelf protruding from the surface
         // They spiral at the same rate as the interior stairs for visual coherence
@@ -3312,7 +3295,7 @@ public class CastleGenerator {
                 }
             }
 
-            // EXTERIOR SPIRAL BANDS — 3 bands, 120° apart, wax on from base
+            // EXTERIOR SPIRAL BANDS: 3 bands, 120° apart, wax on from base
             double heightRatio = (double) y / bigSpireH;
             double waxOn = heightRatio < 0.1 ? heightRatio / 0.1 : 1.0; // ramp up over first 10%
             if (waxOn > 0.05) { // skip the very bottom
@@ -3340,7 +3323,7 @@ public class CastleGenerator {
         for (int y = 0; y <= 5; y++) {
             world.setBlock(new BlockPos(bigSX, baseY + bigSpireH + y, bigSZ), blueIce, StructureHelper.SET_FLAGS);
         }
-        // Tip is sea lantern — visible beacon, no end rods
+        // Tip is sea lantern: visible beacon, no end rods
         world.setBlock(new BlockPos(bigSX, baseY + bigSpireH + 6, bigSZ), seaLantern, StructureHelper.SET_FLAGS);
 
         // Sea lanterns spiraling inside the big spire (visible looking up)
@@ -3391,7 +3374,7 @@ public class CastleGenerator {
                     // Snow on top
                     world.setBlock(new BlockPos(bx, baseY + localH, bz), snowBlock, StructureHelper.SET_FLAGS);
                 }
-                // No wood in the ancient walls — pure ice, varied and organic
+                // No wood in the ancient walls: pure ice, varied and organic
             }
         }
 
@@ -3424,7 +3407,7 @@ public class CastleGenerator {
         // ============================================================
 
         // Bridge from south courtyard up to the spire entrance at 1/3 height
-        // The spire tapers — calculate where the south face actually IS at bridgeY
+        // The spire tapers: calculate where the south face actually IS at bridgeY
         double taperAtBridge = 1.0 - ((double)(bridgeY - baseY) / (bigSpireH + 10));
         int spireRAtBridge = Math.max(2, (int)(bigSpireR * taperAtBridge));
         int spireFaceAtBridge = bigSZ + spireRAtBridge; // actual south face at entrance height
@@ -3458,10 +3441,10 @@ public class CastleGenerator {
                 }
             }
 
-            // Clean ice bridge — no cobble adaptations on this ancient structure
+            // Clean ice bridge: no cobble adaptations on this ancient structure
         }
 
-        // Open the big spire wall at bridge entrance height — grand doorway
+        // Open the big spire wall at bridge entrance height: grand doorway
         // Use the TAPERED south face position, not ground-level
         int doorZ = spireFaceAtBridge;
         for (int bx = -3; bx <= 3; bx++) { // 7 wide (giant scale)
@@ -3510,7 +3493,7 @@ public class CastleGenerator {
         }
 
         // ============================================================
-        // SECTION 5: BIG SPIRE INTERIOR — spiral staircase
+        // SECTION 5: BIG SPIRE INTERIOR, spiral staircase
         // ============================================================
 
         // Clear the hollow interior (bigSX/bigSZ already defined above)
@@ -3528,7 +3511,7 @@ public class CastleGenerator {
             }
         }
 
-        // SOLID interior spiral staircase — wide, flush with inner wall, lit
+        // SOLID interior spiral staircase: wide, flush with inner wall, lit
         for (int y = 1; y < bigSpireH - 4; y++) {
             double taperHere = 1.0 - ((double) y / (bigSpireH + 10));
             int rHere = Math.max(3, (int)(bigSpireR * taperHere)) - bigSpireShell;
@@ -3553,7 +3536,7 @@ public class CastleGenerator {
                 }
             }
 
-            // Sea lantern built into the stair every 6 blocks — embedded in the step
+            // Sea lantern built into the stair every 6 blocks: embedded in the step
             if (y % 6 == 0) {
                 int lx = bigSX + (int)(rHere * Math.cos(stairAngle));
                 int lz = bigSZ + (int)(rHere * Math.sin(stairAngle));
@@ -3583,7 +3566,7 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(bigSX, baseY + bigSpireH - 2, bigSZ), seaLantern, StructureHelper.SET_FLAGS);
 
         // ============================================================
-        // SECTION 6: VILLAGER HABITATION — 3 LEVELS inside big spire
+        // SECTION 6: VILLAGER HABITATION, 3 LEVELS inside big spire
         // Ground: ice floor (workshop), Platform 1: bridge level (common area),
         // Platform 2: halfway up (sleeping quarters)
         // ============================================================
@@ -3593,9 +3576,9 @@ public class CastleGenerator {
 
         // --- GROUND FLOOR (ICE): Workshop on the packed-ice courtyard floor ---
         // The courtyard floor section already placed packed ice at baseY inside the hex.
-        // This area is the base of the spire — add workshop stations directly on ice.
+        // This area is the base of the spire: add workshop stations directly on ice.
 
-        // Central hearth (2x2 campfires on stone brick — warmth on ice)
+        // Central hearth (2x2 campfires on stone brick: warmth on ice)
         for (int hx = 0; hx <= 1; hx++) {
             for (int hz = 0; hz <= 1; hz++) {
                 world.setBlock(new BlockPos(bigSX + hx, baseY, bigSZ + hz), Blocks.STONE_BRICKS.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -3620,7 +3603,6 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(bigSX + 5, gfy, bigSZ - 1), Blocks.BARREL.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(bigSX - 4, gfy, bigSZ), Blocks.CRAFTING_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(bigSX - 5, gfy, bigSZ), Blocks.LOOM.defaultBlockState(), StructureHelper.SET_FLAGS);
-        // Bell
         world.setBlock(new BlockPos(bigSX, gfy + 3, bigSZ + 3), log, StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(bigSX, gfy + 4, bigSZ + 3), Blocks.BELL.defaultBlockState(), StructureHelper.SET_FLAGS);
         // Ground floor loot chest
@@ -3783,7 +3765,7 @@ public class CastleGenerator {
         }
 
         // PURPOSEFUL ARCH ENTRANCE through the south hex wall
-        // Clean pointed arch — wider at base, narrows at top
+        // Clean pointed arch: wider at base, narrows at top
         // Clear along the full bridge path through any walls it crosses
         for (int bz = bridgeEndZ; bz <= bridgeStartZ; bz++) {
             double progress = (double)(bridgeStartZ - bz) / Math.max(1, bridgeLen);
@@ -3862,7 +3844,7 @@ public class CastleGenerator {
                 Blocks.END_ROD.defaultBlockState(), StructureHelper.SET_FLAGS);
         }
 
-        // Soul lanterns (the only light — ancient)
+        // Soul lanterns (the only light: ancient)
         for (int[] sl : new int[][]{{-3, 0}, {3, 0}, {0, -3}, {0, 3}}) {
             world.setBlock(new BlockPos(bigSX + sl[0], dungeonFloorY + 3, chamberCZ + sl[1]),
                 Blocks.SOUL_LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
@@ -3878,7 +3860,7 @@ public class CastleGenerator {
     }
 
     /**
-     * Generic large grand castle — used by Plains and Taiga.
+     * Generic large grand castle: used by Plains and Taiga.
      */
     private CastleBounds generateLargeGrandCastle(ServerLevel world, BlockPos center, int radius,
                                                     int keepHalfWidth, int keepHalfDepth) {
@@ -3950,7 +3932,7 @@ public class CastleGenerator {
     // ========================================================================
 
     /**
-     * DESERT LARGE — Alcazar Palace Compound.
+     * DESERT LARGE: Alcazar Palace Compound.
      * A walled palace compound inspired by Alhambra/Moroccan riad architecture.
      * Thick sandstone curtain wall with 4 domed corner bastions, grand pointed-arch gatehouse,
      * central courtyard with fountain pool and acacia shade, palace building against north wall
@@ -3999,7 +3981,7 @@ public class CastleGenerator {
         int fy = baseY + 1;      // furniture Y
 
         // ================================================================
-        // 1: CURTAIN WALLS — thick sandstone perimeter
+        // 1: CURTAIN WALLS, thick sandstone perimeter
         // ================================================================
         for (int x = -half; x <= half; x++) {
             for (int z = -half; z <= half; z++) {
@@ -4034,7 +4016,7 @@ public class CastleGenerator {
         }
 
         // ================================================================
-        // 2: CORNER BASTIONS — cylindrical with domed tops
+        // 2: CORNER BASTIONS, cylindrical with domed tops
         // ================================================================
         int[][] bastionCenters = {
             {-half + bastionR, -half + bastionR},  // NW
@@ -4094,7 +4076,7 @@ public class CastleGenerator {
         }
 
         // ================================================================
-        // 3: GRAND GATEHOUSE — pointed arch on south wall
+        // 3: GRAND GATEHOUSE, pointed arch on south wall
         // ================================================================
         int gateHW = 3; // 7-wide opening
         // Carve the gate through the south wall
@@ -4130,7 +4112,7 @@ public class CastleGenerator {
         }
 
         // ================================================================
-        // 4: COURTYARD FLOOR — smooth sandstone with terracotta patterns
+        // 4: COURTYARD FLOOR, smooth sandstone with terracotta patterns
         // ================================================================
         int innerHalf = half - wallThick;
         for (int x = -innerHalf; x <= innerHalf; x++) {
@@ -4146,7 +4128,7 @@ public class CastleGenerator {
         }
 
         // ================================================================
-        // 5: CENTRAL FOUNTAIN — octagonal pool with water column
+        // 5: CENTRAL FOUNTAIN, octagonal pool with water column
         // ================================================================
         int fountainR = 4;
         // Dig the pool 1 block deep with prismarine bottom
@@ -4181,7 +4163,7 @@ public class CastleGenerator {
         }
 
         // ================================================================
-        // 6: PALACE BUILDING — against north wall, 2 stories
+        // 6: PALACE BUILDING, against north wall, 2 stories
         // ================================================================
         int palN = -innerHalf;                 // north edge (against wall)
         int palS = palN + palaceDepth;         // south edge
@@ -4207,7 +4189,7 @@ public class CastleGenerator {
             new BlockPos(ox + palE - 2, g1Floor - 1, oz + palS - 2),
             smoothSandstone);
 
-        // Colonnade — chiseled sandstone pillars down the hall
+        // Colonnade: chiseled sandstone pillars down the hall
         for (int px = palW + 5; px <= palE - 5; px += 5) {
             for (int py = g1Floor; py <= g1Ceil; py++) {
                 world.setBlock(new BlockPos(ox + px, py, oz + palN + 4), chiseledSandstone, StructureHelper.SET_FLAGS);
@@ -4250,7 +4232,6 @@ public class CastleGenerator {
             world.setBlock(new BlockPos(ox + lx, g1Ceil, oz + palN + 6), hangLantern, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(ox + lx, g1Ceil, oz + palS - 4), hangLantern, StructureHelper.SET_FLAGS);
         }
-        // Bell
         world.setBlock(new BlockPos(ox + 5, g1Floor, oz + palS - 3), acaciaFence, StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + 5, g1Floor + 1, oz + palS - 3), Blocks.BELL.defaultBlockState(), StructureHelper.SET_FLAGS);
 
@@ -4341,7 +4322,7 @@ public class CastleGenerator {
         }
 
         // ================================================================
-        // 7: COURTYARD MARKETPLACE — open-air stalls with shade canopies
+        // 7: COURTYARD MARKETPLACE, open-air stalls with shade canopies
         // Each stall: 4 acacia log posts, acacia slab roof, profession blocks beneath
         // Arranged in two rows flanking the fountain path
         // ================================================================
@@ -4359,7 +4340,7 @@ public class CastleGenerator {
             {-innerHalf + 6, innerHalf - 6},
         };
 
-        // Profession blocks for each stall — a different trade per stall
+        // Profession blocks for each stall: a different trade per stall
         BlockState[][] stallContents = {
             // East stalls: blacksmith, butcher, fletcher
             {Blocks.BLAST_FURNACE.defaultBlockState(), Blocks.ANVIL.defaultBlockState(), Blocks.CAULDRON.defaultBlockState()},
@@ -4410,11 +4391,11 @@ public class CastleGenerator {
         }
 
         // --- Guard barracks: a simple row of beds against the east inner wall ---
-        // No box — just beds, chests, and fence posts along the wall
+        // No box: just beds, chests, and fence posts along the wall
         for (int b = 0; b < 6; b++) {
             int bedZ = oz + palS + 3 + b * 3;
             if (bedZ >= oz + innerHalf - 2) break;
-            // Bed against the east wall (facing WEST toward courtyard)
+            // Beds against the east wall, facing the courtyard
             world.setBlock(new BlockPos(ox + innerHalf - 1, fy, bedZ),
                 bedFoot.setValue(BedBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(ox + innerHalf - 2, fy, bedZ),
@@ -4456,7 +4437,7 @@ public class CastleGenerator {
         }
 
         // ================================================================
-        // 9: GRANDEUR DETAILS — water channels, banners, decorated pots, wall accents
+        // 9: GRANDEUR DETAILS, water channels, banners, decorated pots, wall accents
         // ================================================================
 
         // Water channels from fountain to east/west walls (shallow 1-wide canals)
@@ -4749,7 +4730,7 @@ public class CastleGenerator {
 
                 int columnHeight;
                 if (distSq <= topRadiusSq) {
-                    // Flat plateau — full height
+                    // Flat plateau: full height
                     columnHeight = motteHeight;
                 } else if (distSq <= baseRadiusSq) {
                     // Smooth cosine falloff from plateau to ground
@@ -4855,7 +4836,7 @@ public class CastleGenerator {
                 int colHeight = (int) Math.round(motteHeight * (1.0 + Math.cos(t * Math.PI)) / 2.0);
                 if (colHeight <= 2 || colHeight >= motteHeight) continue;
 
-                // ~8% chance — sparse, not noisy
+                // ~8% chance: sparse, not noisy
                 if (random.nextInt(100) < 8) {
                     mutable.set(ox + x, baseY + colHeight + 1, oz + z);
                     if (world.getBlockState(mutable).isAir()) {
@@ -4869,11 +4850,11 @@ public class CastleGenerator {
     }
 
     // ==========================================================================
-    // TAIGA MEDIUM — Scandinavian Ring Fort
+    // TAIGA MEDIUM: Scandinavian Ring Fort
     // ==========================================================================
 
     /**
-     * TAIGA MEDIUM — Scandinavian ring fort garrison.
+     * TAIGA MEDIUM: Scandinavian ring fort garrison.
      * Circular rampart wall (mossy cobblestone base + spruce log palisade),
      * 4 cardinal gates, cross-road, central longhouse, corner watchtower
      * platforms, fighting walkway, bell at crossroads.
@@ -4931,7 +4912,7 @@ public class CastleGenerator {
             }
         }
 
-        // === FIGHTING WALKWAY — spruce slab on interior wall at 3 blocks up ===
+        // === FIGHTING WALKWAY: spruce slab on interior wall at 3 blocks up ===
         for (int angle = 0; angle < 360; angle += 2) {
             double rad = Math.toRadians(angle);
             int walkX = ox + (int)((fortRadius - 2) * Math.cos(rad));
@@ -4939,7 +4920,7 @@ public class CastleGenerator {
             world.setBlock(new BlockPos(walkX, baseY + 3, walkZ), slabBlock, StructureHelper.SET_FLAGS);
         }
 
-        // === 4 CARDINAL GATES — 3-wide tunnels through rampart ===
+        // === 4 CARDINAL GATES: 3-wide tunnels through rampart ===
         // South gate
         for (int dz = -wallThickness; dz <= 0; dz++) {
             for (int dx = -1; dx <= 1; dx++) {
@@ -5010,7 +4991,7 @@ public class CastleGenerator {
                 palette.fenceGate.defaultBlockState().setValue(FenceGateBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
         }
 
-        // === CROSS-ROAD — cobblestone paths N-S and E-W ===
+        // === CROSS-ROAD: cobblestone paths N-S and E-W ===
         for (int i = -fortRadius + 2; i <= fortRadius - 2; i++) {
             // N-S path (x = center, vary z)
             world.setBlock(new BlockPos(ox, baseY, oz + i), cobblePath, StructureHelper.SET_FLAGS);
@@ -5050,7 +5031,6 @@ public class CastleGenerator {
                 world.setBlock(new BlockPos(ox + lhHalfW, baseY + y, lhOz + z), logWall, StructureHelper.SET_FLAGS);
             }
         }
-        // Clear interior
         StructureHelper.clearInterior(world,
             new BlockPos(ox - lhHalfW + 1, baseY + 1, lhOz - lhHalfD + 1),
             new BlockPos(ox + lhHalfW - 1, baseY + lhWallH, lhOz + lhHalfD - 1));
@@ -5082,7 +5062,7 @@ public class CastleGenerator {
         // Chief's seat (facing south toward door)
         world.setBlock(new BlockPos(ox, baseY + 1, lhOz - lhHalfD + 1),
             palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        // 2 beds — FACING=WEST: FOOT at lower X, HEAD at higher X
+        // 2 beds
         world.setBlock(new BlockPos(ox - lhHalfW + 1, baseY + 1, lhOz - 1), palette.bed.defaultBlockState()
             .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.EAST), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox - lhHalfW + 2, baseY + 1, lhOz - 1), palette.bed.defaultBlockState()
@@ -5159,11 +5139,11 @@ public class CastleGenerator {
     }
 
     // ==========================================================================
-    // TAIGA LARGE — Jarl's Tower-House Fortress
+    // TAIGA LARGE: Jarl's Tower-House Fortress
     // ==========================================================================
 
     /**
-     * TAIGA LARGE — Jarl's tower-house fortress.
+     * TAIGA LARGE: Jarl's tower-house fortress.
      * Scottish highland tower-house + stave church influence.
      * Narrow, tall main tower (9x7, 18 blocks to wall top), battered stone base,
      * 4 floors (great hall, armory, bedchamber, battlement), multi-tiered steep roof,
@@ -5200,7 +5180,7 @@ public class CastleGenerator {
         prepareGround(world, center, courtRadius + 2);
 
         // ============================================
-        // MAIN TOWER — Stone brick, 4 floors
+        // MAIN TOWER: Stone brick, 4 floors
         // ============================================
 
         // --- Battered base: bottom 3 courses use inverted cobblestone stairs stepping outward ---
@@ -5214,25 +5194,25 @@ public class CastleGenerator {
 
             // Place inverted stairs on the outer edge for the battered look
             if (expand > 0) {
-                // North face stairs — FACING=SOUTH (back faces south = you walk up going south)
+                // North face stairs: FACING=SOUTH (back faces south = you walk up going south)
                 for (int x = -tHalfW - expand; x <= tHalfW + expand; x++) {
                     world.setBlock(new BlockPos(ox + x, y, oz - tHalfD - expand),
                         cobbleStairs.setValue(StairBlock.FACING, Direction.SOUTH).setValue(StairBlock.HALF, Half.TOP),
                         StructureHelper.SET_FLAGS);
                 }
-                // South face stairs — FACING=NORTH
+                // South face stairs
                 for (int x = -tHalfW - expand; x <= tHalfW + expand; x++) {
                     world.setBlock(new BlockPos(ox + x, y, oz + tHalfD + expand),
                         cobbleStairs.setValue(StairBlock.FACING, Direction.NORTH).setValue(StairBlock.HALF, Half.TOP),
                         StructureHelper.SET_FLAGS);
                 }
-                // West face stairs — FACING=EAST
+                // West face stairs
                 for (int z = -tHalfD - expand + 1; z <= tHalfD + expand - 1; z++) {
                     world.setBlock(new BlockPos(ox - tHalfW - expand, y, oz + z),
                         cobbleStairs.setValue(StairBlock.FACING, Direction.EAST).setValue(StairBlock.HALF, Half.TOP),
                         StructureHelper.SET_FLAGS);
                 }
-                // East face stairs — FACING=WEST
+                // East face stairs
                 for (int z = -tHalfD - expand + 1; z <= tHalfD + expand - 1; z++) {
                     world.setBlock(new BlockPos(ox + tHalfW + expand, y, oz + z),
                         cobbleStairs.setValue(StairBlock.FACING, Direction.WEST).setValue(StairBlock.HALF, Half.TOP),
@@ -5290,16 +5270,16 @@ public class CastleGenerator {
                 world.setBlock(new BlockPos(stairX + 1, nextFloor, stairZ), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
             }
             // 4 stairs going up (along z then x)
-            // Step 1: at floorBase+1 — facing NORTH (walking north = up)
+            // Step 1: at floorBase+1, facing NORTH (walking north = up)
             world.setBlock(new BlockPos(stairX, floorBase + 1, stairZ + 1),
                 palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
             // Step 2: at floorBase+2
             world.setBlock(new BlockPos(stairX, floorBase + 2, stairZ),
                 palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
-            // Step 3: at floorBase+3 — landing (slab)
+            // Step 3: at floorBase+3, landing (slab)
             world.setBlock(new BlockPos(stairX, floorBase + 3, stairZ), slabBlock, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(stairX + 1, floorBase + 3, stairZ), slabBlock, StructureHelper.SET_FLAGS);
-            // Step 4: at floorBase+4 — final step onto next floor
+            // Step 4: at floorBase+4, final step onto next floor
             world.setBlock(new BlockPos(stairX + 1, floorBase + 4, stairZ),
                 palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
         }
@@ -5419,7 +5399,7 @@ public class CastleGenerator {
         }
 
         // ============================================
-        // 4TH FLOOR — BATTLEMENT LOOKOUT (open roof)
+        // 4TH FLOOR: BATTLEMENT LOOKOUT (open roof)
         // ============================================
         int battleY = baseY + 13; // furniture level on 4th floor (baseY+12 floor + 1)
         // Cobblestone wall parapet around tower top
@@ -5442,7 +5422,7 @@ public class CastleGenerator {
             Blocks.LANTERN.defaultBlockState(), StructureHelper.SET_FLAGS);
 
         // ============================================
-        // FLOOR 1 — GREAT HALL (baseY floor, baseY+1 furniture)
+        // FLOOR 1: GREAT HALL (baseY floor, baseY+1 furniture)
         // ============================================
         int ghFurn = baseY + 1;
         // Central hearth (campfire with cobble border)
@@ -5456,7 +5436,7 @@ public class CastleGenerator {
         // Chief's seat (east side of table, facing west across hall)
         world.setBlock(new BlockPos(ox + 3, ghFurn, oz),
             palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
-        // Tapestry (banner on north wall) — use a wall torch as placeholder since banners are complex
+        // Tapestry (banner on north wall): use a wall torch as placeholder since banners are complex
         world.setBlock(new BlockPos(ox, ghFurn + 1, oz - tHalfD + 1),
             Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
         // Chests flanking entrance
@@ -5466,16 +5446,13 @@ public class CastleGenerator {
             Direction.EAST, BuiltInLootTables.VILLAGE_TAIGA_HOUSE);
 
         // ============================================
-        // FLOOR 2 — ARMORY (baseY+4 floor, baseY+5 furniture)
+        // FLOOR 2: ARMORY (baseY+4 floor, baseY+5 furniture)
         // ============================================
         int armFurn = baseY + 5;
-        // Grindstone
         world.setBlock(new BlockPos(ox + tHalfW - 1, armFurn, oz - tHalfD + 1),
             Blocks.GRINDSTONE.defaultBlockState(), StructureHelper.SET_FLAGS);
-        // Anvil
         world.setBlock(new BlockPos(ox + tHalfW - 1, armFurn, oz),
             Blocks.ANVIL.defaultBlockState(), StructureHelper.SET_FLAGS);
-        // Smithing table
         world.setBlock(new BlockPos(ox + tHalfW - 1, armFurn, oz + tHalfD - 1),
             Blocks.SMITHING_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
         // Armor stands (fence + banner approximation)
@@ -5488,27 +5465,25 @@ public class CastleGenerator {
             Direction.NORTH, BuiltInLootTables.VILLAGE_WEAPONSMITH);
 
         // ============================================
-        // FLOOR 3 — BEDCHAMBER (baseY+8 floor, baseY+9 furniture)
+        // FLOOR 3: BEDCHAMBER (baseY+8 floor, baseY+9 furniture)
         // ============================================
         int bedFurn = baseY + 9;
-        // 3 beds along east wall — FACING=WEST: FOOT at higher X, HEAD at lower X
+        // 3 beds along east wall
         for (int dz = -1; dz <= 1; dz++) {
             world.setBlock(new BlockPos(ox + tHalfW - 1, bedFurn, oz + dz), palette.bed.defaultBlockState()
                 .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(ox + tHalfW - 2, bedFurn, oz + dz), palette.bed.defaultBlockState()
                 .setValue(BedBlock.PART, BedPart.HEAD).setValue(BedBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
         }
-        // Bookshelf
         world.setBlock(new BlockPos(ox - tHalfW + 1, bedFurn, oz - tHalfD + 1), Blocks.BOOKSHELF.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox - tHalfW + 1, bedFurn + 1, oz - tHalfD + 1), Blocks.BOOKSHELF.defaultBlockState(), StructureHelper.SET_FLAGS);
         // Personal effects chest
         StructureHelper.placeChest(world, new BlockPos(ox - tHalfW + 1, bedFurn, oz + tHalfD - 1),
             Direction.EAST, BuiltInLootTables.VILLAGE_TAIGA_HOUSE);
-        // Carpet
         world.setBlock(new BlockPos(ox, bedFurn, oz), palette.carpet.defaultBlockState(), StructureHelper.SET_FLAGS);
 
         // ============================================
-        // COURTYARD PALISADE — tight around tower
+        // COURTYARD PALISADE: tight around tower
         // ============================================
         // Mossy cobblestone base (2 blocks) + spruce log palisade (3 blocks) = 5 total
         for (int x = -courtRadius; x <= courtRadius; x++) {
@@ -5533,7 +5508,7 @@ public class CastleGenerator {
             }
         }
 
-        // === SOUTH GATE — timber-framed tunnel ===
+        // === SOUTH GATE: timber-framed tunnel ===
         // Gate posts
         for (int y = 0; y <= 5; y++) {
             world.setBlock(new BlockPos(ox - 2, baseY + y, oz + courtRadius), logWall, StructureHelper.SET_FLAGS);
@@ -5615,7 +5590,7 @@ public class CastleGenerator {
             mutable.set(center.getX() + x, baseY + 1, center.getZ() - fenceHalfZ);
             world.setBlock(mutable, fenceState, StructureHelper.SET_FLAGS);
 
-            // South side — leave a 2-wide gap in the center for the fence gate
+            // South side: leave a 2-wide gap in the center for the fence gate
             int absX = Math.abs(x);
             if (absX > 1) {
                 mutable.set(center.getX() + x, baseY + 1, center.getZ() + fenceHalfZ);
@@ -5671,7 +5646,7 @@ public class CastleGenerator {
      *
      * Uses the vanilla house connector convention:
      *   name: minecraft:bottom, target: minecraft:bottom, pool: minecraft:empty
-     * Terminal — no further pieces chain from the castle.
+     * Terminal: no further pieces chain from the castle.
      */
     private void placeJigsawConnectors(ServerLevel world, BlockPos center, int perimeterRadius) {
         ResourceKey<StructureTemplatePool> emptyPool = ResourceKey.create(
@@ -5777,7 +5752,7 @@ public class CastleGenerator {
 
     /**
      * For motte castles: only clear air above the motte's flat top so structures can be placed.
-     * Does NOT flatten or fill — the motte itself provides the ground surface.
+     * Does NOT flatten or fill: the motte itself provides the ground surface.
      */
     private void clearAirAbove(ServerLevel world, BlockPos center, int radius) {
         int baseY = center.getY();

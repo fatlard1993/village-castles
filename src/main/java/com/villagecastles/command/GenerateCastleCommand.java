@@ -49,7 +49,7 @@ public class GenerateCastleCommand {
     private static CastleGenerator.CastleBounds lastBounds = null;
     private static String lastBiome = null;
     private static String lastSize = null;
-    // Center of the last generate — used as flood-fill origin for auto-bounds on capture
+    // Center of the last generate: used as flood-fill origin for auto-bounds on capture
     private static BlockPos lastGenerateCenter = null;
 
     // Mutable capture region (used by bounds show/expand/shrink if needed)
@@ -209,14 +209,12 @@ public class GenerateCastleCommand {
         CommandSourceStack source = ctx.getSource();
         String biomeStr = StringArgumentType.getString(ctx, "biome");
 
-        // Parse biome
         BiomePalette palette = BiomePalette.fromId(biomeStr);
         if (palette == null) {
             source.sendFailure(Component.translatable("commands.villagecastles.error.unknown_biome", biomeStr));
             return 0;
         }
 
-        // Parse size
         CastleGenerator.CastleSize size;
         try {
             size = CastleGenerator.CastleSize.valueOf(sizeStr.toUpperCase());
@@ -225,7 +223,6 @@ public class GenerateCastleCommand {
             return 0;
         }
 
-        // Get player position
         BlockPos playerPos = BlockPos.containing(source.getPosition());
         ServerLevel world = source.getLevel();
 
@@ -543,7 +540,7 @@ public class GenerateCastleCommand {
         BlockPos playerPos = BlockPos.containing(source.getPosition());
         ServerLevel world = source.getLevel();
 
-        // Generous bounds based on size — covers any structure variant
+        // Generous bounds based on size: covers any structure variant
         int hRadius = size.diameter / 2 + 10;
         int belowGround = 15; // cisterns, dungeons, foundations
         int aboveGround;
@@ -664,7 +661,7 @@ public class GenerateCastleCommand {
     }
 
     /**
-     * Generate and export ALL structures for all biomes — castles (3 sizes) + wall segments (5 types).
+     * Generate and export ALL structures for all biomes: castles (3 sizes) + wall segments (5 types).
      * This is the mass-production command for populating the mod's NBT files.
      */
     /**

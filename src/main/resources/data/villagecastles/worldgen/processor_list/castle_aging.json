@@ -13,7 +13,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "Name": "minecraft:mossy_stone_bricks"
+            "id": "minecraft:mossy_stone_bricks"
           }
         },
         {
@@ -26,7 +26,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "Name": "minecraft:cracked_stone_bricks"
+            "id": "minecraft:cracked_stone_bricks"
           }
         },
         {
@@ -39,7 +39,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "Name": "minecraft:mossy_cobblestone"
+            "id": "minecraft:mossy_cobblestone"
           }
         },
         {
@@ -52,7 +52,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "Name": "minecraft:cut_sandstone"
+            "id": "minecraft:cut_sandstone"
           }
         },
         {
@@ -65,7 +65,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "Name": "minecraft:sandstone"
+            "id": "minecraft:sandstone"
           }
         },
         {
@@ -78,7 +78,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "Name": "minecraft:packed_mud"
+            "id": "minecraft:packed_mud"
           }
         },
         {
@@ -91,7 +91,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "Name": "minecraft:cracked_deepslate_tiles"
+            "id": "minecraft:cracked_deepslate_tiles"
           }
         },
         {
@@ -104,7 +104,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "Name": "minecraft:blue_ice"
+            "id": "minecraft:blue_ice"
           }
         },
         {
@@ -117,7 +117,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "Name": "minecraft:terracotta"
+            "id": "minecraft:terracotta"
           }
         },
         {
@@ -130,7 +130,7 @@
             "predicate_type": "minecraft:always_true"
           },
           "output_state": {
-            "Name": "minecraft:powder_snow"
+            "id": "minecraft:powder_snow"
           }
         }
       ]

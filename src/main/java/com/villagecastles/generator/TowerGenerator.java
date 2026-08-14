@@ -221,7 +221,7 @@ public class TowerGenerator {
     }
 
     /**
-     * Classic conical roof that properly scales with radius.
+     * Classic conical roof scaled to the tower radius.
      * Layers taper from radius-1 down to 1 (or 0 center cap).
      * Returns the Y offset above center for flag pole placement.
      */

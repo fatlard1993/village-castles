@@ -41,25 +41,12 @@ public class GateGenerator {
      * Generate a full gatehouse facing the specified direction.
      */
     public void generate(ServerLevel world, BlockPos center, Direction facing) {
-        // Build flanking towers
         buildFlankingTowers(world, center, facing);
-
-        // Build gatehouse structure
         buildGatehouseBody(world, center, facing);
-
-        // Build archway
         buildArchway(world, center, facing);
-
-        // Add portcullis frame
         addPortcullisFrame(world, center, facing);
-
-        // Add gate
         addGate(world, center, facing);
-
-        // Add murder holes
         addMurderHoles(world, center, facing);
-
-        // Add decorative elements
         addDecorations(world, center, facing);
     }
 
@@ -186,7 +173,7 @@ public class GateGenerator {
 
         int halfWidth = GATE_WIDTH / 2;
 
-        // Fence gates at entrance — full height to fill the archway
+        // Fence gates at entrance: full height to fill the archway
         BlockPos gatePos = center.relative(facing, -GATEHOUSE_DEPTH / 2);
         BlockState gate = palette.getFenceGateState().setValue(FenceGateBlock.FACING, facing);
 

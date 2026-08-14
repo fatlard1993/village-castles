@@ -274,7 +274,7 @@ public class StructureHelper {
             world.setBlock(center.above(y), pillarBlock, SET_FLAGS);
         }
 
-        // Spiral stairs — one step per block of height, rotating 45° per step.
+        // Spiral stairs: one step per block of height, rotating 45° per step.
         // 8 cardinal+diagonal positions per rotation; steps at y=0,1,2... are climbable.
         double stepsPerRotation = 8;
         for (int step = 0; step < height; step++) {

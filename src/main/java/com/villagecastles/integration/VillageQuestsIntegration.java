@@ -41,7 +41,7 @@ public class VillageQuestsIntegration {
         if (initialized) return;
         initialized = true;
 
-        if (!FabricLoader.getInstance().isModLoaded("village-quests")) {
+        if (!FabricLoader.getInstance().isModLoaded("village-quests-justfatlard")) {
             VillageCastles.LOGGER.info("Village Quests not found, skipping quest integration");
             return;
         }
@@ -136,7 +136,7 @@ public class VillageQuestsIntegration {
     // ---------------------------------------------------------------
 
     private static void registerCastleQuests() throws Exception {
-        // Mason — wall repair and fortification
+        // Mason: wall repair and fortification
         registerBiomeAwareFetchQuest("mason", 32, 6, 0.15,
             new Object[][] {
                 {"plains", Items.STONE_BRICKS, "The eastern wall section is crumbling. Need stone bricks to shore it up."},
@@ -150,7 +150,7 @@ public class VillageQuestsIntegration {
             Items.COBBLESTONE, 48, 5, 0.12,
             "Foundation's settling under the tower. Cobblestone for repairs, if you've got any.");
 
-        // Weaponsmith — arming the garrison
+        // Weaponsmith: arming the garrison
         registerFetchQuest("weaponsmith",
             Items.IRON_SWORD, 2, 7, 0.10,
             "Two of my swords broke during training drills. The night watch can't patrol unarmed.");
@@ -159,7 +159,7 @@ public class VillageQuestsIntegration {
             Items.IRON_INGOT, 6, 6, 0.12,
             "I'm forging new pikes for the gatehouse. Iron ingots — as many as you can get.");
 
-        // Armorer — outfitting the watch
+        // Armorer: outfitting the watch
         registerFetchQuest("armorer",
             Items.IRON_CHESTPLATE, 1, 8, 0.08,
             "New recruits need proper armor. Even one chestplate would help.");
@@ -168,7 +168,7 @@ public class VillageQuestsIntegration {
             Items.LEATHER, 8, 5, 0.12,
             "The tower guards need new bracers. Leather — enough for the whole watch rotation.");
 
-        // Fletcher — stocking the towers
+        // Fletcher: stocking the towers
         registerFetchQuest("fletcher",
             Items.ARROW, 64, 5, 0.15,
             "Tower guards are running low. A full stack should last the week.");
@@ -177,7 +177,7 @@ public class VillageQuestsIntegration {
             Items.FEATHER, 16, 4, 0.12,
             "Got plenty of shafts and tips, but feathers... the chickens aren't cooperating.");
 
-        // Farmer — provisioning the garrison
+        // Farmer: provisioning the garrison
         registerBiomeAwareFetchQuest("farmer", 16, 5, 0.15,
             new Object[][] {
                 {"plains", Items.BREAD, "The soldiers eat more than my fields can handle. Bread for the barracks."},
@@ -190,7 +190,7 @@ public class VillageQuestsIntegration {
             Items.HAY_BLOCK, 4, 4, 0.10,
             "The stables need feed. Four hay bales and the horses eat through winter.");
 
-        // Toolsmith — maintaining the castle
+        // Toolsmith: maintaining the castle
         registerFetchQuest("toolsmith",
             Items.IRON_INGOT, 8, 6, 0.10,
             "The portcullis mechanism is worn through. I need iron to forge replacement gears.");
@@ -199,7 +199,7 @@ public class VillageQuestsIntegration {
             Items.IRON_AXE, 2, 5, 0.08,
             "The woodcutters broke their axes reinforcing the palisade. Two replacements, sharp ones.");
 
-        // Cleric — the ruins connection
+        // Cleric: the ruins connection
         registerFetchQuest("cleric",
             Items.GOLDEN_APPLE, 1, 10, 0.06,
             "Travelers found a zombie villager in the old ruins. They were one of ours, once. A golden apple might bring them back.");
@@ -208,7 +208,7 @@ public class VillageQuestsIntegration {
             Items.GLISTERING_MELON_SLICE, 4, 5, 0.10,
             "The garrison took wounds in the last skirmish. I need glistering melon for healing potions.");
 
-        // Librarian — castle lore and records
+        // Librarian: castle lore and records
         registerFetchQuest("librarian",
             Items.BOOK, 3, 5, 0.12,
             "I'm writing down the castle's history — who built it, who held it. Need blank books.");
@@ -217,7 +217,7 @@ public class VillageQuestsIntegration {
             Items.WRITABLE_BOOK, 1, 6, 0.08,
             "The old charter's fading. I need a book and quill to copy it before it's gone.");
 
-        // Universal — any villager in a castle village might ask
+        // Universal: any villager in a castle village might ask
         registerBiomeAwareFetchQuestUniversal(32, 4, 0.08,
             new Object[][] {
                 {"snowy", Items.SOUL_TORCH, "Lanterns freeze. Need soul torches for the watchtowers."},
@@ -349,7 +349,7 @@ public class VillageQuestsIntegration {
     // ---------------------------------------------------------------
 
     private static void registerCastleDialogue() throws Exception {
-        // Mason dialogue — talks about the walls
+        // Mason dialogue: talks about the walls
         registerDialogue("mason", "vc_mason_walls",
             Component.literal("How are the castle walls holding up?"), 0, 200,
             Component.literal("Better than before you started helping. The eastern section is solid now, but the north tower foundation worries me. Settling soil."));
@@ -358,7 +358,7 @@ public class VillageQuestsIntegration {
             Component.literal("Have you seen the ruins in the wilderness?"), 20, 200,
             Component.literal("Aye. Same stonework as ours. Whoever built this place built those too. Makes you wonder what happened to them."));
 
-        // Weaponsmith — talks about defense
+        // Weaponsmith: talks about defense
         registerDialogue("weaponsmith", "vc_smith_guard",
             Component.literal("Is the garrison well-armed?"), 0, 200,
             Component.literal("Well enough. I keep the grindstone going. But I'd sleep better with more iron in the armory."));
@@ -367,7 +367,7 @@ public class VillageQuestsIntegration {
             Component.literal("Has the castle ever been attacked?"), 30, 200,
             Component.literal("Once. Pillagers came from the east. The walls held. That's the thing about stone — it doesn't care how angry you are."));
 
-        // Librarian — castle history
+        // Librarian: castle history
         registerDialogue("librarian", "vc_lib_history",
             Component.literal("What do you know about this castle's history?"), 10, 200,
             Component.literal("Records don't go back far enough. Somebody built this place, though — the stonework's too good for us. Military, maybe. The ruins nearby look the same."));
@@ -376,22 +376,22 @@ public class VillageQuestsIntegration {
             Component.literal("Tell me about the ruins nearby."), 40, 200,
             Component.literal("The old fortress? Dangerous. Full of undead. But the stonework matches ours. Same builders, different fate. I'd love to get a closer look, but... no."));
 
-        // Cleric — talks about the fallen
+        // Cleric: talks about the fallen
         registerDialogue("cleric", "vc_cleric_zombie",
             Component.literal("Are there really zombie villagers in the ruins?"), 20, 200,
             Component.literal("They used to live here. When the old fortress fell, not everyone got out. They're still in there, wandering. A golden apple and a splash of weakness... we could bring them back."));
 
-        // Fletcher — tower watch
+        // Fletcher: tower watch
         registerDialogue("fletcher", "vc_fletcher_tower",
             Component.literal("How's the view from the towers?"), 0, 200,
             Component.literal("On a clear day you can see the old ruins from up there. The guards watch the horizon. Arrows carry further from height, too."));
 
-        // Farmer — garrison life
+        // Farmer: garrison life
         registerDialogue("farmer", "vc_farmer_feed",
             Component.literal("Is it hard feeding the whole garrison?"), 10, 200,
             Component.literal("Feeding this many people wasn't the plan. Soldiers, guards, the smith, the horses... but they keep us safe, so I keep planting."));
 
-        // Grief dialogue — surfaces when a castle villager has recently died
+        // Grief dialogue: surfaces when a castle villager has recently died
         registerDialogue("mason", "vc_grief_mason",
             Component.literal("The watchtower is unmanned tonight."), 0, 200,
             Component.literal("Nobody wanted the shift. Not after what happened."));
@@ -404,7 +404,7 @@ public class VillageQuestsIntegration {
             Component.literal("The garrison feels smaller today."), 0, 200,
             Component.literal("One less mouth to feed. That's the wrong way to think about it. But I thought it."));
 
-        // Armorer — talks about equipment
+        // Armorer: talks about equipment
         registerDialogue("armorer", "vc_armorer_watch",
             Component.literal("Do the tower guards have good armor?"), 0, 200,
             Component.literal("Good enough for arrows. Not enough for a full siege. I keep the blast furnace running day and night, but iron doesn't grow on trees."));

@@ -36,7 +36,7 @@ import java.util.Optional;
 /**
  * After a village finishes jigsaw assembly, attach a castle to the village edge.
  *
- * Targets {@code lambda$addPieces$2} in JigsawPlacement — the per-piece recursive lambda
+ * Targets {@code lambda$addPieces$2} in JigsawPlacement: the per-piece recursive lambda
  * extracted from the private {@code addPieces()} call in MC 26.1. This lambda receives
  * StructurePiecesBuilder and Structure.GenerationContext, equivalent to {@code method_39824}
  * from 1.21.11.
@@ -48,7 +48,7 @@ import java.util.Optional;
  * parameter list starts with {@code PoolElementStructurePiece, int, int, JigsawStructure$MaxDistance}
  * and ends with {@code StructurePiecesBuilder}, and update this descriptor.
  *
- * NOTE: biome detection uses getElement().toString() — a heuristic on the internal pool
+ * NOTE: biome detection uses getElement().toString(), a heuristic on the internal pool
  * element string. Works for vanilla villages; fragile if Mojang changes the toString format.
  */
 @Mixin(JigsawPlacement.class)
@@ -148,7 +148,7 @@ public class VillageCastleAttachmentMixin {
             else rotation = Rotation.CLOCKWISE_180;
 
             // Sample actual surface Y at the castle's anchor position.
-            // structureBox.minY() is the village floor — fine for flat terrain, wrong when the
+            // structureBox.minY() is the village floor: fine for flat terrain, wrong when the
             // castle sits on a cliff or hillside 5-70 blocks from the village center.
             int castleY = chunkGenerator.getFirstOccupiedHeight(
                 castleX, castleZ,
@@ -161,7 +161,7 @@ public class VillageCastleAttachmentMixin {
             BoundingBox castleBox = element.getBoundingBox(structureTemplateManager, castlePos, rotation);
 
             // X/Z-only overlap check. A large castle bounding box extends 35+ blocks back toward
-            // the village from its anchor — the overlap check must catch this. 3D intersects()
+            // the village from its anchor: the overlap check must catch this. 3D intersects()
             // misses it when castle Y differs from village Y (no Y-range overlap → false clear).
             if (castleBox.minX() <= structureBox.maxX() && castleBox.maxX() >= structureBox.minX() &&
                 castleBox.minZ() <= structureBox.maxZ() && castleBox.maxZ() >= structureBox.minZ()) {

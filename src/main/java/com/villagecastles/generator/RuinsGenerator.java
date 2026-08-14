@@ -94,10 +94,6 @@ public class RuinsGenerator {
         }
     }
 
-    // ---------------------------------------------------------------
-    // Instance fields
-    // ---------------------------------------------------------------
-
     private final RuinsVariant variant;
     private final long seed;
     private final Random random;
@@ -108,10 +104,6 @@ public class RuinsGenerator {
     private static final EntityType<?> SAVANNA_MOB = EntityTypes.SPIDER;
     private static final EntityType<?> TAIGA_MOB = EntityTypes.SKELETON;
     private static final EntityType<?> SNOWY_MOB = EntityTypes.STRAY;
-
-    // ---------------------------------------------------------------
-    // Constructor
-    // ---------------------------------------------------------------
 
     public RuinsGenerator(RuinsVariant variant, long seed) {
         this.variant = variant;
@@ -330,7 +322,7 @@ public class RuinsGenerator {
             }
             if (wallCount < 2) continue;
 
-            // First spawner is always a zombie villager — the inhabitants didn't all leave
+            // First spawner is always a zombie villager: the inhabitants didn't all leave
             EntityType<?> thisSpawnerMob = (placed == 0) ? EntityTypes.ZOMBIE_VILLAGER : mobType;
             placeSpawner(world, probe.immutable(), thisSpawnerMob);
 

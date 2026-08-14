@@ -37,7 +37,7 @@ public class CourtyardGenerator {
         int courtyardInner = Math.max(keepHalfWidth, keepHalfDepth) + 3;
         int courtyardOuter = radius - 10;
 
-        // Village bell — required for villager gathering point and raid detection
+        // Village bell: required for villager gathering point and raid detection
         // Placed on a post near the gate approach, visible from the courtyard
         placeBell(world, center.offset(3, 0, courtyardOuter - 4));
 
@@ -82,7 +82,7 @@ public class CourtyardGenerator {
             case SNOWY -> generateHearth(world, center);
             case SAVANNA -> {
                 generateWell(world, center);
-                // Conical tower monument (Great Zimbabwe inspired) — placed near the well
+                // Conical tower monument (Great Zimbabwe inspired): placed near the well
                 generateConicalTower(world, center.offset(6, 0, 0));
             }
             default -> generateWell(world, center);
@@ -120,7 +120,7 @@ public class CourtyardGenerator {
     }
 
     /**
-     * Conical tower monument — references the famous conical tower of Great Zimbabwe.
+     * Conical tower monument: references the famous conical tower of Great Zimbabwe.
      * A solid 3-block-radius, 6-block-tall cone of mud bricks built as concentric rings
      * of decreasing radius.
      */
@@ -250,7 +250,7 @@ public class CourtyardGenerator {
     }
 
     /**
-     * Training area — varies by biome.
+     * Training area: varies by biome.
      * Plains/savanna: training dummies with hay targets
      * Desert: archery range with terracotta targets
      * Taiga: weapon racks with armor stands
@@ -326,7 +326,7 @@ public class CourtyardGenerator {
         int depth = 5;
         int height = 4;
 
-        // Walls — horizontal logs for X-aligned walls, Z-aligned for side walls
+        // Walls: horizontal logs for X-aligned walls, Z-aligned for side walls
         BlockState logX = palette.log.defaultBlockState().setValue(RotatedPillarBlock.AXIS, Direction.Axis.X);
         BlockState logZ = palette.log.defaultBlockState().setValue(RotatedPillarBlock.AXIS, Direction.Axis.Z);
         BlockState logY = palette.getLogState(); // vertical for corners
@@ -374,7 +374,7 @@ public class CourtyardGenerator {
         StructureHelper.placeChest(world, corner.offset(4, 1, 2),
             Direction.NORTH, BuiltInLootTables.VILLAGE_PLAINS_HOUSE);
 
-        // Workstation — composter (farmer, manages feed and crops)
+        // Workstation: composter (farmer, manages feed and crops)
         world.setBlock(corner.offset(6, 1, 2),
             Blocks.COMPOSTER.defaultBlockState(), StructureHelper.SET_FLAGS);
 
@@ -466,7 +466,7 @@ public class CourtyardGenerator {
         StructureHelper.placeChest(world, corner.offset(width - 2, 1, depth - 1),
             Direction.NORTH, BuiltInLootTables.VILLAGE_WEAPONSMITH);
 
-        // Workstations — fletcher (arrows for soldiers), smoker (cooking for troops)
+        // Workstations: fletcher (arrows for soldiers), smoker (cooking for troops)
         world.setBlock(corner.offset(2, 1, depth - 1),
             Blocks.FLETCHING_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(corner.offset(4, 1, depth - 1),
@@ -478,7 +478,7 @@ public class CourtyardGenerator {
     }
 
     /**
-     * Place a village bell on a fence post — required for villager gathering and raid detection.
+     * Place a village bell on a fence post: required for villager gathering and raid detection.
      */
     private void placeBell(ServerLevel world, BlockPos pos) {
         // Fence post base

@@ -139,7 +139,7 @@ public class StructureExporter implements ServerTickEvents.EndTick {
                         // Plains SMALL structural fixes (local coords from NBT audit)
                         if ("plains".equals(palette.id) && size == CastleGenerator.CastleSize.SMALL) {
                             int bx = bounds.min.getX(), by = bounds.min.getY(), bz = bounds.min.getZ();
-                            // Fix floor holes at y=1, z=13 (under the podium — 4 missing oak planks)
+                            // Fix floor holes at y=1, z=13 (under the podium: 4 missing oak planks)
                             for (int fx = 12; fx <= 15; fx++)
                                 world.setBlock(new net.minecraft.core.BlockPos(bx+fx, by+1, bz+13), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
                             // Fix podium slab gap at (14,2,13)
@@ -159,10 +159,10 @@ public class StructureExporter implements ServerTickEvents.EndTick {
                             world.setBlock(new net.minecraft.core.BlockPos(bx+11, by+2, bz+17), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
                             world.setBlock(new net.minecraft.core.BlockPos(bx+11, by+2, bz+16), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
                             world.setBlock(new net.minecraft.core.BlockPos(bx+11, by+2, bz+15), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            // Fix floating stair risers — add planks beneath steps 2 and 3
+                            // Fix floating stair risers: add planks beneath steps 2 and 3
                             world.setBlock(new net.minecraft.core.BlockPos(bx+9, by+2, bz+16), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
                             world.setBlock(new net.minecraft.core.BlockPos(bx+9, by+3, bz+15), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            // Fix floating gateway lintel slabs — add stone_brick support row at y=3,z=20
+                            // Fix floating gateway lintel slabs: add stone_brick support row at y=3,z=20
                             for (int lx = 11; lx <= 16; lx++)
                                 world.setBlock(new net.minecraft.core.BlockPos(bx+lx, by+3, bz+20), net.minecraft.world.level.block.Blocks.STONE_BRICKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
                             VillageCastles.LOGGER.info("Applied plains_small structural fixes");

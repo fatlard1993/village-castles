@@ -60,14 +60,14 @@ public class KeepGenerator {
             baseDepth = 17;
             baseFloorHeight = 5;
             this.numFloors = 3;
-        } else { // Small — tower keep (taller, narrower)
+        } else { // Small : tower keep (taller, narrower)
             baseWidth = 7;
             baseDepth = 9;
             baseFloorHeight = 4;
             this.numFloors = 3;
         }
 
-        // Biome-specific proportions — not just palette swaps
+        // Biome-specific proportions: not just palette swaps
         // Desert/Savanna: wider, squatter (thick-walled, flat-roofed)
         // Taiga: narrower, taller (steep Nordic longhouse proportions)
         // Snowy: taller ceilings (vaulted ice halls)
@@ -140,7 +140,7 @@ public class KeepGenerator {
             int landingZ = stairOz - floorHeight + 1;
             for (int dx = 0; dx <= 1; dx++) {
                 for (int dz = 0; dz <= 1; dz++) {
-                    // Floor level — air, not planks (the stair landing IS the walkable surface)
+                    // Floor level: air, not planks (the stair landing IS the walkable surface)
                     world.setBlock(new BlockPos(stairOx + dx, landingY, landingZ - dz),
                         Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
                     // Headroom
@@ -210,13 +210,13 @@ public class KeepGenerator {
             clearCorner1.atY(floorY + 1),
             clearCorner2.atY(floorY + floorHeight - 1));
 
-        // Add windows — skip ground floor for defensibility; lookout floor of small keeps gets tighter spacing
+        // Add windows: skip ground floor for defensibility; lookout floor of small keeps gets tighter spacing
         if (floorNum > 0) {
             int windowSpacing = (size == 0 && floorNum == numFloors - 1) ? 3 : 4;
             addWindows(world, origin, floorY + 2, halfWidth, halfDepth, windowSpacing);
         }
 
-        // Floor-specific features — small keeps get their own compact floor plans
+        // Floor-specific features: small keeps get their own compact floor plans
         if (size == 0) {
             switch (floorNum) {
                 case 0 -> buildLivingRoom(world, origin, floorY);
@@ -244,7 +244,7 @@ public class KeepGenerator {
     // ==================== Small Keep (Size 0) Floor Plans ====================
 
     /**
-     * Ground floor of a small tower keep — a cozy combined living space.
+     * Ground floor of a small tower keep: a cozy combined living space.
      * Campfire with stone base, bed alcove, small table, chest, carpet.
      */
     private void buildLivingRoom(ServerLevel world, BlockPos origin, int floorY) {
@@ -253,7 +253,7 @@ public class KeepGenerator {
         int ox = origin.getX();
         int oz = origin.getZ();
 
-        // Central campfire on a stone base — solid block underneath so nothing floats
+        // Central campfire on a stone base: solid block underneath so nothing floats
         BlockPos fireBase = new BlockPos(ox, floorY + 1, oz);
         world.setBlock(fireBase, palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
         BlockState campfire = (palette == BiomePalette.SNOWY)
@@ -293,7 +293,7 @@ public class KeepGenerator {
     }
 
     /**
-     * Second floor of a small tower keep — compact storeroom/armory.
+     * Second floor of a small tower keep: compact storeroom/armory.
      * Barrels, weapon chest, crafting table, furnace, fence-post weapon stands.
      */
     private void buildStoreroom(ServerLevel world, BlockPos origin, int floorY) {
@@ -327,7 +327,7 @@ public class KeepGenerator {
     }
 
     /**
-     * Top floor of a small tower keep — lookout room and lord's personal space.
+     * Top floor of a small tower keep: lookout room and lord's personal space.
      * Bed in corner, desk with lantern, bookshelf. More windows (handled by spacing).
      */
     private void buildLookoutRoom(ServerLevel world, BlockPos origin, int floorY) {
@@ -367,7 +367,7 @@ public class KeepGenerator {
         int ox = origin.getX();
         int oz = origin.getZ();
 
-        // Stonecutter near entrance — mason workstation (castle builders)
+        // Stonecutter near entrance: mason workstation (castle builders)
         world.setBlock(new BlockPos(ox + halfWidth - 2, floorY + 1, oz - halfDepth + 2),
             Blocks.STONECUTTER.defaultBlockState(), StructureHelper.SET_FLAGS);
 
@@ -509,7 +509,7 @@ public class KeepGenerator {
             }
         }
 
-        // Central fountain — 3x3 stone brick frame with water in the center
+        // Central fountain: 3x3 stone brick frame with water in the center
         int fountainZ = oz;
         // Floor of fountain basin
         for (int fx = -1; fx <= 1; fx++) {
@@ -530,7 +530,7 @@ public class KeepGenerator {
     }
 
     private void buildGreatHallTaiga(ServerLevel world, int ox, int oz, int floorY, int halfWidth, int halfDepth) {
-        // Central fireplace — campfire with stone brick chimney frame
+        // Central fireplace: campfire with stone brick chimney frame
         BlockPos firePos = new BlockPos(ox, floorY + 1, oz);
         // Stone base for the campfire
         world.setBlock(firePos, Blocks.STONE_BRICKS.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -570,7 +570,7 @@ public class KeepGenerator {
     }
 
     private void buildGreatHallSnowy(ServerLevel world, int ox, int oz, int floorY, int halfWidth, int halfDepth) {
-        // Central fire pit — soul campfire on packed_ice platform
+        // Central fire pit: soul campfire on packed_ice platform
         BlockPos pitPos = new BlockPos(ox, floorY + 1, oz);
         world.setBlock(pitPos, Blocks.PACKED_ICE.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(pitPos.above(), Blocks.SOUL_CAMPFIRE.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -585,7 +585,7 @@ public class KeepGenerator {
             }
         }
 
-        // Carpet everywhere for insulation — fill the floor interior
+        // Carpet everywhere for insulation: fill the floor interior
         BlockState carpet = palette.getCarpetState();
         for (int x = -halfWidth + 2; x <= halfWidth - 2; x++) {
             for (int z = -halfDepth + 2; z <= halfDepth - 2; z++) {
@@ -616,7 +616,7 @@ public class KeepGenerator {
     }
 
     private void buildGreatHallSavanna(ServerLevel world, int ox, int oz, int floorY, int halfWidth, int halfDepth) {
-        // Open-air feel — no carpets. Floor is already the palette floor (packed_mud for savanna).
+        // Open-air feel: no carpets. Floor is already the palette floor (packed_mud for savanna).
 
         // Potted plants (potted acacia saplings) scattered around
         int plantSpacing = 4;
@@ -627,12 +627,12 @@ public class KeepGenerator {
                 Blocks.POTTED_ACACIA_SAPLING.defaultBlockState(), StructureHelper.SET_FLAGS);
         }
 
-        // Central utilitarian workspace — grindstone + crafting table
+        // Central utilitarian workspace: grindstone + crafting table
         world.setBlock(new BlockPos(ox, floorY + 1, oz), Blocks.GRINDSTONE.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + 1, floorY + 1, oz), Blocks.CRAFTING_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox - 1, floorY + 1, oz), Blocks.SMITHING_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Fewer furnishings, minimal pillars — just 2 per side
+        // Fewer furnishings, minimal pillars: just 2 per side
         for (int side = -1; side <= 1; side += 2) {
             for (int z = -halfDepth / 3; z <= halfDepth / 3; z += halfDepth / 2) {
                 BlockPos pillarBase = new BlockPos(ox + side * (halfWidth - 3), floorY + 1, oz + z);
@@ -642,7 +642,7 @@ public class KeepGenerator {
             }
         }
 
-        // Ancestor shrine — sacred ancestral veneration spot (Great Zimbabwe inspired)
+        // Ancestor shrine: sacred ancestral veneration spot (Great Zimbabwe inspired)
         // Placed in the southeast corner of the great hall
         int shrineX = ox + halfWidth - 4;
         int shrineZ = oz + halfDepth - 4;
@@ -658,7 +658,7 @@ public class KeepGenerator {
         world.setBlock(new BlockPos(shrineX + 1, shrineY, shrineZ + 1),
             Blocks.DYED_TERRACOTTA.pick(DyeColor.YELLOW).defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Soul lantern on top — ancestral flame
+        // Soul lantern on top: ancestral flame
         world.setBlock(new BlockPos(shrineX, shrineY + 1, shrineZ),
             Blocks.SOUL_LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
 
@@ -680,14 +680,13 @@ public class KeepGenerator {
             world.setBlock(new BlockPos(origin.getX() + x, floorY + 2, origin.getZ() - halfDepth + 2), fence, StructureHelper.SET_FLAGS);
         }
 
-        // Weapon racks (item frames on walls would go here in actual NBT)
-        // For generation, we'll place fence posts as weapon stands
+        // Weapon racks: fence posts stand in for item frames
         for (int z = -halfDepth + 3; z <= halfDepth - 3; z += 4) {
             world.setBlock(new BlockPos(origin.getX() - halfWidth + 2, floorY + 1, origin.getZ() + z), fence, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(origin.getX() + halfWidth - 2, floorY + 1, origin.getZ() + z), fence, StructureHelper.SET_FLAGS);
         }
 
-        // Workstations — weaponsmith, armorer, toolsmith
+        // Workstations: weaponsmith, armorer, toolsmith
         world.setBlock(new BlockPos(origin.getX() + halfWidth - 2, floorY + 1, origin.getZ()),
             Blocks.GRINDSTONE.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(origin.getX() + halfWidth - 2, floorY + 1, origin.getZ() + 2),
@@ -705,7 +704,7 @@ public class KeepGenerator {
         int halfWidth = width / 2;
         int halfDepth = depth / 2;
 
-        // Beds along walls - proper bed placement with head and foot
+        // Beds along walls
         for (int x = -halfWidth + 3; x <= halfWidth - 3; x += 4) {
             BlockPos footPos = new BlockPos(origin.getX() + x, floorY + 1, origin.getZ() - halfDepth + 2);
             BlockPos headPos = new BlockPos(origin.getX() + x, floorY + 1, origin.getZ() - halfDepth + 3);
@@ -730,7 +729,7 @@ public class KeepGenerator {
         world.setBlock(new BlockPos(origin.getX() + halfWidth - 2, floorY + 1, origin.getZ() + 1),
             Blocks.FURNACE.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
 
-        // Workstations — librarian (near bookshelves), shepherd
+        // Workstations: librarian (near bookshelves), shepherd
         world.setBlock(new BlockPos(origin.getX() - halfWidth + 2, floorY + 1, origin.getZ() + halfDepth - 2),
             Blocks.LECTERN.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(origin.getX() + halfWidth - 2, floorY + 1, origin.getZ() - 2),
@@ -743,7 +742,7 @@ public class KeepGenerator {
         int ox = origin.getX();
         int oz = origin.getZ();
 
-        // Large bed (proper bed block - center bed only, sides have decorative blocks)
+        // Large bed: real bed in the center, decorative blocks at the sides
         // Main bed in center facing north (head at wall)
         BlockPos bedFoot = new BlockPos(ox, floorY + 1, oz + halfDepth - 3);
         BlockPos bedHead = new BlockPos(ox, floorY + 1, oz + halfDepth - 2);
@@ -759,7 +758,7 @@ public class KeepGenerator {
         world.setBlock(new BlockPos(ox - 1, floorY + 1, oz + halfDepth - 3), palette.getCarpetState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox + 1, floorY + 1, oz + halfDepth - 3), palette.getCarpetState(), StructureHelper.SET_FLAGS);
 
-        // Desk — cartography table (war planning) and brewing stand (apothecary)
+        // Desk: cartography table (war planning) and brewing stand (apothecary)
         world.setBlock(new BlockPos(ox - halfWidth + 3, floorY + 1, oz),
             Blocks.CARTOGRAPHY_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
         world.setBlock(new BlockPos(ox - halfWidth + 4, floorY + 1, oz),
@@ -786,7 +785,7 @@ public class KeepGenerator {
             world.setBlock(new BlockPos(ox + x, floorY, oz - halfDepth - 2), palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
         }
 
-        // Balcony support pillars/brackets — stone brackets at x = -2 and x = +2
+        // Balcony support pillars/brackets: stone brackets at x = -2 and x = +2
         for (int bx : new int[]{-2, 2}) {
             world.setBlock(new BlockPos(ox + bx, floorY - 1, oz - halfDepth - 1), palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(ox + bx, floorY - 1, oz - halfDepth - 2), palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
@@ -896,13 +895,12 @@ public class KeepGenerator {
         int oz = origin.getZ() + halfDepth - 2;
 
         // Stair facing: you face the direction the stair points when climbing
-        // Going north (negative Z) means facing north
         BlockState stairNorth = palette.woodStairs.defaultBlockState()
             .setValue(StairBlock.FACING, Direction.NORTH);
         BlockState stairWest = palette.woodStairs.defaultBlockState()
             .setValue(StairBlock.FACING, Direction.WEST);
 
-        // Place stairs — each tread sits one block higher and one block north
+        // Place stairs: each tread sits one block higher and one block north
         // Only place a support block directly beneath each tread (not a solid triangle)
         for (int i = 0; i < floorHeight - 1; i++) {
             BlockPos stairPos = new BlockPos(ox, floorY + 1 + i, oz - i);
@@ -964,7 +962,7 @@ public class KeepGenerator {
         BlockPos roofCorner2 = new BlockPos(ox + halfWidth, roofY, oz + halfDepth);
         StructureHelper.fillFloor(world, roofCorner1, roofCorner2, roofY, palette.getPrimaryWallState());
 
-        // Raised parapet edge — solid wall blocks 2 high around perimeter (no crenellation gaps)
+        // Raised parapet edge: solid wall blocks 2 high around perimeter (no crenellation gaps)
         BlockState wallState = palette.getPrimaryWallState();
         for (int y = 1; y <= 2; y++) {
             // North and South walls
@@ -996,7 +994,7 @@ public class KeepGenerator {
         BlockPos roofCorner2 = new BlockPos(ox + halfWidth, roofY, oz + halfDepth);
         StructureHelper.fillFloor(world, roofCorner1, roofCorner2, roofY, palette.getPrimaryWallState());
 
-        // Peaked A-frame roof — ridge runs along X axis (width)
+        // Peaked A-frame roof: ridge runs along X axis (width)
         // Peak height = halfDepth / 2 above roofY
         int peakHeight = halfDepth / 2;
         BlockState roofBlock = Blocks.DEEPSLATE_TILES.defaultBlockState();
@@ -1035,7 +1033,7 @@ public class KeepGenerator {
                 }
             }
 
-            // Ridge row at dz == 0 — solid roof block at peak
+            // Ridge row at dz == 0: solid roof block at peak
             if (dz == 0) {
                 for (int x = -halfWidth; x <= halfWidth; x++) {
                     for (int fy = 1; fy <= peakHeight; fy++) {
@@ -1050,7 +1048,7 @@ public class KeepGenerator {
             world.setBlock(new BlockPos(ox + x, roofY + peakHeight + 1, oz), palette.getLogState(), StructureHelper.SET_FLAGS);
         }
 
-        // Gold roof accent stripe along the ridge peak — Valhalla's golden shields
+        // Gold roof accent stripe along the ridge peak: Valhalla's golden shields
         for (int x = -halfWidth; x <= halfWidth; x++) {
             world.setBlock(new BlockPos(ox + x, roofY + peakHeight + 2, oz),
                 Blocks.DYED_TERRACOTTA.pick(DyeColor.YELLOW).defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -1123,7 +1121,7 @@ public class KeepGenerator {
         BlockPos roofCorner2 = new BlockPos(ox + halfWidth, roofY, oz + halfDepth);
         StructureHelper.fillFloor(world, roofCorner1, roofCorner2, roofY, palette.getPrimaryWallState());
 
-        // Decorative terracotta rim — 1-high wall of orange_terracotta around edge
+        // Decorative terracotta rim: 1-high wall of orange_terracotta around edge
         BlockState terracotta = Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState();
         // North and South walls
         for (int x = -halfWidth; x <= halfWidth; x++) {
@@ -1254,7 +1252,7 @@ public class KeepGenerator {
             }
         }
 
-        // Pointed arch using smooth_sandstone — narrow the top
+        // Pointed arch using smooth_sandstone: narrow the top
         BlockState archBlock = Blocks.SMOOTH_SANDSTONE.defaultBlockState();
         // Row 5: fill edges to create pointed shape
         world.setBlock(doorBase.offset(-2, 5, 0), archBlock, StructureHelper.SET_FLAGS);
@@ -1284,7 +1282,7 @@ public class KeepGenerator {
         // Narrow fortified entrance (3 wide, 3 high), thick arch frame (2 deep)
         BlockPos doorBase = origin.offset(0, 0, -halfDepth);
 
-        // Clear doorway (3 wide, 3 high) — 2 blocks deep
+        // Clear doorway (3 wide, 3 high): 2 blocks deep
         for (int x = -1; x <= 1; x++) {
             for (int y = 1; y <= 3; y++) {
                 world.setBlock(doorBase.offset(x, y, 0), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -1292,7 +1290,7 @@ public class KeepGenerator {
             }
         }
 
-        // Heavy log frame around the doorway — outer face (z=0)
+        // Heavy log frame around the doorway: outer face (z=0)
         BlockState logState = palette.getLogState();
         // Left and right columns
         for (int y = 1; y <= 3; y++) {
@@ -1317,7 +1315,7 @@ public class KeepGenerator {
     }
 
     private void buildEntranceSnowy(ServerLevel world, BlockPos origin, int halfDepth) {
-        // Recessed porch — clear a 5-wide, 4-high area, doorway 2 blocks in from wall face
+        // Recessed porch: clear a 5-wide, 4-high area, doorway 2 blocks in from wall face
         BlockPos doorBase = origin.offset(0, 0, -halfDepth);
 
         // Clear the full porch area (5 wide, 4 high, 2 deep into the wall)
@@ -1328,7 +1326,7 @@ public class KeepGenerator {
             }
         }
 
-        // Porch overhang — roof extends out over entrance
+        // Porch overhang: roof extends out over entrance
         for (int x = -2; x <= 2; x++) {
             world.setBlock(doorBase.offset(x, 5, 0), palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
             world.setBlock(doorBase.offset(x, 5, -1), palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
@@ -1341,7 +1339,7 @@ public class KeepGenerator {
             world.setBlock(doorBase.offset(2, y, 0), palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
         }
 
-        // Doorway is 2 blocks recessed (at z+1 — inside the wall)
+        // Doorway is 2 blocks recessed (at z+1: inside the wall)
         // The actual door at z+1 (recessed position)
         world.setBlock(doorBase.offset(0, 1, 1), Blocks.SPRUCE_DOOR.defaultBlockState()
             .setValue(DoorBlock.FACING, Direction.NORTH)
@@ -1373,12 +1371,12 @@ public class KeepGenerator {
             }
         }
 
-        // Mud brick arch with stepped profile — narrowing at top
+        // Mud brick arch with stepped profile: narrowing at top
         BlockState mudBrick = Blocks.MUD_BRICKS.defaultBlockState();
         // Row 4: fill outer edges to start the step
         world.setBlock(doorBase.offset(-2, 4, 0), mudBrick, StructureHelper.SET_FLAGS);
         world.setBlock(doorBase.offset(2, 4, 0), mudBrick, StructureHelper.SET_FLAGS);
-        // Row 5 (above doorway): narrow step — bridge the gap
+        // Row 5 (above doorway): narrow step, bridge the gap
         for (int x = -2; x <= 2; x++) {
             world.setBlock(doorBase.offset(x, 5, 0), mudBrick, StructureHelper.SET_FLAGS);
         }
@@ -1393,7 +1391,7 @@ public class KeepGenerator {
                 .setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
         }
 
-        // Steps — wider and welcoming
+        // Steps: wider and welcoming
         BlockState stair = Blocks.MUD_BRICK_STAIRS.defaultBlockState().setValue(StairBlock.FACING, Direction.NORTH);
         for (int x = -3; x <= 3; x++) {
             world.setBlock(doorBase.offset(x, 0, -1), stair, StructureHelper.SET_FLAGS);
