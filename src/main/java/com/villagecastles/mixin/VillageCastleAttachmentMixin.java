@@ -36,17 +36,31 @@ import java.util.Optional;
 /**
  * After a village finishes jigsaw assembly, attach a castle to the village edge.
  *
- * Targets {@code lambda$addPieces$2} in JigsawPlacement: the per-piece recursive lambda
- * extracted from the private {@code addPieces()} call in MC 26.1. This lambda receives
- * StructurePiecesBuilder and Structure.GenerationContext, equivalent to {@code method_39824}
- * from 1.21.11.
+ * Targets {@code lambda$addPieces$2} in JigsawPlacement: the {@code Structure.GenerationStub}
+ * generator body extracted from the public {@code addPieces()}. It fires ONCE PER STRUCTURE
+ * (not per piece): it places the root piece, runs the full recursive jigsaw expansion, and
+ * adds every assembled piece to the StructurePiecesBuilder before returning. Injecting at
+ * RETURN therefore sees the completed village in {@code collector}.
+ *
+ * PARAMETER SEMANTICS (verified against the 26.3-snapshot-8 bytecode with javap -c; the
+ * captured locals are positional and unnamed, so these are easy to misread):
+ *   int #1  = max jigsaw depth budget (villages: 6). The lambda bails early if <= 0.
+ *             THIS IS NOT THE CURRENT RECURSION DEPTH. A previous revision gated on
+ *             "depth == 0" here, which made the whole mixin a permanent no-op.
+ *   int #2  = start position X (center of the expansion AABB)
+ *   int #4  = start position Y
+ *   int #7  = start position Z
+ *   BoundingBox #8 = the ROOT PIECE's bounding box only (the town center template,
+ *             carved out of the expansion VoxelShape). NOT the assembled village box.
+ *             Use {@code collector.getBoundingBox()} at RETURN for the real village extent.
  *
  * FRAGILITY: The {@code $2} suffix is a compiler-generated ordinal (0-indexed count of
  * lambdas inside addPieces). If Mojang adds or removes lambdas before this one, the
  * number shifts and injection fails with InvalidInjectionException at world-gen time.
  * When that happens: run {@code javap -p JigsawPlacement.class}, find the lambda whose
  * parameter list starts with {@code PoolElementStructurePiece, int, int, JigsawStructure$MaxDistance}
- * and ends with {@code StructurePiecesBuilder}, and update this descriptor.
+ * and ends with {@code StructurePiecesBuilder}, update this descriptor, and re-verify the
+ * positional int meanings against the bytecode before naming them.
  *
  * NOTE: biome detection uses getElement().toString(), a heuristic on the internal pool
  * element string. Works for vanilla villages; fragile if Mojang changes the toString format.
@@ -63,16 +77,16 @@ public class VillageCastleAttachmentMixin {
     )
     private static void villagecastles$attachCastle(
         PoolElementStructurePiece firstPiece,
-        int depth,           // current jigsaw recursion depth (0 = root)
-        int maxDepth,        // configured max depth from JigsawStructure
+        int maxDepth,        // max jigsaw depth BUDGET (villages: 6), NOT current recursion depth
+        int startX,          // structure start X
         JigsawStructure.MaxDistance maxDist,
-        int boundaryY,       // Y height constraint for piece placement
+        int startY,          // structure start Y
         LevelHeightAccessor heightLimitView,
         DimensionPadding dimensionPadding,
-        int minY,            // minimum allowed Y for pieces
-        BoundingBox structureBox,
+        int startZ,          // structure start Z
+        BoundingBox rootPieceBox, // town-center piece bbox only, NOT the assembled village
         Structure.GenerationContext context,
-        boolean keepJigsaws, // preserve jigsaw blocks in output (debug)
+        boolean useExpansionHack,
         ChunkGenerator chunkGenerator,
         StructureTemplateManager structureTemplateManager,
         WorldgenRandom chunkRandom,
@@ -83,9 +97,10 @@ public class VillageCastleAttachmentMixin {
         CallbackInfo ci
     ) {
         try {
-        // Only process the root piece (depth == 0 = town center template).
-        // The lambda fires once per jigsaw piece, not once per village.
-        if (depth > 0) return;
+        // The lambda has an early-return path (maxDepth <= 0) that never adds pieces to
+        // the collector; RETURN injection fires there too. An empty collector has no
+        // bounding box, so bail before touching it.
+        if (maxDepth <= 0 || collector.isEmpty()) return;
 
         String biome = detectVillageBiome(firstPiece);
         if (biome == null) {
@@ -115,16 +130,23 @@ public class VillageCastleAttachmentMixin {
             ? StructurePoolElement.single(structureId, processorOpt.get()).apply(StructureTemplatePool.Projection.RIGID)
             : StructurePoolElement.single(structureId).apply(StructureTemplatePool.Projection.RIGID);
 
-        // Village center from structure bounding box
-        int centerX = (structureBox.minX() + structureBox.maxX()) / 2;
-        int centerZ = (structureBox.minZ() + structureBox.maxZ()) / 2;
+        // The ASSEMBLED village bounding box: every street/house/farm piece the jigsaw
+        // expansion added to the collector. At @At("RETURN") this is complete. Using the
+        // root-piece box here instead would anchor the castle 5 blocks from the town
+        // center, plowing through houses; using the assembled box puts it at the true
+        // village edge.
+        BoundingBox villageBox = collector.getBoundingBox();
 
-        // Try placing the castle extending outward from each edge of the structure box
+        // Village center from the assembled bounding box
+        int centerX = (villageBox.minX() + villageBox.maxX()) / 2;
+        int centerZ = (villageBox.minZ() + villageBox.maxZ()) / 2;
+
+        // Try placing the castle extending outward from each edge of the village box
         int[][] offsets = {
-            {structureBox.maxX() + CLEARANCE, centerZ, 1, 0},   // East
-            {structureBox.minX() - CLEARANCE, centerZ, -1, 0},  // West
-            {centerX, structureBox.maxZ() + CLEARANCE, 0, 1},   // South
-            {centerX, structureBox.minZ() - CLEARANCE, 0, -1},  // North
+            {villageBox.maxX() + CLEARANCE, centerZ, 1, 0},   // East
+            {villageBox.minX() - CLEARANCE, centerZ, -1, 0},  // West
+            {centerX, villageBox.maxZ() + CLEARANCE, 0, 1},   // South
+            {centerX, villageBox.minZ() - CLEARANCE, 0, -1},  // North
         };
 
         // Shuffle to avoid bias
@@ -148,7 +170,7 @@ public class VillageCastleAttachmentMixin {
             else rotation = Rotation.CLOCKWISE_180;
 
             // Sample actual surface Y at the castle's anchor position.
-            // structureBox.minY() is the village floor: fine for flat terrain, wrong when the
+            // villageBox.minY() is the village floor: fine for flat terrain, wrong when the
             // castle sits on a cliff or hillside 5-70 blocks from the village center.
             int castleY = chunkGenerator.getFirstOccupiedHeight(
                 castleX, castleZ,
@@ -163,8 +185,8 @@ public class VillageCastleAttachmentMixin {
             // X/Z-only overlap check. A large castle bounding box extends 35+ blocks back toward
             // the village from its anchor: the overlap check must catch this. 3D intersects()
             // misses it when castle Y differs from village Y (no Y-range overlap → false clear).
-            if (castleBox.minX() <= structureBox.maxX() && castleBox.maxX() >= structureBox.minX() &&
-                castleBox.minZ() <= structureBox.maxZ() && castleBox.maxZ() >= structureBox.minZ()) {
+            if (castleBox.minX() <= villageBox.maxX() && castleBox.maxX() >= villageBox.minX() &&
+                castleBox.minZ() <= villageBox.maxZ() && castleBox.maxZ() >= villageBox.minZ()) {
                 continue;
             }
 
@@ -180,8 +202,8 @@ public class VillageCastleAttachmentMixin {
 
             collector.addPiece(castlePiece);
 
-            VillageCastles.LOGGER.info("Attached {} {} castle to {} village at {} (aging: {})",
-                size, biome, biome, castlePos.toShortString(), processorOpt.isPresent() ? "yes" : "no");
+            VillageCastles.LOGGER.info("Attached {} {} castle at {} (village box {}, aging: {})",
+                size, biome, castlePos.toShortString(), villageBox, processorOpt.isPresent() ? "yes" : "no");
             return;
         }
 

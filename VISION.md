@@ -111,7 +111,7 @@ Ruins place independently via structure sets as wilderness landmarks. Darker tha
 ## Current State
 
 ### What Works
-- **Post-assembly attachment mixin** (`VillageCastleAttachmentMixin`): Injects into `JigsawPlacement.lambda$addPieces$2` (the per-piece recursive lambda in MC 26.1.2). Detects village biome via pool element string, rolls for castle size (85% chance, 35/35/30 small/medium/large), finds clear position at village edge, adds castle as `PoolElementStructurePiece` via `StructurePiecesBuilder.addPiece()`. Overlap checking uses the village bounding box.
+- **Post-assembly attachment mixin** (`VillageCastleAttachmentMixin`): Injects at RETURN of `JigsawPlacement.lambda$addPieces$2` — the `Structure.GenerationStub` generator body, which fires once per structure after the full jigsaw expansion has added every village piece to the `StructurePiecesBuilder`. Detects village biome via pool element string, rolls for castle size (85% chance, 35/35/30 small/medium/large), computes the assembled village bounding box from `collector.getBoundingBox()`, finds a clear position at the village edge (edge + 5-block clearance, four edges tried in shuffled order, X/Z overlap check against the village box), and adds the castle as a `PoolElementStructurePiece` via `StructurePiecesBuilder.addPiece()`. NOTE: the lambda's captured int params are positional and unnamed — int #1 is the max depth *budget* (villages: 6), not the current recursion depth. A previous revision gated on `depth == 0` against that param, which silently disabled castle attachment entirely; the parameter semantics are documented in the mixin and must be re-verified against bytecode (`javap -c`) on every version bump.
 - **Castle generators**: All 5 biomes × 3 sizes produce complete, furnished structures. Desert-large has a pyramid variant. Snowy-small has an igloo variant. Biome palettes cover 21+ block types per biome.
 - **NBT export pipeline**: `/villagecastles exportall` or `./gradlew runExportStructures` generates and saves all 15 castle NBTs automatically. Both paths honor `.polished` markers.
 - **15 castle NBTs exist** (3 sizes × 5 biomes). Raw generator output, unpolished.
@@ -128,6 +128,7 @@ Ruins place independently via structure sets as wilderness landmarks. Darker tha
 - **Terrain integration**: Height sampling fixed: the mixin queries `getFirstOccupiedHeight` at the castle's actual X/Z instead of using the village bounding-box minY. Terrain blending (smooth biome-appropriate foundations at edges) still needed in the generators.
 - **Stairwell traversal**: Fixed in generator code but needs re-export and verification.
 - **Item drops**: Fixed with SKIP_DROPS flag but needs verification.
+- **No inhabitants**: castle NBTs ship beds and workstations (POI blocks) but zero baked entities, and no post-placement spawn code exists anywhere. Castles are empty buildings; quest dialogue references guards who aren't there. Undesigned feature, not a regression.
 - **0/10 ruins NBTs**: DecayEngine ready, export command exists, needs a generation + export session.
 - **0/25 village wall NBTs**: Generator and commands ready, needs export session.
 - **Ruins worldgen wiring**: No `worldgen/structure/` or `worldgen/structure_set/` JSON files exist. Ruins will not appear in the wild until these are authored.
