@@ -3,13 +3,18 @@
 A Fabric mod that adds grand, biome-themed castle structures to villages.
 
 > **Status: Alpha, pre-release**
-> 15 castle NBTs exist (all 5 biomes × 3 sizes). Village worldgen is active: castles attach to villages at an 85% rate. All NBTs are raw generator output awaiting a hand-polish pass. Ruins and village walls are code-complete but have no exported NBTs yet.
+> 15 castle NBTs exist (all 5 biomes × 3 sizes), and all of them are raw generator output awaiting a hand-polish pass. Ruins and village walls are code-complete but have no exported NBTs yet.
+>
+> Known defects in the shipped templates: 12 of the 15 gatehouses have no door, two carry stray dropped items, and the size in a template's name does not always match its footprint. These are polish-pass work, not code bugs.
 
 ## What It Does
 
 - **5 Castle Biome Themes**: Plains (medieval stone), Desert (sandstone citadel), Savanna (acacia stronghold), Taiga (Nordic fortress), Snowy (ice keep)
 - **3 Sizes per Biome**: Small (watchtower/outpost), Medium (walled fort), Large (full castle complex)
-- **Village Integration**: Castles attach to village edges after jigsaw assembly (85% of villages, size-distributed 35/35/30)
+- **Village Integration**: Castles attach to village edges after jigsaw assembly (85% of villages, size-distributed 35/35/30), with a 2-block gap so a castle sits at the edge of town rather than out in the wilderness
+- **Faces the town**: the castle is rotated so its entrance points back at the village, and its site is picked by scoring a 4×4 terrain survey, so it does not straddle a ridge or hang off a cliff
+- **Underfilled foundations**: `CastleGroundsPiece` fills the ground beneath the footprint down to solid terrain, so a castle on a slope stands on rock instead of stilts
+- **Garrisoned**: castles generate with inhabitants, roughly 2 villagers per chunk placed at bed heads. They spawn unemployed, so they take up the castle's own workstations rather than commuting into the village
 - **Castle Aging**: `castle_aging` processor applies subtle weathering at placement (mossy stone, cracked bricks, etc.)
 - **Village Builder Integration**: Optional: when Village Builder is installed, castle and wall pieces register into its build pools
 - **Village Quests Integration**: Optional: 16 profession-specific quests + 11 dialogue options when Village Quests is installed
@@ -97,11 +102,17 @@ src/main/resources/data/villagecastles/structure/village_walls/
 
 ## Configuration
 
-Castle spawn rate is controlled by `VillageCastleAttachmentMixin` (85% chance, 35/35/30 small/medium/large split). There is no JSON configuration file; edit the mixin constants directly.
+There is no JSON configuration file; edit the constants in `VillageCastleAttachmentMixin` directly. The ones worth knowing:
+
+| Constant | Value | What it controls |
+|---|---|---|
+| attach chance | 85% | Share of villages that get a castle |
+| size split | 35/35/30 | small / medium / large |
+| `CLEARANCE` | 2 | Blocks of gap between the village bounding box and the castle. Raising it pushes castles out of walking range |
 
 ## Village Builder Integration
 
-When [Village Builder](https://github.com/villagebuilder) is also installed, castle pieces register into its expansion pools. Villages can grow fortifications over time. The integration is optional; both mods function independently.
+When [Village Builder](../village-builder) is also installed, castle pieces register into its expansion pools. Villages can grow fortifications over time. The integration is optional; both mods function independently.
 
 ## License
 
