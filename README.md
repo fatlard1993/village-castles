@@ -70,7 +70,7 @@ Requires JDK 25. The system default is often JDK 21; running `./gradlew build` w
 
 ## Installation
 
-Install alongside its declared dependencies (see `fabric.mod.json`). Targets the Minecraft, Fabric Loader, and Fabric API versions declared in this mod's `gradle.properties`; check there for the exact currently-supported version.
+Install server-side alongside its declared dependencies (see `fabric.mod.json`). Vanilla clients need nothing. Version targets live in `gradle.properties` (Minecraft, loader, Fabric API) and `fabric.mod.json` (Java).
 
 ## Structure Files
 
@@ -116,4 +116,4 @@ When [Village Builder](../village-builder) is also installed, castle pieces regi
 
 ## License
 
-MIT
+MIT, see [LICENSE](LICENSE).

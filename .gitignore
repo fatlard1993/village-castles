@@ -23,3 +23,5 @@ Thumbs.db
 
 # Generated resources (regenerate with gradle)
 src/main/generated/
+
+.claude/
