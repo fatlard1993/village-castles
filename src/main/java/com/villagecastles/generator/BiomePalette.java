@@ -286,6 +286,26 @@ public enum BiomePalette {
     }
 
     /**
+     * Block to underfill a castle's footprint with when it lands over a drop.
+     *
+     * <p>Normally the palette's primary wall material, so the skirt reads as that castle's own
+     * foundation. SNOWY is the exception: its primary is packed ice, which is translucent and
+     * slippery and makes a terrible plinth, so it falls back to its stone accent.
+     */
+    public BlockState getFoundationState() {
+        return (this == SNOWY ? accentWall : primaryWall).defaultBlockState();
+    }
+
+    /**
+     * Foundation block for a biome ID, defaulting to PLAINS for an unrecognised ID so an
+     * underfill pass never fails outright.
+     */
+    public static BlockState foundationStateFor(String id) {
+        BiomePalette palette = fromId(id);
+        return (palette == null ? PLAINS : palette).getFoundationState();
+    }
+
+    /**
      * Get a palette by its biome ID string.
      */
     public static BiomePalette fromId(String id) {

@@ -31,11 +31,24 @@ public final class CastleStructureRegistration {
      */
     public static StructurePieceType CASTLE_PIECE_TYPE;
 
+    /**
+     * The StructurePieceType deserializer for {@link CastleGroundsPiece}, registered under
+     * "villagecastles:castle_grounds". Attached alongside every village-attached castle to
+     * underfill its footprint and seed its garrison.
+     */
+    public static StructurePieceType CASTLE_GROUNDS_PIECE_TYPE;
+
     public static void register() {
         CASTLE_PIECE_TYPE = Registry.register(
             BuiltInRegistries.STRUCTURE_PIECE,
             Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "castle_piece"),
             (context, tag) -> new CastlePiece(context.structureTemplateManager(), tag)
+        );
+
+        CASTLE_GROUNDS_PIECE_TYPE = Registry.register(
+            BuiltInRegistries.STRUCTURE_PIECE,
+            Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "castle_grounds"),
+            (context, tag) -> new CastleGroundsPiece(tag)
         );
 
         // 2. Register the StructureType so JSON data files referencing
