@@ -1,6 +1,10 @@
 package com.villagecastles.generator;
 
 import com.villagecastles.VillageCastles;
+import com.villagecastles.generator.build.Facade;
+import com.villagecastles.generator.build.Furnish;
+import com.villagecastles.generator.build.Openings;
+import com.villagecastles.generator.build.Roofs;
 import com.villagecastles.util.StructureHelper;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.BedBlock;
@@ -52,9 +56,13 @@ public class CastleGenerator {
     private static final String JIGSAW_FINAL_AIR = "minecraft:air";
 
     public enum CastleSize {
-        SMALL(30, 0),   // ~30 blocks diameter, small keep
-        MEDIUM(50, 1),  // ~50 blocks diameter, medium keep
-        LARGE(70, 2);   // ~70 blocks diameter, large keep
+        // Plan budget, in blocks across. Vanilla's largest single hand-built pieces are the
+        // woodland mansion's at 21 and the ancient city's at 41; a village house is 9 to 17.
+        // The previous 30/50/70 put every medium and large castle beyond anything vanilla
+        // places in one piece, which is what made them so hard to site next to a village.
+        SMALL(20, 0),   // a large house: a watch post, a hall, a homestead
+        MEDIUM(32, 1),  // a walled fort
+        LARGE(44, 2);   // a castle complex; the moat and outworks carry it to about 50
 
         public final int diameter;
         public final int keepSize;
@@ -135,266 +143,156 @@ public class CastleGenerator {
     }
 
     /**
-     * PLAINS SMALL: Manor house.
-     * The village leader's home. Stone brick ground floor, oak-framed upper floor,
-     * peaked roof with chimney. Bigger than any vanilla house, smaller than a castle.
-     * Ground floor: great room with hearth, dining table, workstations.
-     * Upper floor: bedchamber with bed, chest, personal effects.
-     * Fenced courtyard with bell, stable area.
+     * PLAINS SMALL: the reeve's manor.
+     *
+     * <p>The village leader's house: stone below, timber above, a steep gable, a working chimney.
+     * Built to the vanilla grammar read off {@code plains_big_house_1} rather than as a hollow box
+     * with holes punched in it, so it reads as the largest house in the village instead of as a
+     * generated shape. Cobble plinth, stone ground storey with log posts, a log band at the storey
+     * line, timber upper storey, an oversailing gable with a stair fascia and filled gable ends.
+     *
+     * <p>Ground floor: hall with hearth, dining table, and the reeve's workbench.
+     * Upper floor: two bedchambers reached by a stair that arrives on the landing.
      */
     private CastleBounds generatePlainsManor(ServerLevel world, BlockPos center) {
-        // Rectangular footprint: more reliable for procedural gen than L-shaped
-        int halfWidth = 7;  // east-west (15 blocks wide)
-        int halfDepth = 5;  // north-south (11 blocks deep)
-        int groundHeight = 4; // stone brick ground floor
-        int upperHeight = 4;  // oak-framed upper floor
-        int totalWall = groundHeight + upperHeight;
+        int halfWidth = 7;   // 15 blocks east-west
+        int halfDepth = 5;   // 11 blocks north-south
         int baseY = center.getY();
         int ox = center.getX(), oz = center.getZ();
-        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
 
-        // === GROUND FLOOR: Stone brick ===
-        StructureHelper.fillBox(world,
-            center.offset(-halfWidth, 0, -halfDepth),
-            center.offset(halfWidth, groundHeight, halfDepth),
-            palette.getPrimaryWallState());
-        // Hollow ground floor interior
-        StructureHelper.clearInterior(world,
-            center.offset(-halfWidth + 1, 1, -halfDepth + 1),
-            center.offset(halfWidth - 1, groundHeight, halfDepth - 1));
-        // Oak plank floor
-        StructureHelper.fillFloor(world,
-            center.offset(-halfWidth + 1, 0, -halfDepth + 1),
-            center.offset(halfWidth - 1, 0, halfDepth - 1),
-            baseY + 1, palette.getPlanksState());
+        BlockPos min = new BlockPos(ox - halfWidth, baseY, oz - halfDepth);
+        BlockPos max = new BlockPos(ox + halfWidth, baseY, oz + halfDepth);
 
-        // === UPPER FLOOR: Oak log timber frame on stone base ===
-        // Upper walls: oak log frame with planks infill
-        BlockState logBlock = palette.log.defaultBlockState();
-        BlockState planksBlock = palette.getPlanksState();
-        for (int y = groundHeight + 1; y <= totalWall; y++) {
-            for (int x = -halfWidth; x <= halfWidth; x++) {
-                for (int z = -halfDepth; z <= halfDepth; z++) {
-                    // Only wall positions
-                    if (x == -halfWidth || x == halfWidth || z == -halfDepth || z == halfDepth) {
-                        boolean isCorner = (x == -halfWidth || x == halfWidth) && (z == -halfDepth || z == halfDepth);
-                        boolean isFrame = (x % 4 == 0) || (z % 4 == 0) || isCorner;
-                        mutable.set(ox + x, baseY + y, oz + z);
-                        world.setBlock(mutable, isFrame ? logBlock : planksBlock, StructureHelper.SET_FLAGS);
-                    }
-                }
-            }
-        }
-        // Clear upper interior
-        StructureHelper.clearInterior(world,
-            center.offset(-halfWidth + 1, groundHeight + 1, -halfDepth + 1),
-            center.offset(halfWidth - 1, totalWall, halfDepth - 1));
-        // Upper floor surface (also ceiling of ground floor)
-        StructureHelper.fillFloor(world,
-            center.offset(-halfWidth + 1, 0, -halfDepth + 1),
-            center.offset(halfWidth - 1, 0, halfDepth - 1),
-            baseY + groundHeight + 1, palette.getPlanksState());
+        BlockState stone = palette.getPrimaryWallState();
+        BlockState cobble = Blocks.COBBLESTONE.defaultBlockState();
+        BlockState planks = palette.getPlanksState();
+        BlockState log = palette.log.defaultBlockState();
+        BlockState woodStairs = palette.woodStairs.defaultBlockState();
+        BlockState woodSlab = palette.woodSlab.defaultBlockState();
+        BlockState fence = palette.fence.defaultBlockState();
 
-        // === PEAKED ROOF ===
-        // Runs east-west (ridge along X axis)
-        int roofPeak = 4;
-        for (int y = 0; y <= roofPeak; y++) {
-            int roofDepth = halfDepth + 1 - y;
-            if (roofDepth < 0) break;
-            for (int x = -halfWidth - 1; x <= halfWidth + 1; x++) {
-                world.setBlock(new BlockPos(ox + x, baseY + totalWall + y, oz - roofDepth),
-                    palette.getRoofState(), StructureHelper.SET_FLAGS);
-                world.setBlock(new BlockPos(ox + x, baseY + totalWall + y, oz + roofDepth),
-                    palette.getRoofState(), StructureHelper.SET_FLAGS);
-            }
-        }
-        // Ridge cap
-        for (int x = -halfWidth - 1; x <= halfWidth + 1; x++) {
-            world.setBlock(new BlockPos(ox + x, baseY + totalWall + roofPeak, oz),
-                palette.getRoofState(), StructureHelper.SET_FLAGS);
-        }
+        // === SHELL ===
+        // Plinth, stone storey, band, timber storey. Facade closes every ring, so the four walls
+        // meet at the corners without the caller resolving them.
+        int groundH = 4;
+        int upperH = 3;
+        int wallTop = Facade.walls(world, min, max, cobble, 1,
+            java.util.List.of(
+                new Facade.Storey(groundH, stone, log, log),
+                new Facade.Storey(upperH, planks, log, null)),
+            4);
 
-        // === CHIMNEY: stone brick, east end ===
+        int groundFloorY = baseY;                 // floor course of the hall
+        int upperFloorY = baseY + 1 + groundH;    // the band course doubles as the upper floor
+
+        Facade.room(world, min, max, groundFloorY, upperFloorY - 1, planks);
+        Facade.room(world, min, max, upperFloorY, wallTop, planks);
+
+        // === ROOF ===
+        // Ridge east-west, oversailing a block on every side. Walked from both eaves inward, so
+        // there is no course at which a row can be missed.
+        int eaveY = wallTop + 1;
+        Roofs.eaveTrim(world, min, max, eaveY, 1, woodStairs);
+        int ridgeY = Roofs.gable(world, min, max, eaveY, Roofs.Ridge.X, 1, planks, log, planks);
+
+        // === CHIMNEY ===
+        // A real flue: it starts at the hearth and leaves the roof, rather than standing beside it.
         int chimneyX = ox + halfWidth - 2;
-        for (int y = 1; y <= totalWall + roofPeak + 2; y++) {
-            world.setBlock(new BlockPos(chimneyX, baseY + y, oz),
-                palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(chimneyX + 1, baseY + y, oz),
-                palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
+        for (int y = baseY; y <= ridgeY + 2; y++) {
+            world.setBlock(new BlockPos(chimneyX, y, oz - halfDepth), cobble, StructureHelper.SET_FLAGS);
+            world.setBlock(new BlockPos(chimneyX + 1, y, oz - halfDepth), cobble, StructureHelper.SET_FLAGS);
         }
-
-        // === FRONT ENTRANCE: south, covered porch ===
-        // Door opening (2 wide, 3 tall)
-        for (int x = -1; x <= 0; x++) {
-            for (int y = 1; y <= 3; y++) {
-                world.setBlock(new BlockPos(ox + x, baseY + y, oz + halfDepth),
-                    Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-            }
-        }
-        // Porch roof (oak slab overhang)
-        for (int x = -3; x <= 2; x++) {
-            world.setBlock(new BlockPos(ox + x, baseY + 4, oz + halfDepth + 1),
-                palette.woodSlab.defaultBlockState(), StructureHelper.SET_FLAGS);
-        }
-        // Porch pillars
-        world.setBlock(new BlockPos(ox - 3, baseY + 1, oz + halfDepth + 1), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox - 3, baseY + 2, oz + halfDepth + 1), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox - 3, baseY + 3, oz + halfDepth + 1), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + 2, baseY + 1, oz + halfDepth + 1), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + 2, baseY + 2, oz + halfDepth + 1), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + 2, baseY + 3, oz + halfDepth + 1), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-        // Floor plank at threshold
-        world.setBlock(new BlockPos(ox - 1, baseY + 1, oz + halfDepth), palette.getPlanksState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox, baseY + 1, oz + halfDepth), palette.getPlanksState(), StructureHelper.SET_FLAGS);
-
-        // === WINDOWS: glass panes ===
-        // Ground floor windows (2 wide each, east and west walls)
-        for (int z : new int[]{-2, 2}) {
-            world.setBlock(new BlockPos(ox - halfWidth, baseY + 2, oz + z), Blocks.GLASS_PANE.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox - halfWidth, baseY + 3, oz + z), Blocks.GLASS_PANE.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + halfWidth, baseY + 2, oz + z), Blocks.GLASS_PANE.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + halfWidth, baseY + 3, oz + z), Blocks.GLASS_PANE.defaultBlockState(), StructureHelper.SET_FLAGS);
-        }
-        // Upper floor windows
-        for (int z : new int[]{-2, 2}) {
-            world.setBlock(new BlockPos(ox - halfWidth, baseY + groundHeight + 2, oz + z), Blocks.GLASS_PANE.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox - halfWidth, baseY + groundHeight + 3, oz + z), Blocks.GLASS_PANE.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + halfWidth, baseY + groundHeight + 2, oz + z), Blocks.GLASS_PANE.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + halfWidth, baseY + groundHeight + 3, oz + z), Blocks.GLASS_PANE.defaultBlockState(), StructureHelper.SET_FLAGS);
-        }
-
-        // === STAIRCASE: oak stairs, SW corner, connecting floors ===
-        int stairX = ox - halfWidth + 2;
-        int stairZ = oz + halfDepth - 2;
-        for (int i = 0; i < groundHeight; i++) {
-            world.setBlock(new BlockPos(stairX, baseY + 2 + i, stairZ - i),
-                palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.NORTH),
-                StructureHelper.SET_FLAGS);
-            // Clear headroom above each step
-            for (int dy = 1; dy <= 3; dy++) {
-                world.setBlock(new BlockPos(stairX, baseY + 2 + i + dy, stairZ - i),
-                    Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-            }
-        }
-        // Open the floor above the staircase landing
-        for (int sx = -1; sx <= 0; sx++) {
-            for (int sz = -1; sz <= 0; sz++) {
-                world.setBlock(new BlockPos(stairX + sx, baseY + groundHeight + 1, stairZ - groundHeight + 1 + sz),
-                    Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-            }
-        }
-
-        // === GROUND FLOOR FURNISHING ===
-        // Hearth: campfire against east wall (next to chimney)
-        world.setBlock(new BlockPos(ox + halfWidth - 3, baseY + 1, oz),
-            Blocks.STONE_BRICKS.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + halfWidth - 3, baseY + 2, oz),
+        world.setBlock(new BlockPos(chimneyX, ridgeY + 3, oz - halfDepth),
             Blocks.CAMPFIRE.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Dining table (center of great room): oak slabs on fences
-        for (int x = -2; x <= 1; x++) {
-            world.setBlock(new BlockPos(ox + x, baseY + 1, oz - 1), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + x, baseY + 2, oz - 1), palette.woodSlab.defaultBlockState(), StructureHelper.SET_FLAGS);
+        // === OPENINGS ===
+        // Front door, south wall, centred, with jambs and a lintel.
+        Openings.door(world, new BlockPos(ox, baseY + 1, oz + halfDepth), Direction.NORTH,
+            palette.door.defaultBlockState(), log, cobble, false);
+
+        BlockState pane = Blocks.GLASS_PANE.defaultBlockState();
+        // Long walls, both storeys. Sill and lintel in log so each window reads as framed.
+        for (int wx : new int[]{ox - 4, ox + 3}) {
+            Openings.window(world, new BlockPos(wx, baseY + 2, oz - halfDepth), Direction.EAST, 2, 2, pane, log);
+            Openings.window(world, new BlockPos(wx, baseY + 2, oz + halfDepth), Direction.EAST, 2, 2, pane, log);
+            Openings.window(world, new BlockPos(wx, upperFloorY + 1, oz - halfDepth), Direction.EAST, 2, 2, pane, log);
+            Openings.window(world, new BlockPos(wx, upperFloorY + 1, oz + halfDepth), Direction.EAST, 2, 2, pane, log);
         }
-        // Chairs at table (stairs facing inward)
-        world.setBlock(new BlockPos(ox - 2, baseY + 2, oz - 2),
-            palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + 1, baseY + 2, oz - 2),
-            palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox - 2, baseY + 2, oz),
-            palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + 1, baseY + 2, oz),
-            palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
+        // Gable ends.
+        Openings.window(world, new BlockPos(ox - halfWidth, baseY + 2, oz - 1), Direction.SOUTH, 2, 2, pane, log);
+        Openings.window(world, new BlockPos(ox + halfWidth, baseY + 2, oz - 1), Direction.SOUTH, 2, 2, pane, log);
 
-        // Workstation area (NW corner)
-        world.setBlock(center.offset(-halfWidth + 2, 2, -halfDepth + 1), Blocks.CRAFTING_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(center.offset(-halfWidth + 3, 2, -halfDepth + 1), Blocks.CARTOGRAPHY_TABLE.defaultBlockState(), StructureHelper.SET_FLAGS);
-        StructureHelper.placeChest(world, center.offset(-halfWidth + 2, 2, -halfDepth + 2), Direction.SOUTH, BuiltInLootTables.VILLAGE_PLAINS_HOUSE);
-
-        // Carpet runner from door to hearth
-        for (int z = -halfDepth + 2; z <= halfDepth - 1; z++) {
-            world.setBlock(new BlockPos(ox, baseY + 2, oz + z), palette.carpet.defaultBlockState(), StructureHelper.SET_FLAGS);
-        }
-
-        // Wall torches: ground floor
-        world.setBlock(new BlockPos(ox - halfWidth + 1, baseY + 3, oz - halfDepth + 1),
-            Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox - halfWidth + 1, baseY + 3, oz + halfDepth - 1),
-            Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + halfWidth - 1, baseY + 3, oz - halfDepth + 1),
-            Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-
-        // === UPPER FLOOR FURNISHING: Bedchamber ===
-        int upFloor = baseY + groundHeight + 2; // furniture Y (on upper floor)
-
-        // Master bed (center-north)
-        world.setBlock(new BlockPos(ox + 1, upFloor, oz - halfDepth + 2), palette.bed.defaultBlockState()
-            .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + 1, upFloor, oz - halfDepth + 3), palette.bed.defaultBlockState()
-            .setValue(BedBlock.PART, BedPart.HEAD).setValue(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-
-        // Second bed (guest/family)
-        world.setBlock(new BlockPos(ox + 4, upFloor, oz - halfDepth + 2), palette.bed.defaultBlockState()
-            .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + 4, upFloor, oz - halfDepth + 3), palette.bed.defaultBlockState()
-            .setValue(BedBlock.PART, BedPart.HEAD).setValue(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-
-        // Personal chest
-        StructureHelper.placeChest(world, new BlockPos(ox + halfWidth - 2, upFloor, oz), Direction.WEST, BuiltInLootTables.VILLAGE_PLAINS_HOUSE);
-
-        world.setBlock(new BlockPos(ox + 3, upFloor, oz - halfDepth + 1), Blocks.BOOKSHELF.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + 4, upFloor, oz - halfDepth + 1), Blocks.BOOKSHELF.defaultBlockState(), StructureHelper.SET_FLAGS);
-
-        // Lectern with book
-        world.setBlock(new BlockPos(ox + 2, upFloor, oz - halfDepth + 1), Blocks.LECTERN.defaultBlockState(), StructureHelper.SET_FLAGS);
-
-        // Flower pot on windowsill (decorative touch)
-        world.setBlock(new BlockPos(ox - halfWidth + 1, upFloor, oz - 2), Blocks.FLOWER_POT.defaultBlockState(), StructureHelper.SET_FLAGS);
-
-        // Wall torches: upper floor
-        world.setBlock(new BlockPos(ox - halfWidth + 1, baseY + groundHeight + 3, oz),
-            Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.EAST), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + halfWidth - 1, baseY + groundHeight + 3, oz),
-            Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
-
-        // === COURTYARD: skipped for SMALL size (standalone worldgen structure) ===
-        int yardRadius = Math.max(halfWidth, halfDepth) + 5;
-        if (size != CastleSize.SMALL) {
-            generatePerimeterFence(world, center, yardRadius, halfWidth, halfDepth);
-
-            // Bell on post
-            world.setBlock(center.offset(-halfWidth - 2, 0, 0), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(center.offset(-halfWidth - 2, 1, 0), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(center.offset(-halfWidth - 2, 2, 0), Blocks.BELL.defaultBlockState(), StructureHelper.SET_FLAGS);
-
-            // Stable area (NW of yard): fence pen with hay
-            int stableX = ox - halfWidth - 3;
-            int stableZ = oz - halfDepth;
-            for (int x = 0; x <= 4; x++) {
-                world.setBlock(new BlockPos(stableX + x, baseY, stableZ), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-                world.setBlock(new BlockPos(stableX + x, baseY, stableZ + 4), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
+        // === PORCH ===
+        // Two posts and a slab canopy over the door.
+        for (int px : new int[]{ox - 2, ox + 2}) {
+            for (int y = baseY + 1; y <= baseY + 3; y++) {
+                world.setBlock(new BlockPos(px, y, oz + halfDepth + 1), fence, StructureHelper.SET_FLAGS);
             }
-            for (int z = 0; z <= 4; z++) {
-                world.setBlock(new BlockPos(stableX, baseY, stableZ + z), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-                world.setBlock(new BlockPos(stableX + 4, baseY, stableZ + z), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-            }
-            world.setBlock(new BlockPos(stableX + 2, baseY, stableZ + 4),
-                palette.fenceGate.defaultBlockState().setValue(FenceGateBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(stableX + 1, baseY, stableZ + 1), Blocks.HAY_BLOCK.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(stableX + 1, baseY + 1, stableZ + 1), Blocks.HAY_BLOCK.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(stableX + 3, baseY, stableZ + 1), Blocks.CAULDRON.defaultBlockState(), StructureHelper.SET_FLAGS);
-
-            // Lantern at front entrance
-            world.setBlock(new BlockPos(ox - 2, baseY + 3, oz + halfDepth),
-                Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, false), StructureHelper.SET_FLAGS);
-
-            placeJigsawConnectors(world, center, yardRadius);
         }
+        for (int px = ox - 2; px <= ox + 2; px++) {
+            world.setBlock(new BlockPos(px, baseY + 4, oz + halfDepth + 1), woodSlab, StructureHelper.SET_FLAGS);
+        }
+        world.setBlock(new BlockPos(ox - 2, baseY + 4, oz + halfDepth + 1),
+            Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), StructureHelper.SET_FLAGS);
+
+        // === STAIR TO THE UPPER FLOOR ===
+        // Opened first, hung second. The previous revision placed its top step and then cleared the
+        // landing on top of it, deleting the step and stranding the upper floor.
+        int stairX = ox - halfWidth + 2;
+        for (int sx = -1; sx <= 0; sx++) {
+            for (int sz = 0; sz <= 1; sz++) {
+                world.setBlock(new BlockPos(stairX + sx, upperFloorY, oz - halfDepth + 2 + sz),
+                    Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
+            }
+        }
+        // Five risers from the hall floor to the landing, running north, each with headroom.
+        for (int i = 0; i < groundH + 1; i++) {
+            BlockPos step = new BlockPos(stairX, baseY + 1 + i, oz + halfDepth - 2 - i);
+            world.setBlock(step, woodStairs.setValue(StairBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
+            for (int dy = 1; dy <= 2; dy++) {
+                world.setBlock(step.above(dy), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
+            }
+        }
+
+        // === GROUND FLOOR ===
+        Furnish.hearth(world, new BlockPos(chimneyX, groundFloorY, oz - halfDepth + 1), groundFloorY,
+            cobble, Blocks.CAMPFIRE.defaultBlockState());
+
+        Furnish.table(world, new BlockPos(ox - 1, groundFloorY, oz), Direction.EAST, 3, fence, woodSlab);
+        Furnish.chair(world, new BlockPos(ox - 1, groundFloorY, oz - 1), Direction.SOUTH, woodStairs);
+        Furnish.chair(world, new BlockPos(ox + 1, groundFloorY, oz - 1), Direction.SOUTH, woodStairs);
+        Furnish.chair(world, new BlockPos(ox - 1, groundFloorY, oz + 1), Direction.NORTH, woodStairs);
+        Furnish.chair(world, new BlockPos(ox + 1, groundFloorY, oz + 1), Direction.NORTH, woodStairs);
+
+        Furnish.onFloor(world, new BlockPos(ox - halfWidth + 1, groundFloorY, oz - halfDepth + 1),
+            Blocks.CRAFTING_TABLE.defaultBlockState());
+        Furnish.onFloor(world, new BlockPos(ox - halfWidth + 2, groundFloorY, oz - halfDepth + 1),
+            Blocks.CARTOGRAPHY_TABLE.defaultBlockState());
+        StructureHelper.placeChest(world, new BlockPos(ox - halfWidth + 1, groundFloorY + 1, oz - halfDepth + 2),
+            Direction.EAST, BuiltInLootTables.VILLAGE_PLAINS_HOUSE);
+        Furnish.onFloor(world, new BlockPos(ox + halfWidth - 1, groundFloorY, oz + halfDepth - 1),
+            Blocks.BARREL.defaultBlockState());
+
+        Furnish.hangingLantern(world, new BlockPos(ox, upperFloorY - 1, oz + 2), palette.getLightState());
+        Furnish.hangingLantern(world, new BlockPos(ox, upperFloorY - 1, oz - 3), palette.getLightState());
+
+        // === UPPER FLOOR ===
+        Furnish.bed(world, new BlockPos(ox + 2, upperFloorY, oz - halfDepth + 1), Direction.SOUTH, palette.bed.defaultBlockState());
+        Furnish.bed(world, new BlockPos(ox + 5, upperFloorY, oz - halfDepth + 1), Direction.SOUTH, palette.bed.defaultBlockState());
+        Furnish.bed(world, new BlockPos(ox + 2, upperFloorY, oz + halfDepth - 2), Direction.NORTH, palette.bed.defaultBlockState());
+
+        StructureHelper.placeChest(world, new BlockPos(ox + halfWidth - 1, upperFloorY + 1, oz),
+            Direction.WEST, BuiltInLootTables.VILLAGE_PLAINS_HOUSE);
+        Furnish.onFloor(world, new BlockPos(ox + 1, upperFloorY, oz), Blocks.BOOKSHELF.defaultBlockState());
+        Furnish.onFloor(world, new BlockPos(ox, upperFloorY, oz), Blocks.LECTERN.defaultBlockState());
+        Furnish.onFloor(world, new BlockPos(ox - 3, upperFloorY, oz - halfDepth + 1),
+            Blocks.FLOWER_POT.defaultBlockState());
+        Furnish.hangingLantern(world, new BlockPos(ox + 3, wallTop, oz), palette.getLightState());
 
         VillageCastles.LOGGER.debug("Plains manor generation complete!");
         return new CastleBounds(
-            center.offset(-yardRadius - 2, 0, -yardRadius - 2),
-            center.offset(yardRadius + 2, totalWall + roofPeak + 5, yardRadius + 2)
+            new BlockPos(ox - halfWidth - 2, baseY, oz - halfDepth - 2),
+            new BlockPos(ox + halfWidth + 2, ridgeY + 4, oz + halfDepth + 2)
         );
     }
 
@@ -440,7 +338,7 @@ public class CastleGenerator {
         StructureHelper.addCrenellations(world,
             center.offset(-halfWidth, 0, -halfDepth),
             center.offset(halfWidth, 0, halfDepth),
-            baseY + wallHeight + 1, palette.getPrimaryWallState());
+            baseY + wallHeight, palette.getPrimaryWallState());
 
         // === OPEN-AIR COURTYARD: center, 4x4 ===
         int courtHW = 2;
@@ -454,10 +352,13 @@ public class CastleGenerator {
         // Water feature in courtyard center
         world.setBlock(center.offset(0, 0, 0), palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
         world.setBlock(center.offset(0, 1, 0), Blocks.WATER.defaultBlockState(), StructureHelper.SET_FLAGS);
-        // Sandstone rim around water
-        for (int[] off : new int[][]{{-1,0},{1,0},{0,-1},{0,1}}) {
-            world.setBlock(center.offset(off[0], 1, off[1]),
-                palette.stoneStairs.defaultBlockState(), StructureHelper.SET_FLAGS);
+        // Sandstone rim around water. Each stair turns to face the basin: leaving them at their
+        // default state pointed all four north, so three sides of the fountain had their backs
+        // to the water.
+        for (Direction side : Direction.Plane.HORIZONTAL) {
+            world.setBlock(center.relative(side).above(),
+                palette.stoneStairs.defaultBlockState().setValue(StairBlock.FACING, side),
+                StructureHelper.SET_FLAGS);
         }
 
         // === INTERIOR PARTITION: divides rooms ===
@@ -490,8 +391,10 @@ public class CastleGenerator {
                     Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
             }
         }
-        // Threshold plank
-        world.setBlock(new BlockPos(ox, baseY + 1, oz + halfDepth), palette.getFloorState(), StructureHelper.SET_FLAGS);
+        // Hang a door in the recess rather than leaving the wall simply open.
+        Openings.door(world, new BlockPos(ox, baseY + 1, oz + halfDepth - 1), Direction.NORTH,
+            palette.door.defaultBlockState(), null, palette.getFloorState(), false);
+        world.setBlock(new BlockPos(ox, baseY, oz + halfDepth), palette.getFloorState(), StructureHelper.SET_FLAGS);
 
         // === NARROW WINDOW SLITS ===
         // East and west walls, staggered
@@ -601,7 +504,7 @@ public class CastleGenerator {
      * outdoor work area. Compact, lived-in family compound.
      */
     private CastleBounds generateSavannaEnclosure(ServerLevel world, BlockPos center) {
-        int yardRadius = 13;
+        int yardRadius = 9;
         int baseY = center.getY();
         int ox = center.getX();
         int oz = center.getZ();
@@ -625,16 +528,16 @@ public class CastleGenerator {
         if (size != CastleSize.SMALL) {
             for (int angle = 0; angle < 360; angle += 2) {
                 double rad = Math.toRadians(angle);
-                int fx = ox + (int)(yardRadius * Math.cos(rad));
-                int fz = oz + (int)(yardRadius * Math.sin(rad));
+                int fx = ox + (int) Math.round(yardRadius * Math.cos(rad));
+                int fz = oz + (int) Math.round(yardRadius * Math.sin(rad));
                 world.setBlock(new BlockPos(fx, baseY, fz), fence, StructureHelper.SET_FLAGS);
                 world.setBlock(new BlockPos(fx, baseY + 1, fz), fence, StructureHelper.SET_FLAGS);
             }
             // Dead bush thorn barriers outside palisade (every ~30 degrees)
             for (int angle = 0; angle < 360; angle += 30) {
                 double rad = Math.toRadians(angle);
-                int bx = ox + (int)((yardRadius + 1) * Math.cos(rad));
-                int bz = oz + (int)((yardRadius + 1) * Math.sin(rad));
+                int bx = ox + (int) Math.round((yardRadius + 1) * Math.cos(rad));
+                int bz = oz + (int) Math.round((yardRadius + 1) * Math.sin(rad));
                 // Dead bush needs a valid support block beneath it: place at baseY-1 to replace terrain
                 world.setBlock(new BlockPos(bx, baseY - 1, bz), coarseDirt, StructureHelper.SET_FLAGS);
                 world.setBlock(new BlockPos(bx, baseY, bz), deadBush, StructureHelper.SET_FLAGS);
@@ -746,9 +649,18 @@ public class CastleGenerator {
     }
 
     /**
-     * Build a round thatched hut: mud brick walls with toron (protruding acacia fence
-     * pegs), packed mud floor with orange carpet, conical HAY_BLOCK thatch roof,
-     * door opening on south with 2+ block clearance.
+     * A round thatched hut: mud brick wall, packed mud floor, conical thatch, one hung door.
+     *
+     * <p>The thatch is a stack of rings, not a stack of discs. Filling the whole disc at every
+     * course made the roof a solid cone: about 170 hay blocks of dead mass over a three-block-tall
+     * room, and hay ended up 26-48% of every savanna castle by block count. Consecutive rings whose
+     * radius drops by one tile the plan exactly, so a shell is as weathertight as the solid cone
+     * was and leaves the loft as space.
+     *
+     * <p>The toron pegs are placed outward from a wall block that exists, rather than sampled off a
+     * second circle of radius+1. Sampling made them land adjacent only by luck: once the ring maths
+     * stopped truncating toward the origin, thirteen of them in savanna/castle_small were floating
+     * free of the wall they are supposed to be driven into.
      */
     private void buildRoundHut(ServerLevel world, BlockPos center, int radius, int wallHeight) {
         int baseY = center.getY();
@@ -757,395 +669,207 @@ public class CastleGenerator {
         BlockState fence = palette.fence.defaultBlockState();
         BlockState hayBlock = Blocks.HAY_BLOCK.defaultBlockState();
         BlockState packedMud = Blocks.PACKED_MUD.defaultBlockState();
-        int radiusSq = radius * radius;
-        double innerSq = (radius - 1.5) * (radius - 1.5);
+        BlockState air = Blocks.AIR.defaultBlockState();
 
-        // Mud brick walls (cylinder)
+        java.util.List<int[]> wallRing = StructureHelper.ringOffsets(radius);
+        java.util.List<int[]> inner = StructureHelper.discOffsets(radius - 1);
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+
+        // Floor, then the wall, then the space between them.
+        for (int[] o : inner) {
+            world.setBlock(cursor.set(ox + o[0], baseY, oz + o[1]), packedMud, StructureHelper.SET_FLAGS);
+        }
         for (int y = 0; y < wallHeight; y++) {
-            for (int x = -radius; x <= radius; x++) {
-                for (int z = -radius; z <= radius; z++) {
-                    int distSq = x * x + z * z;
-                    if (distSq <= radiusSq && distSq > innerSq) {
-                        world.setBlock(new BlockPos(ox + x, baseY + y, oz + z),
-                            mudBrick, StructureHelper.SET_FLAGS);
-                    }
-                }
+            for (int[] o : wallRing) {
+                world.setBlock(cursor.set(ox + o[0], baseY + y, oz + o[1]), mudBrick, StructureHelper.SET_FLAGS);
+            }
+        }
+        for (int[] o : inner) {
+            for (int y = 1; y <= wallHeight + radius + 1; y++) {
+                world.setBlock(cursor.set(ox + o[0], baseY + y, oz + o[1]), air, StructureHelper.SET_FLAGS);
             }
         }
 
-        // Tapering transition: inverted MUD_BRICK_STAIRS at top of wall
-        BlockState invertedStairs = Blocks.MUD_BRICK_STAIRS.defaultBlockState()
-            .setValue(StairBlock.HALF, Half.TOP);
-        for (int angle = 0; angle < 360; angle += 10) {
-            double rad = Math.toRadians(angle);
-            int sx = ox + (int)(radius * Math.cos(rad));
-            int sz = oz + (int)(radius * Math.sin(rad));
-            // Determine facing: stairs face outward from center
-            Direction facing;
-            double dx = sx - ox;
-            double dz = sz - oz;
-            if (Math.abs(dx) > Math.abs(dz)) {
-                facing = dx > 0 ? Direction.EAST : Direction.WEST;
-            } else {
-                facing = dz > 0 ? Direction.SOUTH : Direction.NORTH;
-            }
-            world.setBlock(new BlockPos(sx, baseY + wallHeight, sz),
-                invertedStairs.setValue(StairBlock.FACING, facing), StructureHelper.SET_FLAGS);
-        }
-
-        // Toron: acacia fence pegs protruding 1 block outward from walls
-        // Every 3 blocks around circumference, every 2 rows vertically
-        for (int y = 1; y < wallHeight; y += 2) {
-            for (int angle = 0; angle < 360; angle += 30) {
-                double rad = Math.toRadians(angle);
-                // Position just outside the wall
-                int tx = ox + (int)((radius + 1) * Math.cos(rad));
-                int tz = oz + (int)((radius + 1) * Math.sin(rad));
-                // Skip the door area (south face, near center-x)
-                if (tz >= oz + radius && Math.abs(tx - ox) <= 1) continue;
-                world.setBlock(new BlockPos(tx, baseY + y, tz), fence, StructureHelper.SET_FLAGS);
-            }
-        }
-
-        // Clear interior (air from y+1 up through wallHeight+radius to ensure 3-block headroom)
-        for (int x = -radius + 1; x <= radius - 1; x++) {
-            for (int z = -radius + 1; z <= radius - 1; z++) {
-                if (x * x + z * z < (radius - 1) * (radius - 1)) {
-                    for (int y = 1; y <= wallHeight + radius; y++) {
-                        world.setBlock(new BlockPos(ox + x, baseY + y, oz + z),
-                            Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-                    }
-                }
-            }
-        }
-
-        // Packed mud floor with orange carpet
-        for (int x = -radius + 1; x <= radius - 1; x++) {
-            for (int z = -radius + 1; z <= radius - 1; z++) {
-                if (x * x + z * z < (radius - 1) * (radius - 1)) {
-                    world.setBlock(new BlockPos(ox + x, baseY, oz + z), packedMud, StructureHelper.SET_FLAGS);
-                    world.setBlock(new BlockPos(ox + x, baseY + 1, oz + z),
-                        palette.carpet.defaultBlockState(), StructureHelper.SET_FLAGS);
-                }
-            }
-        }
-
-        // Conical HAY_BLOCK thatch roof (concentric rings)
+        // Conical thatch: a two-thick band per course, so successive courses overlap and no cell is
+        // left touching nothing. Apex closed with a single block.
         for (int y = 0; y <= radius + 1; y++) {
             int r = radius + 1 - y;
-            if (r < 0) break;
-            for (int x = -r; x <= r; x++) {
-                for (int z = -r; z <= r; z++) {
-                    if (x * x + z * z <= r * r) {
-                        world.setBlock(new BlockPos(ox + x, baseY + wallHeight + 1 + y, oz + z),
-                            hayBlock, StructureHelper.SET_FLAGS);
-                    }
+            int ty = baseY + wallHeight + y;
+            if (r <= 1) {
+                for (int[] o : StructureHelper.discOffsets(Math.max(r, 0))) {
+                    world.setBlock(cursor.set(ox + o[0], ty, oz + o[1]), hayBlock, StructureHelper.SET_FLAGS);
                 }
+                break;
+            }
+            for (int[] o : StructureHelper.bandOffsets(r, 2)) {
+                world.setBlock(cursor.set(ox + o[0], ty, oz + o[1]), hayBlock, StructureHelper.SET_FLAGS);
             }
         }
 
-        // Re-clear interior under roof to guarantee 3-block headroom above carpet
-        for (int x = -radius + 1; x <= radius - 1; x++) {
-            for (int z = -radius + 1; z <= radius - 1; z++) {
-                if (x * x + z * z < (radius - 1) * (radius - 1)) {
-                    for (int y = 1; y <= Math.min(3, wallHeight); y++) {
-                        world.setBlock(new BlockPos(ox + x, baseY + y, oz + z),
-                            Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-                    }
-                    // Re-place carpet on floor after clearing
-                    world.setBlock(new BlockPos(ox + x, baseY + 1, oz + z),
-                        palette.carpet.defaultBlockState(), StructureHelper.SET_FLAGS);
-                }
+        // Toron: pegs driven outward from wall blocks that exist, every fourth cell, alternate rows.
+        // The step is along the dominant axis only. Stepping diagonally (signum on both axes at
+        // once) lands the peg corner-to-corner with its wall block, which is not attachment.
+        for (int y = 1; y < wallHeight; y += 2) {
+            for (int i = 0; i < wallRing.size(); i += 4) {
+                int[] o = wallRing.get(i);
+                if (o[1] >= radius - 1 && Math.abs(o[0]) <= 1) continue; // keep the doorway clear
+                int px = ox + o[0];
+                int pz = oz + o[1];
+                if (Math.abs(o[0]) >= Math.abs(o[1])) px += Integer.signum(o[0]);
+                else pz += Integer.signum(o[1]);
+                world.setBlock(cursor.set(px, baseY + y, pz), fence, StructureHelper.SET_FLAGS);
             }
         }
 
-        // Door opening on south: clear both radius and radius-1 positions to
-        // guarantee we hit the actual wall block (cylinder rounding can vary).
-        // Clear 1-wide, 3-tall opening through the wall.
-        for (int y = 1; y <= 3; y++) {
-            world.setBlock(new BlockPos(ox, baseY + y, oz + radius), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox, baseY + y, oz + radius - 1), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
+        // Carpet the floor, then clear the threshold again below.
+        for (int[] o : inner) {
+            world.setBlock(cursor.set(ox + o[0], baseY + 1, oz + o[1]),
+                palette.carpet.defaultBlockState(), StructureHelper.SET_FLAGS);
         }
-        // Ensure 2 blocks clearance outside door
-        for (int y = 1; y <= 3; y++) {
-            world.setBlock(new BlockPos(ox, baseY + y, oz + radius + 1), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox, baseY + y, oz + radius + 2), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-        }
-        // Remove carpet from doorway (both positions)
-        world.setBlock(new BlockPos(ox, baseY + 1, oz + radius), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox, baseY + 1, oz + radius - 1), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
 
-        // Hanging lantern inside (on solid roof block above)
-        world.setBlock(center.offset(0, wallHeight, 0),
-            Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), StructureHelper.SET_FLAGS);
+        // South doorway, hung rather than punched, with the approach cleared.
+        for (int y = 1; y <= 3; y++) {
+            world.setBlock(cursor.set(ox, baseY + y, oz + radius), air, StructureHelper.SET_FLAGS);
+            world.setBlock(cursor.set(ox, baseY + y, oz + radius - 1), air, StructureHelper.SET_FLAGS);
+            world.setBlock(cursor.set(ox, baseY + y, oz + radius + 1), air, StructureHelper.SET_FLAGS);
+        }
+        world.setBlock(cursor.set(ox, baseY, oz + radius), packedMud, StructureHelper.SET_FLAGS);
+        world.setBlock(cursor.set(ox, baseY, oz + radius - 1), packedMud, StructureHelper.SET_FLAGS);
+        Openings.door(world, new BlockPos(ox, baseY + 1, oz + radius), Direction.NORTH,
+            palette.door.defaultBlockState(), null, packedMud, false);
+
+        Furnish.hangingLantern(world, new BlockPos(ox, baseY + wallHeight - 1, oz), palette.getLightState());
     }
 
     /**
-     * TAIGA SMALL: Viking chieftain's mead hall.
-     * Elongated longhouse with steep 1:1 roof, 2-course stone foundation,
-     * spruce log walls with exterior buttresses, central longfire (3 campfires),
-     * raised side platforms, iron bar arrow slits, chief's high seat on the
-     * east long wall (historically accurate), and a rough oval spruce log palisade.
+     * TAIGA SMALL: the chieftain's mead hall.
+     *
+     * <p>A log longhouse on a stone footing: heavy timber walls, a steep gable, a longfire down the
+     * middle, sleeping benches along both long walls, and the high seat on the east wall where a
+     * Norse hall actually put it. Doors hung at both gable ends, a palisade drawn in tight.
+     *
+     * <p>Three things this replaces. The roof's smoke hole was cut by clearing the roof position at
+     * every Y at once, which removed both roof planes from ridge to eave and left the hall roofless
+     * along its centre line. The sleeping platforms were bottom slabs with beds placed a full block
+     * above them, so four beds floated half a block clear of the boards. And the palisade's bounding
+     * radius, not the building's, set the export box: a 13x25 hall shipped inside 37x37.
      */
     private CastleBounds generateTaigaLonghouse(ServerLevel world, BlockPos center) {
-        int halfLength = 12; // long axis (north-south)
-        int halfWidth = 6;   // short axis (east-west)
-        int wallHeight = 5;
-        int roofPeak = halfWidth; // steep 1:1 pitch
+        int halfWidth = 5;    // 11 blocks east-west
+        int halfLength = 9;   // 19 blocks north-south
         int baseY = center.getY();
-        int ox = center.getX();
-        int oz = center.getZ();
-        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
-        BlockState logWall = palette.log.defaultBlockState();
+        int ox = center.getX(), oz = center.getZ();
+
+        BlockPos min = new BlockPos(ox - halfWidth, baseY, oz - halfLength);
+        BlockPos max = new BlockPos(ox + halfWidth, baseY, oz + halfLength);
+
         BlockState cobble = palette.getPrimaryWallState();
-        BlockState mossyCobble = palette.getSecondaryWallState();
+        BlockState mossy = palette.getSecondaryWallState();
+        BlockState log = palette.log.defaultBlockState();
         BlockState planks = palette.getPlanksState();
         BlockState roofBlock = palette.getRoofState();
-        BlockState slabBlock = palette.woodSlab.defaultBlockState();
-        BlockState ironBars = Blocks.IRON_BARS.defaultBlockState();
+        BlockState woodStairs = palette.woodStairs.defaultBlockState();
+        BlockState woodSlab = palette.woodSlab.defaultBlockState();
+        BlockState air = Blocks.AIR.defaultBlockState();
 
-        // === 2-COURSE STONE FOUNDATION (cobblestone + mossy cobblestone) ===
-        // Course 1 at baseY: cobblestone
-        StructureHelper.fillBox(world, center.offset(-halfWidth, 0, -halfLength),
-            center.offset(halfWidth, 0, halfLength), cobble);
-        // Course 2 at baseY-1: mossy cobblestone (exposed below ground line)
-        StructureHelper.fillBox(world, center.offset(-halfWidth, -1, -halfLength),
-            center.offset(halfWidth, -1, halfLength), mossyCobble);
+        // === SHELL: two courses of stone footing, then log walls ===
+        int wallH = 5;
+        int wallTop = Facade.walls(world, min, max, cobble, 1,
+            java.util.List.of(new Facade.Storey(wallH, log, null, null)), 0);
+        Facade.ring(world, ox - halfWidth, ox + halfWidth, oz - halfLength, oz + halfLength, baseY, mossy);
 
-        // === SPRUCE LOG WALLS ===
-        // Long walls (east/west)
-        for (int z = -halfLength; z <= halfLength; z++) {
-            for (int y = 1; y <= wallHeight; y++) {
-                world.setBlock(new BlockPos(ox - halfWidth, baseY + y, oz + z), logWall, StructureHelper.SET_FLAGS);
-                world.setBlock(new BlockPos(ox + halfWidth, baseY + y, oz + z), logWall, StructureHelper.SET_FLAGS);
-            }
-        }
-        // End walls (north/south)
-        for (int x = -halfWidth; x <= halfWidth; x++) {
-            for (int y = 1; y <= wallHeight; y++) {
-                world.setBlock(new BlockPos(ox + x, baseY + y, oz - halfLength), logWall, StructureHelper.SET_FLAGS);
-                world.setBlock(new BlockPos(ox + x, baseY + y, oz + halfLength), logWall, StructureHelper.SET_FLAGS);
-            }
-        }
+        int floorY = baseY;
+        Facade.room(world, min, max, floorY, wallTop, planks);
 
-        // === EXTERIOR BUTTRESS POSTS every 4 blocks along long walls ===
-        // Buttress: spruce log extending 1 block outward from wall, with a base block 1 lower
-        for (int z = -halfLength + 2; z <= halfLength - 2; z += 4) {
-            // West wall buttresses
-            for (int y = 1; y <= wallHeight - 1; y++) {
-                world.setBlock(new BlockPos(ox - halfWidth - 1, baseY + y, oz + z), logWall, StructureHelper.SET_FLAGS);
-            }
-            world.setBlock(new BlockPos(ox - halfWidth - 1, baseY, oz + z), cobble, StructureHelper.SET_FLAGS);
-            // East wall buttresses
-            for (int y = 1; y <= wallHeight - 1; y++) {
-                world.setBlock(new BlockPos(ox + halfWidth + 1, baseY + y, oz + z), logWall, StructureHelper.SET_FLAGS);
-            }
-            world.setBlock(new BlockPos(ox + halfWidth + 1, baseY, oz + z), cobble, StructureHelper.SET_FLAGS);
-        }
+        // === ROOF: steep gable down the long axis, gable ends closed ===
+        int eaveY = wallTop + 1;
+        Roofs.eaveTrim(world, min, max, eaveY, 1, woodStairs);
+        int ridgeY = Roofs.gable(world, min, max, eaveY, Roofs.Ridge.Z, 1, roofBlock, log, log);
 
-        // === CLEAR INTERIOR ===
-        StructureHelper.clearInterior(world,
-            center.offset(-halfWidth + 1, 1, -halfLength + 1),
-            center.offset(halfWidth - 1, wallHeight, halfLength - 1));
+        // Smoke hole: a bounded opening over the hearth, not a slice through the whole roof.
+        Roofs.openHole(world, ox - 1, ox + 1, eaveY, ridgeY, oz - 1, oz + 1);
 
-        // === INTERIOR FLOOR: spruce planks at baseY+1 ===
-        StructureHelper.fillBox(world, center.offset(-halfWidth + 1, 1, -halfLength + 1),
-            center.offset(halfWidth - 1, 1, halfLength - 1), planks);
+        // === DOORS at both gable ends ===
+        Openings.door(world, new BlockPos(ox, baseY + 1, oz + halfLength), Direction.NORTH,
+            palette.door.defaultBlockState(), log, cobble, false);
+        Openings.door(world, new BlockPos(ox, baseY + 1, oz - halfLength), Direction.SOUTH,
+            palette.door.defaultBlockState(), log, cobble, false);
 
-        // Floor at doorway thresholds
-        for (int x = -1; x <= 1; x++) {
-            world.setBlock(new BlockPos(ox + x, baseY + 1, oz + halfLength), planks, StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + x, baseY + 1, oz - halfLength), planks, StructureHelper.SET_FLAGS);
-        }
-
-        // === STEEP 1:1 A-FRAME ROOF (DEEPSLATE_TILES) ===
-        for (int y = 0; y <= roofPeak; y++) {
-            int roofWidth = halfWidth - y;
-            if (roofWidth < 0) break;
-            for (int z = -halfLength - 1; z <= halfLength + 1; z++) {
-                world.setBlock(new BlockPos(ox - roofWidth, baseY + wallHeight + y, oz + z), roofBlock, StructureHelper.SET_FLAGS);
-                world.setBlock(new BlockPos(ox + roofWidth, baseY + wallHeight + y, oz + z), roofBlock, StructureHelper.SET_FLAGS);
-            }
-            // Clear interior under roof (above walls, below the tile line)
-            if (y > 0 && roofWidth > 0) {
-                for (int z = -halfLength; z <= halfLength; z++) {
-                    for (int rx = -roofWidth + 1; rx <= roofWidth - 1; rx++) {
-                        mutable.set(ox + rx, baseY + wallHeight + y, oz + z);
-                        world.setBlock(mutable, Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-                    }
-                }
-            }
-        }
-        // Ridge beam (spruce log at peak)
-        for (int z = -halfLength - 1; z <= halfLength + 1; z++) {
-            world.setBlock(new BlockPos(ox, baseY + wallHeight + roofPeak, oz + z), logWall, StructureHelper.SET_FLAGS);
-        }
-
-        // === SMOKE HOLE in roof above hearth (2 blocks wide) ===
-        for (int y = 0; y <= roofPeak; y++) {
-            int roofWidth = halfWidth - y;
-            if (roofWidth < 0) break;
-            for (int dz = -1; dz <= 0; dz++) {
-                // Clear left and right roof tiles above hearth center
-                if (roofWidth > 0) {
-                    world.setBlock(new BlockPos(ox - roofWidth, baseY + wallHeight + y, oz + dz), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-                    world.setBlock(new BlockPos(ox + roofWidth, baseY + wallHeight + y, oz + dz), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-                }
-            }
-        }
-        // Also clear ridge beam above hearth for the smoke hole
-        world.setBlock(new BlockPos(ox, baseY + wallHeight + roofPeak, oz), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox, baseY + wallHeight + roofPeak, oz - 1), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-
-        // === SOUTH ENTRANCE (3 wide, 3 tall) ===
-        for (int x = -1; x <= 1; x++) {
-            for (int y = 2; y <= 4; y++) {
-                mutable.set(ox + x, baseY + y, oz + halfLength);
-                world.setBlock(mutable, Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-            }
-        }
-        // === NORTH ENTRANCE ===
-        for (int x = -1; x <= 1; x++) {
-            for (int y = 2; y <= 4; y++) {
-                mutable.set(ox + x, baseY + y, oz - halfLength);
-                world.setBlock(mutable, Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-            }
-        }
-
-        // === CENTRAL LONGFIRE: 3 campfires in a row with cobblestone slab borders ===
-        BlockState cobbleSlab = Blocks.COBBLESTONE_SLAB.defaultBlockState();
-        for (int dz = -1; dz <= 1; dz++) {
-            world.setBlock(new BlockPos(ox, baseY + 2, oz + dz), Blocks.CAMPFIRE.defaultBlockState(), StructureHelper.SET_FLAGS);
-            // Cobblestone slab borders on east and west sides
-            world.setBlock(new BlockPos(ox - 1, baseY + 2, oz + dz), cobbleSlab, StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + 1, baseY + 2, oz + dz), cobbleSlab, StructureHelper.SET_FLAGS);
-        }
-        // Slab caps at north and south ends of the hearth
-        world.setBlock(new BlockPos(ox, baseY + 2, oz - 2), cobbleSlab, StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox, baseY + 2, oz + 2), cobbleSlab, StructureHelper.SET_FLAGS);
-
-        // === RAISED SIDE PLATFORMS (spruce slab at baseY+2 along each long wall) ===
-        for (int z = -halfLength + 1; z <= halfLength - 1; z++) {
-            // West platform (1 block from wall)
-            world.setBlock(new BlockPos(ox - halfWidth + 1, baseY + 2, oz + z), slabBlock, StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox - halfWidth + 2, baseY + 2, oz + z), slabBlock, StructureHelper.SET_FLAGS);
-            // East platform (1 block from wall)
-            world.setBlock(new BlockPos(ox + halfWidth - 1, baseY + 2, oz + z), slabBlock, StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + halfWidth - 2, baseY + 2, oz + z), slabBlock, StructureHelper.SET_FLAGS);
-        }
-
-        // === IRON BAR WINDOWS (narrow slits) on long walls ===
+        // === ARROW SLITS along the long walls ===
         for (int z = -halfLength + 3; z <= halfLength - 3; z += 4) {
-            world.setBlock(new BlockPos(ox - halfWidth, baseY + 3, oz + z), ironBars, StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + halfWidth, baseY + 3, oz + z), ironBars, StructureHelper.SET_FLAGS);
+            world.setBlock(new BlockPos(ox - halfWidth, baseY + 3, oz + z), palette.getBarsState(), StructureHelper.SET_FLAGS);
+            world.setBlock(new BlockPos(ox + halfWidth, baseY + 3, oz + z), palette.getBarsState(), StructureHelper.SET_FLAGS);
         }
 
-        // === CHIEF'S HIGH SEAT: center of east wall, facing west across the hall ===
-        // Historically accurate: chief sits on the long wall, not at the end
-        world.setBlock(new BlockPos(ox + halfWidth - 2, baseY + 3, oz),
-            palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
-        // Clear platform under the seat for it to sit properly
-        world.setBlock(new BlockPos(ox + halfWidth - 2, baseY + 2, oz), planks, StructureHelper.SET_FLAGS);
-        // Armrests (fences on either side)
-        world.setBlock(new BlockPos(ox + halfWidth - 2, baseY + 3, oz - 1),
-            palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + halfWidth - 2, baseY + 3, oz + 1),
-            palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
-
-        // === BEDS on raised platforms at north end (4 beds) ===
-        for (int x : new int[]{-halfWidth + 1, -halfWidth + 2, halfWidth - 2, halfWidth - 1}) {
-            world.setBlock(new BlockPos(ox + x, baseY + 3, oz - halfLength + 2), palette.bed.defaultBlockState()
-                .setValue(BedBlock.PART, BedPart.FOOT).setValue(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + x, baseY + 3, oz - halfLength + 3), palette.bed.defaultBlockState()
-                .setValue(BedBlock.PART, BedPart.HEAD).setValue(BedBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+        // === LONGFIRE down the centre ===
+        for (int dz = -1; dz <= 1; dz++) {
+            world.setBlock(new BlockPos(ox, floorY, oz + dz), cobble, StructureHelper.SET_FLAGS);
+            world.setBlock(new BlockPos(ox, floorY + 1, oz + dz), Blocks.CAMPFIRE.defaultBlockState(), StructureHelper.SET_FLAGS);
+            world.setBlock(new BlockPos(ox - 1, floorY, oz + dz), cobble, StructureHelper.SET_FLAGS);
+            world.setBlock(new BlockPos(ox + 1, floorY, oz + dz), cobble, StructureHelper.SET_FLAGS);
         }
 
-        // === BENCHES (stairs) along walls between hearth area ===
-        for (int z = -halfLength + 5; z <= halfLength - 5; z += 3) {
-            world.setBlock(new BlockPos(ox - halfWidth + 3, baseY + 2, oz + z),
-                palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.EAST), StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + halfWidth - 3, baseY + 2, oz + z),
-                palette.woodStairs.defaultBlockState().setValue(StairBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
+        // === SLEEPING BENCHES: top slabs, so what sits on them sits flush ===
+        Furnish.platform(world, new BlockPos(ox - halfWidth + 1, 0, oz - halfLength + 1),
+            new BlockPos(ox - halfWidth + 2, 0, oz + halfLength - 1), floorY, woodSlab);
+        Furnish.platform(world, new BlockPos(ox + halfWidth - 2, 0, oz - halfLength + 1),
+            new BlockPos(ox + halfWidth - 1, 0, oz + halfLength - 1), floorY, woodSlab);
+
+        int benchY = Furnish.standing(floorY);
+        for (int bz : new int[]{-halfLength + 2, -halfLength + 5}) {
+            Furnish.bed(world, new BlockPos(ox - halfWidth + 1, benchY, oz + bz), Direction.SOUTH, palette.bed.defaultBlockState());
+            Furnish.bed(world, new BlockPos(ox + halfWidth - 2, benchY, oz + bz), Direction.SOUTH, palette.bed.defaultBlockState());
         }
 
-        // === CHESTS + STORAGE ===
-        StructureHelper.placeChest(world, new BlockPos(ox - halfWidth + 1, baseY + 3, oz - halfLength + 1),
+        // === HIGH SEAT on the east long wall, facing across the hall ===
+        Furnish.chair(world, new BlockPos(ox + halfWidth - 2, benchY, oz), Direction.WEST, woodStairs);
+        world.setBlock(new BlockPos(ox + halfWidth - 2, benchY + 2, oz - 1), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
+        world.setBlock(new BlockPos(ox + halfWidth - 2, benchY + 2, oz + 1), palette.fence.defaultBlockState(), StructureHelper.SET_FLAGS);
+
+        // === STORES ===
+        StructureHelper.placeChest(world, new BlockPos(ox - halfWidth + 1, benchY + 1, oz + halfLength - 2),
             Direction.EAST, BuiltInLootTables.VILLAGE_TAIGA_HOUSE);
-        StructureHelper.placeChest(world, new BlockPos(ox + halfWidth - 1, baseY + 3, oz + halfLength - 2),
-            Direction.WEST, BuiltInLootTables.VILLAGE_TAIGA_HOUSE);
-        // Barrels near south entrance
-        world.setBlock(new BlockPos(ox + halfWidth - 1, baseY + 3, oz + halfLength - 4), Blocks.BARREL.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + halfWidth - 1, baseY + 3, oz + halfLength - 5), Blocks.BARREL.defaultBlockState(), StructureHelper.SET_FLAGS);
+        Furnish.onFloor(world, new BlockPos(ox + halfWidth - 1, benchY, oz + halfLength - 2), Blocks.BARREL.defaultBlockState());
+        Furnish.onFloor(world, new BlockPos(ox + halfWidth - 1, benchY, oz + halfLength - 3), Blocks.SMOKER.defaultBlockState());
+        Furnish.onFloor(world, new BlockPos(ox - halfWidth + 1, benchY, oz - halfLength + 8), Blocks.FLETCHING_TABLE.defaultBlockState());
 
-        // === WALL TORCHES INSIDE ===
-        // FACING = direction torch points (away from wall)
-        for (int z = -halfLength + 2; z <= halfLength - 2; z += 4) {
+        for (int z = -halfLength + 3; z <= halfLength - 3; z += 5) {
             world.setBlock(new BlockPos(ox - halfWidth + 1, baseY + 4, oz + z),
                 Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.EAST), StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(ox + halfWidth - 1, baseY + 4, oz + z),
                 Blocks.WALL_TORCH.defaultBlockState().setValue(HorizontalDirectionalBlock.FACING, Direction.WEST), StructureHelper.SET_FLAGS);
         }
 
-        // === SPRUCE LOG PALISADE: rough oval (3 blocks tall) ===
-        int palisadeRadiusX = halfWidth + 5;  // wider on short axis
-        int palisadeRadiusZ = halfLength + 4; // tighter on long axis
-        for (int angle = 0; angle < 360; angle += 2) {
-            double rad = Math.toRadians(angle);
-            int px = ox + (int)(palisadeRadiusX * Math.cos(rad));
-            int pz = oz + (int)(palisadeRadiusZ * Math.sin(rad));
-
-            // Skip gate openings at north and south
-            int relZ = pz - oz;
-            int relX = px - ox;
-            boolean isSouthGate = (relZ > palisadeRadiusZ - 2) && Math.abs(relX) <= 1;
-            boolean isNorthGate = (relZ < -palisadeRadiusZ + 2) && Math.abs(relX) <= 1;
-            if (isSouthGate || isNorthGate) continue;
-
-            // 3-tall spruce log palisade
-            for (int y = 0; y <= 2; y++) {
-                world.setBlock(new BlockPos(px, baseY + y, pz), logWall, StructureHelper.SET_FLAGS);
+        // === PALISADE: drawn in tight, gates aligned with the hall doors ===
+        int palX = halfWidth + 3;
+        int palZ = halfLength + 3;
+        for (int x = -palX; x <= palX; x++) {
+            for (int z = -palZ; z <= palZ; z++) {
+                boolean edge = Math.abs(x) == palX || Math.abs(z) == palZ;
+                if (!edge) continue;
+                if (Math.abs(x) <= 1 && Math.abs(z) == palZ) continue; // gateways
+                for (int y = 1; y <= 3; y++) {
+                    world.setBlock(new BlockPos(ox + x, baseY + y, oz + z), log, StructureHelper.SET_FLAGS);
+                }
+                world.setBlock(new BlockPos(ox + x, baseY, oz + z), cobble, StructureHelper.SET_FLAGS);
             }
-            // Foundation under palisade
-            world.setBlock(new BlockPos(px, baseY - 1, pz), cobble, StructureHelper.SET_FLAGS);
         }
-
-        // Palisade gate posts and fence gates at south entrance
-        for (int y = 0; y <= 2; y++) {
-            world.setBlock(new BlockPos(ox - 2, baseY + y, oz + palisadeRadiusZ), logWall, StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + 2, baseY + y, oz + palisadeRadiusZ), logWall, StructureHelper.SET_FLAGS);
+        for (int gz : new int[]{-palZ, palZ}) {
+            for (int gx = -1; gx <= 1; gx++) {
+                world.setBlock(new BlockPos(ox + gx, baseY, oz + gz), cobble, StructureHelper.SET_FLAGS);
+                world.setBlock(new BlockPos(ox + gx, baseY + 1, oz + gz),
+                    palette.fenceGate.defaultBlockState().setValue(FenceGateBlock.FACING,
+                        gz > 0 ? Direction.SOUTH : Direction.NORTH), StructureHelper.SET_FLAGS);
+                world.setBlock(new BlockPos(ox + gx, baseY + 2, oz + gz), air, StructureHelper.SET_FLAGS);
+            }
+            world.setBlock(new BlockPos(ox - 2, baseY + 4, oz + gz), Blocks.LANTERN.defaultBlockState(), StructureHelper.SET_FLAGS);
+            world.setBlock(new BlockPos(ox + 2, baseY + 4, oz + gz), Blocks.LANTERN.defaultBlockState(), StructureHelper.SET_FLAGS);
         }
-        for (int gx = -1; gx <= 1; gx++) {
-            world.setBlock(new BlockPos(ox + gx, baseY + 1, oz + palisadeRadiusZ),
-                palette.fenceGate.defaultBlockState().setValue(FenceGateBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
-        }
-
-        // Palisade gate posts and fence gates at north entrance
-        for (int y = 0; y <= 2; y++) {
-            world.setBlock(new BlockPos(ox - 2, baseY + y, oz - palisadeRadiusZ), logWall, StructureHelper.SET_FLAGS);
-            world.setBlock(new BlockPos(ox + 2, baseY + y, oz - palisadeRadiusZ), logWall, StructureHelper.SET_FLAGS);
-        }
-        for (int gx = -1; gx <= 1; gx++) {
-            world.setBlock(new BlockPos(ox + gx, baseY + 1, oz - palisadeRadiusZ),
-                palette.fenceGate.defaultBlockState().setValue(FenceGateBlock.FACING, Direction.NORTH), StructureHelper.SET_FLAGS);
-        }
-
-        // Lanterns on palisade gate posts
-        world.setBlock(new BlockPos(ox - 2, baseY + 3, oz + palisadeRadiusZ),
-            Blocks.LANTERN.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + 2, baseY + 3, oz + palisadeRadiusZ),
-            Blocks.LANTERN.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox - 2, baseY + 3, oz - palisadeRadiusZ),
-            Blocks.LANTERN.defaultBlockState(), StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox + 2, baseY + 3, oz - palisadeRadiusZ),
-            Blocks.LANTERN.defaultBlockState(), StructureHelper.SET_FLAGS);
-
-        int boundsRadius = Math.max(palisadeRadiusX, palisadeRadiusZ) + 2;
-        placeJigsawConnectors(world, center, boundsRadius);
 
         VillageCastles.LOGGER.debug("Taiga longhouse (mead hall) generation complete!");
         return new CastleBounds(
-            center.offset(-boundsRadius, -1, -boundsRadius),
-            center.offset(boundsRadius, wallHeight + roofPeak + 2, boundsRadius)
+            new BlockPos(ox - palX - 1, baseY, oz - palZ - 1),
+            new BlockPos(ox + palX + 1, ridgeY + 2, oz + palZ + 1)
         );
     }
 
@@ -1155,7 +879,7 @@ public class CastleGenerator {
      * furnished interior, and a short entrance tunnel on the south side.
      */
     private CastleBounds generateIgloo(ServerLevel world, BlockPos center) {
-        int domeRadius = 11;  // outer dome radius
+        int domeRadius = 9;   // outer dome radius
         int wallThickness = 2;
         int innerRadius = domeRadius - wallThickness;
         int groundRadius = 15;
@@ -1185,27 +909,24 @@ public class CastleGenerator {
         // ========================================
         // 1. Prepare the ground (circular, radius 15)
         // ========================================
-        int groundLimitSq = (groundRadius + 2) * (groundRadius + 2);
-        for (int x = -groundRadius - 2; x <= groundRadius + 2; x++) {
-            for (int z = -groundRadius - 2; z <= groundRadius + 2; z++) {
-                int distSq = x * x + z * z;
-                if (distSq > groundLimitSq) continue;
+        // Snow apron under the dome and its approach, and nothing below it. This used to lay five
+        // courses of cobblestone across a disc of radius 17 before doing anything else, which is
+        // roughly 4,500 blocks of buried plinth inside a template whose building is 22 across.
+        // CastleGroundsPiece does the footing at placement, against the terrain that is actually
+        // there.
+        int apronRadius = domeRadius + 2;
+        int apronLimitSq = apronRadius * apronRadius;
+        for (int x = -apronRadius; x <= apronRadius; x++) {
+            for (int z = -apronRadius; z <= apronRadius; z++) {
+                if (x * x + z * z > apronLimitSq) continue;
 
                 int wx = ox + x;
                 int wz = oz + z;
 
-                // Foundation
-                for (int y = -5; y <= -1; y++) {
-                    mutable.set(wx, baseY + y, wz);
-                    world.setBlock(mutable, Blocks.COBBLESTONE.defaultBlockState(), StructureHelper.SET_FLAGS);
-                }
-
-                // Ground level: snow block
                 mutable.set(wx, baseY, wz);
                 world.setBlock(mutable, snowBlock, StructureHelper.SET_FLAGS);
 
-                // Clear air above
-                for (int y = 1; y <= 25; y++) {
+                for (int y = 1; y <= domeHeight + 6; y++) {
                     mutable.set(wx, baseY + y, wz);
                     if (!world.getBlockState(mutable).isAir()) {
                         world.setBlock(mutable, air, StructureHelper.SET_FLAGS);
@@ -1399,8 +1120,8 @@ public class CastleGenerator {
         // Snow layers scattered around the base of the dome
         for (int angle = 0; angle < 360; angle += 30) {
             double rad = Math.toRadians(angle);
-            int sx = ox + (int) ((domeRadius + 2) * Math.cos(rad));
-            int sz = oz + (int) ((domeRadius + 2) * Math.sin(rad));
+            int sx = ox + (int) Math.round((domeRadius + 2) * Math.cos(rad));
+            int sz = oz + (int) Math.round((domeRadius + 2) * Math.sin(rad));
             mutable.set(sx, baseY + 1, sz);
             if (world.getBlockState(mutable).isAir()) {
                 world.setBlock(mutable, snowLayer, StructureHelper.SET_FLAGS);
@@ -1589,7 +1310,7 @@ public class CastleGenerator {
 
         // Compound dimensions - rectangular, longer north-south
         int halfW = radius;          // east-west half width
-        int halfD = radius + 5;      // north-south half depth (longer)
+        int halfD = radius + 2;      // north-south half depth (longer)
 
         // Prepare ground before building
         prepareGround(world, center, Math.max(halfW, halfD));
@@ -2151,6 +1872,9 @@ public class CastleGenerator {
             mutable.set(ox + 2, baseY + dy, oz + halfD);
             world.setBlock(mutable, chiseledSandstone, StructureHelper.SET_FLAGS);
         }
+        // Hang the gate. The frame and the recess were built but nothing was ever hung in them.
+        Openings.door(world, new BlockPos(ox - 1, baseY + 1, oz + halfD - 1), Direction.NORTH,
+            palette.door.defaultBlockState(), null, palette.getFloorState(), true);
         // Arch top
         for (int dx = -2; dx <= 2; dx++) {
             mutable.set(ox + dx, baseY + 5, oz + halfD);
@@ -2209,7 +1933,7 @@ public class CastleGenerator {
      * Coarse dirt ground, hay thatch roofs, terracotta accents, dead bush thorns.
      */
     private CastleBounds generateSavannaCompound(ServerLevel world, BlockPos center) {
-        int compoundRadius = 20;
+        int compoundRadius = 15;
         int baseY = center.getY();
         int ox = center.getX();
         int oz = center.getZ();
@@ -2234,8 +1958,8 @@ public class CastleGenerator {
         // Acacia palisade perimeter (3 high) with dead bush thorns
         for (int angle = 0; angle < 360; angle += 2) {
             double rad = Math.toRadians(angle);
-            int fx = ox + (int)(compoundRadius * Math.cos(rad));
-            int fz = oz + (int)(compoundRadius * Math.sin(rad));
+            int fx = ox + (int) Math.round(compoundRadius * Math.cos(rad));
+            int fz = oz + (int) Math.round(compoundRadius * Math.sin(rad));
             world.setBlock(new BlockPos(fx, baseY, fz), fence, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(fx, baseY + 1, fz), fence, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(fx, baseY + 2, fz), fence, StructureHelper.SET_FLAGS);
@@ -2243,8 +1967,8 @@ public class CastleGenerator {
         // Dead bush thorns outside palisade: support block at baseY-1 to replace terrain
         for (int angle = 0; angle < 360; angle += 20) {
             double rad = Math.toRadians(angle);
-            int bx = ox + (int)((compoundRadius + 1) * Math.cos(rad));
-            int bz = oz + (int)((compoundRadius + 1) * Math.sin(rad));
+            int bx = ox + (int) Math.round((compoundRadius + 1) * Math.cos(rad));
+            int bz = oz + (int) Math.round((compoundRadius + 1) * Math.sin(rad));
             world.setBlock(new BlockPos(bx, baseY - 1, bz), coarseDirt, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(bx, baseY, bz), deadBush, StructureHelper.SET_FLAGS);
         }
@@ -2265,8 +1989,8 @@ public class CastleGenerator {
             .setValue(StairBlock.HALF, Half.TOP);
         for (int angle = 0; angle < 360; angle += 10) {
             double rad = Math.toRadians(angle);
-            int ex = (int)(6 * Math.cos(rad));
-            int ez = (int)(6 * Math.sin(rad));
+            int ex = (int) Math.round(6 * Math.cos(rad));
+            int ez = (int) Math.round(6 * Math.sin(rad));
             if (ex * ex + ez * ez >= 30) {
                 Direction facing;
                 if (Math.abs(ex) > Math.abs(ez)) {
@@ -2286,8 +2010,8 @@ public class CastleGenerator {
         // additional terracotta accents at the base of the platform)
         for (int angle = 0; angle < 360; angle += 45) {
             double rad = Math.toRadians(angle);
-            int ax = (int)(7 * Math.cos(rad));
-            int az = (int)(7 * Math.sin(rad));
+            int ax = (int) Math.round(7 * Math.cos(rad));
+            int az = (int) Math.round(7 * Math.sin(rad));
             world.setBlock(chiefPos.offset(ax, 0, az), Blocks.DYED_TERRACOTTA.pick(DyeColor.ORANGE).defaultBlockState(), StructureHelper.SET_FLAGS);
         }
 
@@ -2394,8 +2118,8 @@ public class CastleGenerator {
         }
         for (int angle = 0; angle < 360; angle += 45) {
             double rad = Math.toRadians(angle);
-            int sx = (int)(4 * Math.cos(rad));
-            int sz = (int)(4 * Math.sin(rad));
+            int sx = (int) Math.round(4 * Math.cos(rad));
+            int sz = (int) Math.round(4 * Math.sin(rad));
             world.setBlock(center.offset(sx, 0, sz), logBlock, StructureHelper.SET_FLAGS);
         }
 
@@ -2438,8 +2162,8 @@ public class CastleGenerator {
         // Torch posts throughout compound: fence base + fence + torch on top (solid support)
         for (int angle = 0; angle < 360; angle += 60) {
             double rad = Math.toRadians(angle);
-            int tx = ox + (int)(12 * Math.cos(rad));
-            int tz = oz + (int)(12 * Math.sin(rad));
+            int tx = ox + (int) Math.round(12 * Math.cos(rad));
+            int tz = oz + (int) Math.round(12 * Math.sin(rad));
             world.setBlock(new BlockPos(tx, baseY, tz), fence, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(tx, baseY + 1, tz), fence, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(tx, baseY + 2, tz), Blocks.TORCH.defaultBlockState(), StructureHelper.SET_FLAGS);
@@ -2483,8 +2207,8 @@ public class CastleGenerator {
      * with throne at north end. Sleeping alcoves along walls. Storage at south end.
      */
     private CastleBounds generateGreatEnclosure(ServerLevel world, BlockPos center, int radius) {
-        int halfLength = 25; // long axis (north-south)
-        int halfWidth = 10;  // short axis (east-west)
+        int halfLength = 20; // long axis (north-south)
+        int halfWidth = 13;  // short axis (east-west)
         int wallHeight = 3;  // walls above ground level (roof barely visible)
         int baseY = center.getY();
         int depth = Math.min(5, baseY + 63); // Clamp to stay above y=-63 (world minimum is -64)
@@ -2685,6 +2409,8 @@ public class CastleGenerator {
                 world.setBlock(new BlockPos(ox + x, y, oz + halfLength), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
             }
         }
+        Openings.door(world, new BlockPos(ox - 1, floorY + 1, oz + halfLength), Direction.NORTH,
+            palette.door.defaultBlockState(), null, palette.getFloorState(), true);
         // Ensure 2+ blocks clearance outside entrance ramp (surface level)
         for (int x = -2; x <= 2; x++) {
             for (int dz = 1; dz <= 2; dz++) {
@@ -2709,19 +2435,19 @@ public class CastleGenerator {
         world.setBlock(new BlockPos(ox + 4, floorY + 2, oz + halfLength - 5), Blocks.BELL.defaultBlockState(), StructureHelper.SET_FLAGS);
 
         // Acacia palisade around the surface footprint with dead bush thorns
-        int fenceRadius = Math.max(halfLength, halfWidth) + 5;
+        int fenceRadius = Math.max(halfLength, halfWidth) + 2;
         for (int angle = 0; angle < 360; angle += 2) {
             double rad = Math.toRadians(angle);
-            int fx = ox + (int)(fenceRadius * Math.cos(rad));
-            int fz = oz + (int)(fenceRadius * Math.sin(rad));
+            int fx = ox + (int) Math.round(fenceRadius * Math.cos(rad));
+            int fz = oz + (int) Math.round(fenceRadius * Math.sin(rad));
             world.setBlock(new BlockPos(fx, baseY, fz), fence, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(fx, baseY + 1, fz), fence, StructureHelper.SET_FLAGS);
         }
         // Dead bush thorns outside palisade: support block at baseY-1 to replace terrain
         for (int angle = 0; angle < 360; angle += 20) {
             double rad = Math.toRadians(angle);
-            int bx = ox + (int)((fenceRadius + 1) * Math.cos(rad));
-            int bz = oz + (int)((fenceRadius + 1) * Math.sin(rad));
+            int bx = ox + (int) Math.round((fenceRadius + 1) * Math.cos(rad));
+            int bz = oz + (int) Math.round((fenceRadius + 1) * Math.sin(rad));
             world.setBlock(new BlockPos(bx, baseY - 1, bz), coarseDirt, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(bx, baseY, bz), deadBush, StructureHelper.SET_FLAGS);
         }
@@ -2984,9 +2710,8 @@ public class CastleGenerator {
                 world.setBlock(new BlockPos(ox + x, baseY + y, oz + halfDepth), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
             }
         }
-        // Floor at threshold
-        world.setBlock(new BlockPos(ox - 1, baseY, oz + halfDepth), sprucePlanks, StructureHelper.SET_FLAGS);
-        world.setBlock(new BlockPos(ox, baseY, oz + halfDepth), sprucePlanks, StructureHelper.SET_FLAGS);
+        Openings.door(world, new BlockPos(ox - 1, baseY + 1, oz + halfDepth), Direction.NORTH,
+            palette.door.defaultBlockState(), null, sprucePlanks, true);
 
         // Courtyard entrance: north wall
         for (int x = -1; x <= 0; x++) {
@@ -2994,6 +2719,8 @@ public class CastleGenerator {
                 world.setBlock(new BlockPos(ox + x, baseY + y, oz - halfDepth), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
             }
         }
+        Openings.door(world, new BlockPos(ox - 1, baseY + 1, oz - halfDepth), Direction.SOUTH,
+            palette.door.defaultBlockState(), null, sprucePlanks, true);
 
         // Bell in courtyard
         world.setBlock(center.offset(-3, 0, -halfDepth + 3), spruceFence, StructureHelper.SET_FLAGS);
@@ -3010,20 +2737,14 @@ public class CastleGenerator {
 
     private CastleBounds generateMediumFort(ServerLevel world, BlockPos center, int radius,
                                               int keepHalfWidth, int keepHalfDepth) {
-        // Motte-and-bailey: for plains biome, build a dirt hill and raise the castle
+        // The bailey sits at grade. Plains used to get a motte: a 14-block earthwork whose slope
+        // ran out to radius+22, with the whole castle raised on top of it. Baked into a template
+        // that is a landform, not a building, and it showed: plains/castle_medium exported at
+        // 99x99 and 71% dirt, coarse dirt and grass, and stamped that hill into whatever terrain
+        // it landed on. A castle template carries the castle; CastleGroundsPiece meets the ground.
         BlockPos originalCenter = center;
         BlockPos buildCenter = center;
-        boolean hasMotte = (palette == BiomePalette.PLAINS);
-        if (hasMotte) {
-            VillageCastles.LOGGER.debug("Plains biome detected — building motte (dirt hill)...");
-            buildMotte(world, center, radius);
-            buildCenter = center.above(14); // Raise castle by the motte height
-            // Motte's flat top IS the prepared ground: only clear air above it
-            clearAirAbove(world, buildCenter, radius);
-        } else {
-            // 1. Prepare the ground normally
-            prepareGround(world, buildCenter, radius);
-        }
+        prepareGround(world, buildCenter, radius);
 
         // 2. Calculate key positions (all relative to buildCenter)
         BlockPos southGatePos = buildCenter.south(radius - GateGenerator.getDepth() / 2);
@@ -3063,10 +2784,7 @@ public class CastleGenerator {
 
         VillageCastles.LOGGER.debug("Standard fort generation complete!");
 
-        // For plains/medium the motte slope extends to baseRadius+2 = (radius+22)+2 = radius+24
-        // from the original (ground-level) center. Use whichever is larger so the full motte
-        // is always captured.
-        int xzCapture = hasMotte ? (radius + 24) : (radius + 2);
+        int xzCapture = radius + 2;
         return new CastleBounds(
             originalCenter.offset(-xzCapture, 0, -xzCapture),
             buildCenter.offset(xzCapture, keepHeight + 10, xzCapture)
@@ -3127,15 +2845,19 @@ public class CastleGenerator {
         BlockState cobbleStairs = Blocks.COBBLESTONE_STAIRS.defaultBlockState();
         BlockState air = Blocks.AIR.defaultBlockState();
 
-        // Dimensions: built for giants (2x human scale)
-        int hexR = 34;             // hexagon vertex radius from center
-        int wallH = 14;            // wall height between spires
+        // Dimensions. The citadel still reads as the tallest thing for miles, but it is a
+        // building rather than a landform: the previous 34-radius hexagon around an 85-block
+        // spire exported as 79x102x79, taller than the world is deep in a lot of terrain and
+        // impossible to site beside a village. Kept: the hex plan, the dominant central spire,
+        // the flanking spires, the bridge. Changed: everything is roughly 40% of its old scale.
+        int hexR = 22;             // hexagon vertex radius from center
+        int wallH = 10;            // wall height between spires
         int wallThick = 3;         // wall thickness
-        int smallSpireR = 5;       // regular spire base radius
-        int smallSpireH = 32;      // regular spire height
-        int bigSpireR = 24;        // massive: dominates the interior
-        int bigSpireH = 85;        // taller: the defining silhouette
-        int bigSpireShell = 3;     // thick shell walls
+        int smallSpireR = 4;       // regular spire base radius
+        int smallSpireH = 18;      // regular spire height
+        int bigSpireR = 12;        // dominates the interior
+        int bigSpireH = 34;        // the defining silhouette
+        int bigSpireShell = 2;     // shell walls
         // Big spire TOUCHING the back (north) wall
         int bigSX = ox;
         int bigSZ = oz - hexR + bigSpireR; // north edge meets the north wall
@@ -3228,8 +2950,8 @@ public class CastleGenerator {
                 for (int angle = 0; angle < 360; angle += 90) {
                     double rad = Math.toRadians(angle);
                     int r = Math.max(1, (int)(thisSpireR * (1.0 - (double) y / (thisSpireH + 8))));
-                    int wx = (int)(r * Math.cos(rad));
-                    int wz = (int)(r * Math.sin(rad));
+                    int wx = (int) Math.round(r * Math.cos(rad));
+                    int wz = (int) Math.round(r * Math.sin(rad));
                     world.setBlock(new BlockPos(sx + wx, baseY + y, sz + wz), seaLantern, StructureHelper.SET_FLAGS);
                 }
             }
@@ -3303,17 +3025,19 @@ public class CastleGenerator {
                 double[] bandAngles = {twist, twist + 2.094, twist + 4.189}; // 120° apart
 
                 for (double bandAngle : bandAngles) {
-                    // Place a solid 3-block-wide shelf at this angle, just outside the spire surface
-                    for (int tw = -1; tw <= 1; tw++) {
-                        double offsetAngle = bandAngle + tw * 0.15;
-                        // Outer surface: baseR to baseR+2 (the shelf)
-                        for (int depth = 0; depth <= 1; depth++) {
-                            int shelfR = baseR + 1 + depth;
-                            int sx2 = bigSX + (int)(shelfR * Math.cos(offsetAngle));
-                            int sz2 = bigSZ + (int)(shelfR * Math.sin(offsetAngle));
-                            BlockPos shelfPos = new BlockPos(sx2, baseY + y, sz2);
-                            // Shelf uses snow block for high contrast against the blue/packed body
-                            world.setBlock(shelfPos, snowBlock, StructureHelper.SET_FLAGS);
+                    // Walk the arc in block-sized steps rather than sampling three fixed angles.
+                    // At a 24-block radius those three samples sat two or more blocks apart, so
+                    // the band came out as a dotted line of detached snow: 127 of the ice palace's
+                    // blocks had air on all six sides. The step is sized from the radius, so the
+                    // run stays contiguous however wide the spire is at this course.
+                    for (int depth = 0; depth <= 1; depth++) {
+                        int shelfR = baseR + 1 + depth;
+                        double step = 1.0 / Math.max(1, shelfR);
+                        for (double a = -0.15; a <= 0.15 + 1e-9; a += step) {
+                            double offsetAngle = bandAngle + a;
+                            int sx2 = bigSX + (int) Math.round(shelfR * Math.cos(offsetAngle));
+                            int sz2 = bigSZ + (int) Math.round(shelfR * Math.sin(offsetAngle));
+                            world.setBlock(new BlockPos(sx2, baseY + y, sz2), snowBlock, StructureHelper.SET_FLAGS);
                         }
                     }
                 }
@@ -3331,8 +3055,8 @@ public class CastleGenerator {
             double angle = Math.toRadians(y * 25);
             int r = Math.max(2, (int)(bigSpireR * (1.0 - (double) y / (bigSpireH + 10)))) - bigSpireShell;
             if (r < 2) continue;
-            int lx = (int)((r - 1) * Math.cos(angle));
-            int lz = (int)((r - 1) * Math.sin(angle));
+            int lx = (int) Math.round((r - 1) * Math.cos(angle));
+            int lz = (int) Math.round((r - 1) * Math.sin(angle));
             world.setBlock(new BlockPos(bigSX + lx, baseY + y, bigSZ + lz), seaLantern, StructureHelper.SET_FLAGS);
         }
         // Sea lantern at peak
@@ -3464,6 +3188,19 @@ public class CastleGenerator {
             }
         }
 
+        // Hang the citadel's ground door. The spire had two openings and no door in either, which
+        // is also a cold hall: an open five-block arch is not a way into an ice keep.
+        Openings.door(world, new BlockPos(bigSX - 1, baseY + 1, groundDoorZ), Direction.NORTH,
+            palette.door.defaultBlockState(), null, packedIce, true);
+        for (int bx : new int[]{-2, 2}) {
+            for (int y = 1; y <= 4; y++) {
+                world.setBlock(new BlockPos(bigSX + bx, baseY + y, groundDoorZ), packedIce, StructureHelper.SET_FLAGS);
+            }
+        }
+        for (int y = 1; y <= 2; y++) {
+            world.setBlock(new BlockPos(bigSX + 1, baseY + y, groundDoorZ), packedIce, StructureHelper.SET_FLAGS);
+        }
+
         // Mini sentinel spires flanking the bridge
         // Tapered ice spires matching the citadel's architectural language
         for (int side : new int[]{-1, 1}) {
@@ -3526,8 +3263,8 @@ public class CastleGenerator {
                 for (int rd = 0; rd <= 1; rd++) {
                     int sr = rHere - rd; // rHere = flush with wall, rHere-1 = one inward
                     if (sr < 2) continue;
-                    int stx = bigSX + (int)(sr * Math.cos(offsetAngle));
-                    int stz = bigSZ + (int)(sr * Math.sin(offsetAngle));
+                    int stx = bigSX + (int) Math.round(sr * Math.cos(offsetAngle));
+                    int stz = bigSZ + (int) Math.round(sr * Math.sin(offsetAngle));
                     world.setBlock(new BlockPos(stx, baseY + y, stz), packedIce, StructureHelper.SET_FLAGS);
                     world.setBlock(new BlockPos(stx, baseY + y - 1, stz), packedIce, StructureHelper.SET_FLAGS);
                     for (int h = 1; h <= 3; h++) {
@@ -3538,8 +3275,8 @@ public class CastleGenerator {
 
             // Sea lantern built into the stair every 6 blocks: embedded in the step
             if (y % 6 == 0) {
-                int lx = bigSX + (int)(rHere * Math.cos(stairAngle));
-                int lz = bigSZ + (int)(rHere * Math.sin(stairAngle));
+                int lx = bigSX + (int) Math.round(rHere * Math.cos(stairAngle));
+                int lz = bigSZ + (int) Math.round(rHere * Math.sin(stairAngle));
                 world.setBlock(new BlockPos(lx, baseY + y, lz), seaLantern, StructureHelper.SET_FLAGS);
             }
         }
@@ -3611,8 +3348,8 @@ public class CastleGenerator {
         // Ground floor lanterns (on fence posts)
         for (int angle = 30; angle < 360; angle += 60) {
             double rad = Math.toRadians(angle);
-            int lx = bigSX + (int)((groundFloorR - 3) * Math.cos(rad));
-            int lz = bigSZ + (int)((groundFloorR - 3) * Math.sin(rad));
+            int lx = bigSX + (int) Math.round((groundFloorR - 3) * Math.cos(rad));
+            int lz = bigSZ + (int) Math.round((groundFloorR - 3) * Math.sin(rad));
             world.setBlock(new BlockPos(lx, gfy, lz), fence, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(lx, gfy + 1, lz), fence, StructureHelper.SET_FLAGS);
             world.setBlock(new BlockPos(lx, gfy + 2, lz),
@@ -3624,8 +3361,8 @@ public class CastleGenerator {
         int plat2Y = baseY + bigSpireH / 2; // platform 2 at 50% height
         for (int angle = 0; angle < 360; angle += 60) {
             double rad = Math.toRadians(angle);
-            int lx = bigSX + (int)((groundFloorR - 2) * Math.cos(rad));
-            int lz = bigSZ + (int)((groundFloorR - 2) * Math.sin(rad));
+            int lx = bigSX + (int) Math.round((groundFloorR - 2) * Math.cos(rad));
+            int lz = bigSZ + (int) Math.round((groundFloorR - 2) * Math.sin(rad));
             for (int y = 0; y <= plat2Y - baseY + 1; y++) {
                 world.setBlock(new BlockPos(lx, baseY + y, lz), log, StructureHelper.SET_FLAGS);
             }
@@ -3680,8 +3417,8 @@ public class CastleGenerator {
         // Hanging lanterns under platform 2 (illuminate the common area)
         for (int angle = 0; angle < 360; angle += 45) {
             double rad = Math.toRadians(angle);
-            int lx = bigSX + (int)((plat1R - 3) * Math.cos(rad));
-            int lz = bigSZ + (int)((plat1R - 3) * Math.sin(rad));
+            int lx = bigSX + (int) Math.round((plat1R - 3) * Math.cos(rad));
+            int lz = bigSZ + (int) Math.round((plat1R - 3) * Math.sin(rad));
             world.setBlock(new BlockPos(lx, p1fy + 3, lz),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), StructureHelper.SET_FLAGS);
         }
@@ -3718,8 +3455,8 @@ public class CastleGenerator {
         int bedR = plat2R - 3;
         for (int angle = 0; angle < 360; angle += 45) {
             double rad = Math.toRadians(angle);
-            int bx = bigSX + (int)(bedR * Math.cos(rad));
-            int bz = bigSZ + (int)(bedR * Math.sin(rad));
+            int bx = bigSX + (int) Math.round(bedR * Math.cos(rad));
+            int bz = bigSZ + (int) Math.round(bedR * Math.sin(rad));
             Direction bedFacing = (Math.abs(Math.cos(rad)) > Math.abs(Math.sin(rad)))
                 ? (Math.cos(rad) > 0 ? Direction.WEST : Direction.EAST)
                 : (Math.sin(rad) > 0 ? Direction.NORTH : Direction.SOUTH);
@@ -3749,8 +3486,8 @@ public class CastleGenerator {
         // Hanging lanterns
         for (int angle = 0; angle < 360; angle += 60) {
             double rad = Math.toRadians(angle);
-            int lx = bigSX + (int)((plat2R - 2) * Math.cos(rad));
-            int lz = bigSZ + (int)((plat2R - 2) * Math.sin(rad));
+            int lx = bigSX + (int) Math.round((plat2R - 2) * Math.cos(rad));
+            int lz = bigSZ + (int) Math.round((plat2R - 2) * Math.sin(rad));
             world.setBlock(new BlockPos(lx, p2fy + 3, lz),
                 Blocks.LANTERN.defaultBlockState().setValue(LanternBlock.HANGING, true), StructureHelper.SET_FLAGS);
         }
@@ -3806,7 +3543,7 @@ public class CastleGenerator {
 
         int dungeonFloorY = baseY - dungeonDepth;
         int chamberR = 5;
-        int chamberCZ = bigSZ - 15; // beneath the big spire, offset north
+        int chamberCZ = bigSZ - 6; // beneath the big spire, offset north
 
         // Carve the chamber below the big spire (the spiral staircase descends here)
         for (int x = -chamberR; x <= chamberR; x++) {
@@ -3835,8 +3572,8 @@ public class CastleGenerator {
         // Shrine pillars
         for (int angle = 0; angle < 360; angle += 60) {
             double rad = Math.toRadians(angle);
-            int px = (int)(3 * Math.cos(rad));
-            int pz = (int)(3 * Math.sin(rad));
+            int px = (int) Math.round(3 * Math.cos(rad));
+            int pz = (int) Math.round(3 * Math.sin(rad));
             for (int y = 1; y <= 5; y++) {
                 world.setBlock(new BlockPos(bigSX + px, dungeonFloorY + y, chamberCZ + pz), blueIce, StructureHelper.SET_FLAGS);
             }
@@ -4096,6 +3833,9 @@ public class CastleGenerator {
         }
         // Arch keystone
         world.setBlock(new BlockPos(ox, baseY + 7, oz + half), chiseledSandstone, StructureHelper.SET_FLAGS);
+        // Hang the citadel gate in the arch that was already framed for it.
+        Openings.door(world, new BlockPos(ox - 1, baseY + 1, oz + half), Direction.NORTH,
+            palette.door.defaultBlockState(), null, palette.getFloorState(), true);
         // Flanking towers above gate (2 small turrets)
         for (int side : new int[]{-1, 1}) {
             int tx = ox + side * (gateHW + 3);
@@ -4618,7 +4358,7 @@ public class CastleGenerator {
      */
     private void buildMoat(ServerLevel world, BlockPos center, int radius) {
         int moatOffset = radius + 1;   // Just outside the wall line
-        int moatWidth = 4;
+        int moatWidth = 3;
         int moatDepth = 3;
         int ox = center.getX();
         int oz = center.getZ();
@@ -4704,150 +4444,6 @@ public class CastleGenerator {
         }
     }
 
-    /**
-     * Build a natural-looking rounded earthwork motte for the plains medium castle.
-     * Uses a cosine-based profile for smooth slopes, grass/dirt/stone layering,
-     * a zigzag gravel path up the south face, retaining walls at the top edge,
-     * and scattered vegetation on the slopes.
-     */
-    private void buildMotte(ServerLevel world, BlockPos center, int radius) {
-        int motteHeight = 14;
-        int topRadius = radius + 4;   // Wider than castle footprint so towers are grounded
-        int baseRadius = topRadius + motteHeight + 4; // Gradual slope needs width
-        int stairWidth = 3;           // Width of the entrance staircase
-
-        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
-        int ox = center.getX();
-        int oz = center.getZ();
-        int baseY = center.getY();
-
-        // --- Pass 1: Build the hill with smooth cosine profile ---
-        int topRadiusSq = topRadius * topRadius;
-        int baseRadiusSq = baseRadius * baseRadius;
-        for (int x = -baseRadius - 2; x <= baseRadius + 2; x++) {
-            for (int z = -baseRadius - 2; z <= baseRadius + 2; z++) {
-                int distSq = x * x + z * z;
-
-                int columnHeight;
-                if (distSq <= topRadiusSq) {
-                    // Flat plateau: full height
-                    columnHeight = motteHeight;
-                } else if (distSq <= baseRadiusSq) {
-                    // Smooth cosine falloff from plateau to ground
-                    double dist = Math.sqrt(distSq);
-                    double t = (dist - topRadius) / (baseRadius - topRadius);
-                    columnHeight = (int) Math.round(motteHeight * (1.0 + Math.cos(t * Math.PI)) / 2.0);
-                } else {
-                    columnHeight = 0;
-                }
-
-                if (columnHeight <= 0) continue;
-
-                // Place blocks for this column
-                for (int y = 0; y <= columnHeight; y++) {
-                    mutable.set(ox + x, baseY + y, oz + z);
-                    int depthFromSurface = columnHeight - y;
-
-                    if (depthFromSurface == 0) {
-                        world.setBlock(mutable, Blocks.GRASS_BLOCK.defaultBlockState(), StructureHelper.SET_FLAGS);
-                    } else if (depthFromSurface <= 3) {
-                        world.setBlock(mutable, Blocks.DIRT.defaultBlockState(), StructureHelper.SET_FLAGS);
-                    } else {
-                        BlockState fill = random.nextInt(5) == 0
-                            ? Blocks.COBBLESTONE.defaultBlockState()
-                            : Blocks.COARSE_DIRT.defaultBlockState();
-                        world.setBlock(mutable, fill, StructureHelper.SET_FLAGS);
-                    }
-                }
-            }
-        }
-
-        // --- Pass 2: Stone staircase up the south face ---
-        // Straight staircase from ground level to the plateau top, with stone walls on each side.
-        // Stairs are placed stepping up one block per Z as we walk north (toward center).
-        BlockState stairState = Blocks.STONE_BRICK_STAIRS.defaultBlockState()
-            .setValue(StairBlock.FACING, Direction.NORTH); // Ascending northward toward the castle
-        BlockState wallState = palette.getPrimaryWallState();
-
-        // Start Z at the base of the south slope, end at plateau edge
-        int stairStartZ = oz + baseRadius - 1;
-        int stairEndZ = oz + topRadius;
-
-        for (int y = 0; y <= motteHeight; y++) {
-            // Each step is one block north and one block up
-            int stepZ = stairStartZ - (int)((double) y / motteHeight * (stairStartZ - stairEndZ));
-
-            for (int sx = -stairWidth / 2; sx <= stairWidth / 2; sx++) {
-                int wx = ox + sx;
-
-                // Stair tread
-                mutable.set(wx, baseY + y, stepZ);
-                world.setBlock(mutable, stairState, StructureHelper.SET_FLAGS);
-
-                // Fill solid below the stair tread (so stairs aren't floating)
-                for (int fillY = baseY; fillY < baseY + y; fillY++) {
-                    mutable.set(wx, fillY, stepZ);
-                    BlockState existing = world.getBlockState(mutable);
-                    if (existing.isAir() || existing.equals(Blocks.GRASS_BLOCK.defaultBlockState())) {
-                        world.setBlock(mutable, Blocks.COBBLESTONE.defaultBlockState(), StructureHelper.SET_FLAGS);
-                    }
-                }
-
-                // Clear 3 blocks of headroom above each step
-                for (int clearY = 1; clearY <= 3; clearY++) {
-                    mutable.set(wx, baseY + y + clearY, stepZ);
-                    world.setBlock(mutable, Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-                }
-            }
-
-            // Stone brick walls flanking the staircase
-            int wallLeftX = ox - stairWidth / 2 - 1;
-            int wallRightX = ox + stairWidth / 2 + 1;
-
-            for (int wallY = 0; wallY <= 1; wallY++) {
-                mutable.set(wallLeftX, baseY + y + wallY, stepZ);
-                world.setBlock(mutable, wallState, StructureHelper.SET_FLAGS);
-                mutable.set(wallRightX, baseY + y + wallY, stepZ);
-                world.setBlock(mutable, wallState, StructureHelper.SET_FLAGS);
-            }
-        }
-
-        // --- Pass 3: Retaining wall around the plateau top edge ---
-        for (int angle = 0; angle < 360; angle++) {
-            double rad = Math.toRadians(angle);
-            int wx = (int) Math.round((topRadius + 1) * Math.cos(rad));
-            int wz = (int) Math.round((topRadius + 1) * Math.sin(rad));
-
-            // Skip the south gate approach
-            if (wz > 0 && Math.abs(wx) <= stairWidth) continue;
-
-            mutable.set(ox + wx, baseY + motteHeight + 1, oz + wz);
-            world.setBlock(mutable, wallState, StructureHelper.SET_FLAGS);
-        }
-
-        // --- Pass 4: Sparse vegetation on slopes ---
-        for (int x = -baseRadius; x <= baseRadius; x++) {
-            for (int z = -baseRadius; z <= baseRadius; z++) {
-                int distSq = x * x + z * z;
-                if (distSq <= topRadiusSq || distSq >= baseRadiusSq) continue;
-
-                double dist = Math.sqrt(distSq);
-                double t = (dist - topRadius) / (baseRadius - topRadius);
-                int colHeight = (int) Math.round(motteHeight * (1.0 + Math.cos(t * Math.PI)) / 2.0);
-                if (colHeight <= 2 || colHeight >= motteHeight) continue;
-
-                // ~8% chance: sparse, not noisy
-                if (random.nextInt(100) < 8) {
-                    mutable.set(ox + x, baseY + colHeight + 1, oz + z);
-                    if (world.getBlockState(mutable).isAir()) {
-                        world.setBlock(mutable, Blocks.SHORT_GRASS.defaultBlockState(), StructureHelper.SET_FLAGS);
-                    }
-                }
-            }
-        }
-
-        VillageCastles.LOGGER.debug("Motte built: height={}, baseRadius={}, topRadius={}", motteHeight, baseRadius, topRadius);
-    }
 
     // ==========================================================================
     // TAIGA MEDIUM: Scandinavian Ring Fort
@@ -4860,7 +4456,7 @@ public class CastleGenerator {
      * platforms, fighting walkway, bell at crossroads.
      */
     private CastleBounds generateTaigaRingFort(ServerLevel world, BlockPos center, int radius) {
-        int fortRadius = 22;
+        int fortRadius = 15;
         int baseY = center.getY();
         int ox = center.getX();
         int oz = center.getZ();
@@ -4883,8 +4479,8 @@ public class CastleGenerator {
         int wallThickness = 2;
         for (int angle = 0; angle < 360; angle += 1) {
             double rad = Math.toRadians(angle);
-            int wx = ox + (int)(fortRadius * Math.cos(rad));
-            int wz = oz + (int)(fortRadius * Math.sin(rad));
+            int wx = ox + (int) Math.round(fortRadius * Math.cos(rad));
+            int wz = oz + (int) Math.round(fortRadius * Math.sin(rad));
 
             // Check if this is a gate position (3-wide gap at each cardinal)
             int relX = wx - ox;
@@ -4898,8 +4494,8 @@ public class CastleGenerator {
             // Inner and outer ring for wall thickness
             for (int t = 0; t < wallThickness; t++) {
                 double innerRad = fortRadius - t;
-                int iwx = ox + (int)(innerRad * Math.cos(rad));
-                int iwz = oz + (int)(innerRad * Math.sin(rad));
+                int iwx = ox + (int) Math.round(innerRad * Math.cos(rad));
+                int iwz = oz + (int) Math.round(innerRad * Math.sin(rad));
 
                 // 2 blocks mossy cobblestone base
                 for (int y = 0; y <= 1; y++) {
@@ -4915,8 +4511,8 @@ public class CastleGenerator {
         // === FIGHTING WALKWAY: spruce slab on interior wall at 3 blocks up ===
         for (int angle = 0; angle < 360; angle += 2) {
             double rad = Math.toRadians(angle);
-            int walkX = ox + (int)((fortRadius - 2) * Math.cos(rad));
-            int walkZ = oz + (int)((fortRadius - 2) * Math.sin(rad));
+            int walkX = ox + (int) Math.round((fortRadius - 2) * Math.cos(rad));
+            int walkZ = oz + (int) Math.round((fortRadius - 2) * Math.sin(rad));
             world.setBlock(new BlockPos(walkX, baseY + 3, walkZ), slabBlock, StructureHelper.SET_FLAGS);
         }
 
@@ -4934,10 +4530,12 @@ public class CastleGenerator {
                 world.setBlock(new BlockPos(ox + 2, baseY + y, oz + fortRadius + dz), logWall, StructureHelper.SET_FLAGS);
             }
         }
-        // Fence gates at south entrance
-        for (int dx = -1; dx <= 1; dx++) {
-            world.setBlock(new BlockPos(ox + dx, baseY + 1, oz + fortRadius),
-                palette.fenceGate.defaultBlockState().setValue(FenceGateBlock.FACING, Direction.SOUTH), StructureHelper.SET_FLAGS);
+        // A hung double door in the gate tunnel, with the third column closed off. A single course
+        // of fence gates across a three-block opening leaves the way open above and below it.
+        Openings.door(world, new BlockPos(ox - 1, baseY + 1, oz + fortRadius), Direction.NORTH,
+            palette.door.defaultBlockState(), null, palette.getPrimaryWallState(), true);
+        for (int y = 1; y <= 2; y++) {
+            world.setBlock(new BlockPos(ox + 1, baseY + y, oz + fortRadius), logWall, StructureHelper.SET_FLAGS);
         }
 
         // North gate
@@ -5113,8 +4711,8 @@ public class CastleGenerator {
         // === WALL TORCHES on interior palisade ===
         for (int angle = 0; angle < 360; angle += 20) {
             double rad = Math.toRadians(angle);
-            int torchX = ox + (int)((fortRadius - 2) * Math.cos(rad));
-            int torchZ = oz + (int)((fortRadius - 2) * Math.sin(rad));
+            int torchX = ox + (int) Math.round((fortRadius - 2) * Math.cos(rad));
+            int torchZ = oz + (int) Math.round((fortRadius - 2) * Math.sin(rad));
 
             // Determine which direction the torch should face (inward toward center)
             Direction torchFacing;
@@ -5325,6 +4923,9 @@ public class CastleGenerator {
                 world.setBlock(new BlockPos(ox + dx, baseY + y, oz + tHalfD), Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
             }
         }
+
+        Openings.door(world, new BlockPos(ox - 1, baseY + 2, oz + tHalfD), Direction.NORTH,
+            palette.door.defaultBlockState(), null, palette.getPlanksState(), true);
 
         // ============================================
         // MULTI-TIERED STEEP ROOF (Stave Church Influence)
@@ -5711,33 +5312,38 @@ public class CastleGenerator {
         };
     }
 
+    /**
+     * Clear the build space and lay the single course the castle stands on.
+     *
+     * <p>No foundation. A castle template carries the building from its own floor course up and
+     * nothing below it: {@code CastleGroundsPiece} underfills each footprint column down to real
+     * ground at placement time, using the block the castle itself put down. Baking a plinth into
+     * the template instead made every castle stamp a flat pad into whatever terrain it landed on
+     * (this method used to lay five courses of cobblestone across {@code (radius+2)^2}, which is
+     * why desert/castle_large shipped 56% cobblestone and coarse dirt was 16% of every block the
+     * mod placed) and is exactly what VISION.md rules out.
+     *
+     * <p>The one remaining course is the castle's floor, not a footing, and it is scoped to the
+     * footprint rather than overhanging it. Generators that lay their own floors do not need this
+     * call at all.
+     */
     private void prepareGround(ServerLevel world, BlockPos center, int radius) {
         int baseY = center.getY();
         int ox = center.getX();
         int oz = center.getZ();
 
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
-        BlockState cobble = Blocks.COBBLESTONE.defaultBlockState();
         BlockState air = Blocks.AIR.defaultBlockState();
         BlockState floorState = palette.getFloorState();
 
-        for (int x = -radius - 2; x <= radius + 2; x++) {
-            for (int z = -radius - 2; z <= radius + 2; z++) {
+        for (int x = -radius; x <= radius; x++) {
+            for (int z = -radius; z <= radius; z++) {
                 int wx = ox + x;
                 int wz = oz + z;
 
-                // Fill foundation from -5 to -1 below surface
-                for (int y = -5; y <= -1; y++) {
-                    mutable.set(wx, baseY + y, wz);
-                    world.setBlock(mutable, cobble, StructureHelper.SET_FLAGS);
-                }
-
-                // Ground level floor
                 mutable.set(wx, baseY, wz);
-                boolean isInner = Math.abs(x) < radius - 8 && Math.abs(z) < radius - 8;
-                world.setBlock(mutable, isInner ? floorState : cobble, StructureHelper.SET_FLAGS);
+                world.setBlock(mutable, floorState, StructureHelper.SET_FLAGS);
 
-                // Clear air above ground level - skip blocks already air
                 for (int y = 1; y <= 40; y++) {
                     mutable.set(wx, baseY + y, wz);
                     if (!world.getBlockState(mutable).isAir()) {
@@ -5747,31 +5353,9 @@ public class CastleGenerator {
             }
         }
 
-        VillageCastles.LOGGER.debug("Ground prepared: {}x{} area flattened", (radius + 2) * 2, (radius + 2) * 2);
+        VillageCastles.LOGGER.debug("Ground prepared: {}x{} area levelled", radius * 2 + 1, radius * 2 + 1);
     }
 
-    /**
-     * For motte castles: only clear air above the motte's flat top so structures can be placed.
-     * Does NOT flatten or fill: the motte itself provides the ground surface.
-     */
-    private void clearAirAbove(ServerLevel world, BlockPos center, int radius) {
-        int baseY = center.getY();
-        int ox = center.getX();
-        int oz = center.getZ();
-        BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
-        BlockState air = Blocks.AIR.defaultBlockState();
-
-        for (int x = -radius - 2; x <= radius + 2; x++) {
-            for (int z = -radius - 2; z <= radius + 2; z++) {
-                for (int y = 1; y <= 40; y++) {
-                    mutable.set(ox + x, baseY + y, oz + z);
-                    if (!world.getBlockState(mutable).isAir()) {
-                        world.setBlock(mutable, air, StructureHelper.SET_FLAGS);
-                    }
-                }
-            }
-        }
-    }
 
     private void generateWalls(ServerLevel world, BlockPos nwTower, BlockPos neTower,
                                BlockPos swTower, BlockPos seTower,

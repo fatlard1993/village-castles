@@ -1,5 +1,6 @@
 package com.villagecastles.generator;
 
+import com.villagecastles.generator.build.Openings;
 import com.villagecastles.util.StructureHelper;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
@@ -73,11 +74,11 @@ public class GateGenerator {
             for (int y = 0; y < TOWER_HEIGHT - 4; y++) {
                 // Left wall
                 BlockPos leftPos = center.relative(facing, d).relative(left, halfWidth).above(y);
-                world.setBlock(leftPos, palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
+                world.setBlock(leftPos, palette.getWallBlockAt(leftPos), StructureHelper.SET_FLAGS);
 
                 // Right wall
                 BlockPos rightPos = center.relative(facing, d).relative(right, halfWidth).above(y);
-                world.setBlock(rightPos, palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
+                world.setBlock(rightPos, palette.getWallBlockAt(rightPos), StructureHelper.SET_FLAGS);
             }
         }
 
@@ -168,18 +169,44 @@ public class GateGenerator {
         }
     }
 
+    /**
+     * The gate proper: masonry jambs narrowing the arch, a hung double door, and the portcullis
+     * standing raised above it.
+     *
+     * <p>This used to stack fence gates three high across the full five-block arch: fifteen fence
+     * gates in a grid, which is not a thing anyone builds and was the single most conspicuous of
+     * the castles' invented patterns. It also meant the gatehouse had no door, which is how twelve
+     * of the fifteen templates came to have none anywhere.
+     */
     private void addGate(ServerLevel world, BlockPos center, Direction facing) {
         Direction left = facing.getCounterClockWise();
 
         int halfWidth = GATE_WIDTH / 2;
-
-        // Fence gates at entrance: full height to fill the archway
         BlockPos gatePos = center.relative(facing, -GATEHOUSE_DEPTH / 2);
-        BlockState gate = palette.getFenceGateState().setValue(FenceGateBlock.FACING, facing);
 
-        for (int w = -halfWidth; w <= halfWidth; w++) {
-            for (int y = 1; y <= 3; y++) {
-                world.setBlock(gatePos.relative(left, w).above(y), gate, StructureHelper.SET_FLAGS);
+        // Jambs: bring the five-block arch down to a two-leaf doorway.
+        for (int w : new int[]{-halfWidth, halfWidth}) {
+            for (int y = 1; y <= GATE_HEIGHT - 1; y++) {
+                world.setBlock(gatePos.relative(left, w).above(y),
+                    palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
+            }
+        }
+
+        // Double door in the middle two columns, opening inward.
+        Openings.door(world, gatePos.relative(left, 1).above(1), facing,
+            palette.door.defaultBlockState(), null, palette.getFloorState(), true);
+
+        // The third column carries the door head, so the opening reads as one arch.
+        world.setBlock(gatePos.relative(left, -1).above(1),
+            palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
+        world.setBlock(gatePos.relative(left, -1).above(2),
+            palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
+
+        // Portcullis, raised: iron bars filling the arch above the door head.
+        for (int w = -halfWidth + 1; w <= halfWidth - 1; w++) {
+            for (int y = 3; y <= GATE_HEIGHT - 1; y++) {
+                world.setBlock(gatePos.relative(left, w).above(y),
+                    Blocks.IRON_BARS.defaultBlockState(), StructureHelper.SET_FLAGS);
             }
         }
     }

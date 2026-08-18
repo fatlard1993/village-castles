@@ -89,6 +89,16 @@ public class VillageCastleAttachmentMixin {
     private static final String[] BIOMES = {"plains", "desert", "savanna", "taiga", "snowy"};
 
     /**
+     * Share of villages that generate with a castle attached.
+     *
+     * <p>Rarity is the feature. At the previous 85% a fortified village was the default and an
+     * unfortified one the curiosity, which inverts what VISION.md asks for: most villages are
+     * ordinary, and finding one with a keep behind the smith should be worth remarking on. One in
+     * five leaves the castle uncommon without making it a needle in a haystack.
+     */
+    private static final int CASTLE_CHANCE_PERCENT = 20;
+
+    /**
      * Empty blocks left between the village bounding box and the castle wall. Deliberately
      * small: the castle is meant to read as part of the town, and every extra block of offset
      * is a block further out of villager POI range (AcquirePoi scans 48 blocks from the
@@ -166,8 +176,9 @@ public class VillageCastleAttachmentMixin {
 
         RandomSource random = chunkRandom;
 
-        // 85% of villages get a castle (15% skip)
-        if (random.nextInt(100) >= 85) return;
+        // Roughly one village in five is fortified. The rest are ordinary villages, and that is
+        // the point: a castle is only a landmark if most of the map does not have one.
+        if (random.nextInt(100) >= CASTLE_CHANCE_PERCENT) return;
 
         String size = pickCastleSize(random);
         String structureId = "villagecastles:" + biome + "/castle_" + size;
@@ -405,14 +416,16 @@ public class VillageCastleAttachmentMixin {
     }
 
     /**
-     * Pick castle size. Distribution within the 85% that get a castle:
-     * ~35% small, ~35% medium, ~30% large.
-     * Overall: 15% nothing, 30% small, 30% medium, 25% large.
+     * Pick castle size. Split within the fortified fifth: 40% small, 35% medium, 25% large.
+     *
+     * <p>Tapered rather than flat, so the tiers thin out as they get grander. Across all villages
+     * that is 80% nothing, 8% small, 7% medium, 5% large: a large complex turns up at about one
+     * village in twenty, which is what makes it worth remembering.
      */
     private static String pickCastleSize(RandomSource random) {
         int roll = random.nextInt(100);
-        if (roll < 35) return "small";
-        if (roll < 70) return "medium";
+        if (roll < 40) return "small";
+        if (roll < 75) return "medium";
         return "large";
     }
 }

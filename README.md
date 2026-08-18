@@ -11,12 +11,12 @@ A Fabric mod that adds grand, biome-themed castle structures to villages.
 
 - **5 Castle Biome Themes**: Plains (medieval stone), Desert (sandstone citadel), Savanna (acacia stronghold), Taiga (Nordic fortress), Snowy (ice keep)
 - **3 Sizes per Biome**: Small (watchtower/outpost), Medium (walled fort), Large (full castle complex)
-- **Village Integration**: Castles attach to village edges after jigsaw assembly (85% of villages, size-distributed 35/35/30), with a 2-block gap so a castle sits at the edge of town rather than out in the wilderness
+- **Village Integration**: Castles attach to village edges after jigsaw assembly (20% of villages, size-distributed 40/35/25), with a 2-block gap so a castle sits at the edge of town rather than out in the wilderness
 - **Faces the town**: the castle is rotated so its entrance points back at the village, and its site is picked by scoring a 4×4 terrain survey, so it does not straddle a ridge or hang off a cliff
 - **Underfilled foundations**: `CastleGroundsPiece` fills the ground beneath the footprint down to solid terrain, so a castle on a slope stands on rock instead of stilts
 - **Garrisoned**: castles generate with inhabitants, roughly 2 villagers per chunk placed at bed heads. They spawn unemployed, so they take up the castle's own workstations rather than commuting into the village
 - **Castle Aging**: `castle_aging` processor applies subtle weathering at placement (mossy stone, cracked bricks, etc.)
-- **Village Builder Integration**: Optional: when Village Builder is installed, castle and wall pieces register into its build pools
+- **Village Builder Integration**: Optional: when Village Builder is installed, castle and wall pieces register into its build pools. All fifteen castles share one limit group, so a village builds at most one castle, not one of each size
 - **Village Quests Integration**: Optional: 16 profession-specific quests + 11 dialogue options when Village Quests is installed
 
 ## Coming Soon
@@ -106,13 +106,23 @@ There is no JSON configuration file; edit the constants in `VillageCastleAttachm
 
 | Constant | Value | What it controls |
 |---|---|---|
-| attach chance | 85% | Share of villages that get a castle |
-| size split | 35/35/30 | small / medium / large |
+| attach chance | 20% | Share of villages that get a castle |
+| size split | 40/35/25 | small / medium / large |
 | `CLEARANCE` | 2 | Blocks of gap between the village bounding box and the castle. Raising it pushes castles out of walking range |
 
 ## Village Builder Integration
 
 When [Village Builder](../village-builder) is also installed, castle pieces register into its expansion pools. Villages can grow fortifications over time. The integration is optional; both mods function independently.
+
+Castles register under one shared limit group (`villagecastles:castle`) with a maximum of one per
+village, so a village that builds a castle will not go on to build the other two sizes. This needs
+a Village Builder new enough to support per-village limits; against an older one the integration
+logs a warning and registers castles uncapped rather than failing.
+
+Villages that *generated* with a castle count too: the integration registers a seeder that Village
+Builder asks when it first surveys a village, and the answer comes from walking that village's own
+structure pieces for a `CastleGroundsPiece`. So a village that already has a keep is never offered
+another, whether worldgen put it there or the builder did.
 
 ## License
 

@@ -186,8 +186,7 @@ public class KeepGenerator {
                 for (int z = minZ; z <= maxZ; z++) {
                     boolean isEdge = x == minX || x == maxX || z == minZ || z == maxZ;
                     if (isEdge) {
-                        BlockState wallBlock = palette.getRandomWallBlock(random);
-                        world.setBlock(new BlockPos(x, y, z), wallBlock, StructureHelper.SET_FLAGS);
+                        world.setBlock(new BlockPos(x, y, z), palette.getWallBlockAt(x, y, z), StructureHelper.SET_FLAGS);
                     }
                 }
             }
@@ -953,7 +952,7 @@ public class KeepGenerator {
         BlockPos roofCorner1 = new BlockPos(ox - halfWidth, roofY, oz - halfDepth);
         BlockPos roofCorner2 = new BlockPos(ox + halfWidth, roofY, oz + halfDepth);
         StructureHelper.fillFloor(world, roofCorner1, roofCorner2, roofY, palette.getPrimaryWallState());
-        StructureHelper.addCrenellations(world, roofCorner1, roofCorner2, roofY + 1, palette.getPrimaryWallState());
+        StructureHelper.addCrenellations(world, roofCorner1, roofCorner2, roofY, palette.getPrimaryWallState());
     }
 
     private void buildRoofDesert(ServerLevel world, int ox, int oz, int roofY, int halfWidth, int halfDepth) {
@@ -1160,7 +1159,7 @@ public class KeepGenerator {
 
         for (BlockPos corner : corners) {
             StructureHelper.buildHollowCylinder(world, corner, turretRadius, turretHeight, palette.getPrimaryWallState());
-            StructureHelper.addCircularCrenellations(world, corner, turretRadius, turretHeight, palette.getPrimaryWallState());
+            StructureHelper.addCircularCrenellations(world, corner, turretRadius, baseY + turretHeight - 1, palette.getPrimaryWallState());
 
             // Conical roof hint (just the top layer sloped)
             world.setBlock(corner.above(turretHeight + 1), palette.getRoofState(), StructureHelper.SET_FLAGS);

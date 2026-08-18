@@ -146,9 +146,8 @@ public class VillageWallGenerator {
 
             // Wall body
             for (int y = 0; y < 4; y++) {
-                BlockState wallBlock = palette.getRandomWallBlock(random);
-                world.setBlock(basePos.above(y), wallBlock, StructureHelper.SET_FLAGS);
-                world.setBlock(basePos.relative(facing, 1).above(y), wallBlock, StructureHelper.SET_FLAGS);
+                world.setBlock(basePos.above(y), palette.getWallBlockAt(basePos.above(y)), StructureHelper.SET_FLAGS);
+                world.setBlock(basePos.relative(facing, 1).above(y), palette.getWallBlockAt(basePos.relative(facing, 1).above(y)), StructureHelper.SET_FLAGS);
             }
 
             // Crenellations (alternating)
@@ -227,8 +226,8 @@ public class VillageWallGenerator {
             BlockPos pos2 = origin.relative(left, i);
 
             for (int y = 0; y < wallType.height; y++) {
-                world.setBlock(pos1.above(y), palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
-                world.setBlock(pos2.above(y), palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
+                world.setBlock(pos1.above(y), palette.getWallBlockAt(pos1.above(y)), StructureHelper.SET_FLAGS);
+                world.setBlock(pos2.above(y), palette.getWallBlockAt(pos2.above(y)), StructureHelper.SET_FLAGS);
             }
         }
 
@@ -249,7 +248,7 @@ public class VillageWallGenerator {
         for (int i = -SEGMENT_LENGTH / 2; i < -gateWidth / 2; i++) {
             BlockPos pos = origin.relative(perpendicular, i);
             for (int y = 0; y < wallType.height; y++) {
-                world.setBlock(pos.above(y), palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
+                world.setBlock(pos.above(y), palette.getWallBlockAt(pos.above(y)), StructureHelper.SET_FLAGS);
             }
         }
 
@@ -257,7 +256,7 @@ public class VillageWallGenerator {
         for (int i = gateWidth / 2 + 1; i <= SEGMENT_LENGTH / 2; i++) {
             BlockPos pos = origin.relative(perpendicular, i);
             for (int y = 0; y < wallType.height; y++) {
-                world.setBlock(pos.above(y), palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
+                world.setBlock(pos.above(y), palette.getWallBlockAt(pos.above(y)), StructureHelper.SET_FLAGS);
             }
         }
 
@@ -310,7 +309,7 @@ public class VillageWallGenerator {
                 for (int y = 0; y < towerHeight; y++) {
                     BlockPos pos = origin.offset(x, y, z);
                     if (isEdge) {
-                        world.setBlock(pos, palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
+                        world.setBlock(pos, palette.getWallBlockAt(pos), StructureHelper.SET_FLAGS);
                     } else if (y == 0 || y == towerHeight - 2) {
                         // Floors
                         world.setBlock(pos, palette.getFloorState(), StructureHelper.SET_FLAGS);
@@ -368,9 +367,9 @@ public class VillageWallGenerator {
         for (int i = 1; i <= 2; i++) {
             for (int y = 0; y < wallType.height - 1; y++) {
                 world.setBlock(origin.relative(perpendicular, i).above(y),
-                    palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
+                    palette.getWallBlockAt(origin.relative(perpendicular, i).above(y)), StructureHelper.SET_FLAGS);
                 world.setBlock(origin.relative(perpendicular, -i).above(y),
-                    palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
+                    palette.getWallBlockAt(origin.relative(perpendicular, -i).above(y)), StructureHelper.SET_FLAGS);
             }
         }
     }

@@ -59,115 +59,70 @@ public class StructureExporter implements ServerTickEvents.EndTick {
         for (BiomePalette palette : BiomePalette.values()) {
             for (CastleGenerator.CastleSize size : CastleGenerator.CastleSize.values()) {
                 BlockPos generatePos = new BlockPos(xOffset, baseY, 0);
-                xOffset += size.diameter + 120; // Extra room so motte slopes don't overlap clears
+                xOffset += 220; // fixed pitch, wide enough that no two clear regions meet
 
                 try {
-                    // Large enough to cover the plains/medium motte (baseRadius=47) plus margin
-                    int radius = size.diameter / 2 + 55;
+                    // Fixed and generous: the clear has to cover the widest bounds any generator
+                    // declares, which is not a function of the size budget.
+                    int radius = 70;
                     int clearHeight = 60; // enough headroom for any castle size
+                    // Deep enough to cover the lowest a generator digs. Generators return bounds
+                    // reaching well below the base plane (desert/large: -cisternDepth-2; the ice
+                    // palace deeper still), and the export box is those bounds: clearing only to
+                    // -5 left native rock inside it, so snowy/castle_large exported 41,656
+                    // deepslate plus tuff, clay, moss and groundwater as though it were castle.
+                    int clearDepth = 40;
 
                     // Force-load chunks in the area
                     StructureHelper.forceLoadChunks(world, generatePos, radius);
 
                     // Clear the region to air so terrain blocks don't contaminate the export
-                    BlockPos clearMin = generatePos.offset(-radius, -5, -radius);
+                    BlockPos clearMin = generatePos.offset(-radius, -clearDepth, -radius);
                     BlockPos clearMax = generatePos.offset(radius, clearHeight, radius);
-                    StructureHelper.fillBox(world, clearMin, clearMax, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                    clearToAir(world, clearMin, clearMax);
 
                     long seed = world.getSeed() + generatePos.hashCode();
                     CastleGenerator generator = new CastleGenerator(palette, seed, size);
                     CastleGenerator.CastleBounds bounds = generator.generate(world, generatePos);
 
-                    // Add door + 2-step entrance stairs.
-                    // NBT analysis: south wall is at bounds.max.z - 9, entrance gap at local y=2.
-                    // Scan inward from bounds.max.z to find the actual wall (first solid row at y=0),
-                    // then find the doorway (air at y=2 with solid at y=4 above it).
-                    {
-                        int wallZ = -1;
-                        for (int wz = bounds.max.getZ(); wz >= bounds.min.getZ() && wallZ < 0; wz--) {
-                            for (int wx = bounds.min.getX(); wx <= bounds.max.getX(); wx++) {
-                                net.minecraft.world.level.block.state.BlockState ws =
-                                    world.getBlockState(new net.minecraft.core.BlockPos(wx, bounds.min.getY(), wz));
-                                if (!ws.isAir()) {
-                                    wallZ = wz;
-                                    VillageCastles.LOGGER.debug("[castle-entrance] Found wall at z={} block={}", wz, ws.getBlock());
-                                    break;
-                                }
-                            }
-                        }
-                        if (wallZ >= 0) {
-                            int doorY = bounds.min.getY() + 2;
-                            // Stairs face NORTH (player approaches from south, steps up toward north/into building)
-                            net.minecraft.world.level.block.state.BlockState stairBlock =
-                                net.minecraft.world.level.block.Blocks.STONE_BRICK_STAIRS.defaultBlockState()
-                                    .setValue(net.minecraft.world.level.block.StairBlock.FACING, net.minecraft.core.Direction.NORTH);
-
-                            // First pass: collect all entrance x positions (left-to-right order)
-                            java.util.List<Integer> entranceXs = new java.util.ArrayList<>();
-                            for (int ex = bounds.min.getX(); ex <= bounds.max.getX(); ex++) {
-                                net.minecraft.world.level.block.state.BlockState atDoor = world.getBlockState(new net.minecraft.core.BlockPos(ex, doorY, wallZ));
-                                net.minecraft.world.level.block.state.BlockState above2 = world.getBlockState(new net.minecraft.core.BlockPos(ex, doorY + 2, wallZ));
-                                if (atDoor.isAir() && !above2.isAir()) entranceXs.add(ex);
-                            }
-
-                            // Second pass: place doors (left gets LEFT hinge, right gets RIGHT hinge) + stairs
-                            for (int i = 0; i < entranceXs.size(); i++) {
-                                int ex = entranceXs.get(i);
-                                net.minecraft.world.level.block.state.properties.DoorHingeSide hinge =
-                                    (i == 0) ? net.minecraft.world.level.block.state.properties.DoorHingeSide.LEFT
-                                             : net.minecraft.world.level.block.state.properties.DoorHingeSide.RIGHT;
-                                net.minecraft.core.BlockPos doorPos = new net.minecraft.core.BlockPos(ex, doorY, wallZ);
-                                world.setBlock(doorPos,
-                                    net.minecraft.world.level.block.Blocks.OAK_DOOR.defaultBlockState()
-                                        .setValue(net.minecraft.world.level.block.DoorBlock.FACING, net.minecraft.core.Direction.NORTH)
-                                        .setValue(net.minecraft.world.level.block.DoorBlock.HALF,
-                                            net.minecraft.world.level.block.state.properties.DoubleBlockHalf.LOWER)
-                                        .setValue(net.minecraft.world.level.block.DoorBlock.HINGE, hinge),
-                                    net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                                world.setBlock(doorPos.above(),
-                                    net.minecraft.world.level.block.Blocks.OAK_DOOR.defaultBlockState()
-                                        .setValue(net.minecraft.world.level.block.DoorBlock.FACING, net.minecraft.core.Direction.NORTH)
-                                        .setValue(net.minecraft.world.level.block.DoorBlock.HALF,
-                                            net.minecraft.world.level.block.state.properties.DoubleBlockHalf.UPPER)
-                                        .setValue(net.minecraft.world.level.block.DoorBlock.HINGE, hinge),
-                                    net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                                world.setBlock(new net.minecraft.core.BlockPos(ex, doorY-1, wallZ+1), stairBlock, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                                world.setBlock(new net.minecraft.core.BlockPos(ex, doorY-2, wallZ+2), stairBlock, net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            }
-                        }
-
-                        // Plains SMALL structural fixes (local coords from NBT audit)
-                        if ("plains".equals(palette.id) && size == CastleGenerator.CastleSize.SMALL) {
-                            int bx = bounds.min.getX(), by = bounds.min.getY(), bz = bounds.min.getZ();
-                            // Fix floor holes at y=1, z=13 (under the podium: 4 missing oak planks)
-                            for (int fx = 12; fx <= 15; fx++)
-                                world.setBlock(new net.minecraft.core.BlockPos(bx+fx, by+1, bz+13), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            // Fix podium slab gap at (14,2,13)
-                            world.setBlock(new net.minecraft.core.BlockPos(bx+14, by+2, bz+13),
-                                net.minecraft.world.level.block.Blocks.OAK_SLAB.defaultBlockState()
-                                    .setValue(net.minecraft.world.level.block.SlabBlock.TYPE,
-                                        net.minecraft.world.level.block.state.properties.SlabType.BOTTOM),
-                                net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            // Fix northwest foundation gaps
-                            world.setBlock(new net.minecraft.core.BlockPos(bx+7, by, bz+9),  net.minecraft.world.level.block.Blocks.STONE_BRICKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            world.setBlock(new net.minecraft.core.BlockPos(bx+8, by, bz+9),  net.minecraft.world.level.block.Blocks.STONE_BRICKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            world.setBlock(new net.minecraft.core.BlockPos(bx+7, by, bz+13), net.minecraft.world.level.block.Blocks.STONE_BRICKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            // Fix upper staircase missing landing plank at top of stairs
-                            world.setBlock(new net.minecraft.core.BlockPos(bx+9, by+5, bz+15), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            // Fix staircase approach: add Y=2 floor tiles connecting to stair bottom (9,2,17)
-                            world.setBlock(new net.minecraft.core.BlockPos(bx+10, by+2, bz+17), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            world.setBlock(new net.minecraft.core.BlockPos(bx+11, by+2, bz+17), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            world.setBlock(new net.minecraft.core.BlockPos(bx+11, by+2, bz+16), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            world.setBlock(new net.minecraft.core.BlockPos(bx+11, by+2, bz+15), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            // Fix floating stair risers: add planks beneath steps 2 and 3
-                            world.setBlock(new net.minecraft.core.BlockPos(bx+9, by+2, bz+16), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            world.setBlock(new net.minecraft.core.BlockPos(bx+9, by+3, bz+15), net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            // Fix floating gateway lintel slabs: add stone_brick support row at y=3,z=20
-                            for (int lx = 11; lx <= 16; lx++)
-                                world.setBlock(new net.minecraft.core.BlockPos(bx+lx, by+3, bz+20), net.minecraft.world.level.block.Blocks.STONE_BRICKS.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS);
-                            VillageCastles.LOGGER.info("Applied plains_small structural fixes");
-                        }
+                    // Export what the castle actually built, not the box the generator declared.
+                    //
+                    // Two things ride on this. Size: the declared bounds reserve courtyards,
+                    // palisades and yard radii that several generators never build, so
+                    // plains/castle_small shipped as a 51x51 box holding a 15x11 manor with 8%
+                    // of its columns occupied. Registration: VillageCastleAttachmentMixin
+                    // anchors template-local y=0 to the terrain surface, and generators whose
+                    // declared minY sat below their own floor (desert/large: -cisternDepth-2)
+                    // therefore placed the whole castle metres into the air.
+                    BlockPos[] tight = tightBounds(world, bounds.min, bounds.max);
+                    if (tight == null) {
+                        VillageCastles.LOGGER.error("  FAIL {}/{} - generator placed no blocks", palette.id, size);
+                        failed++;
+                        continue;
                     }
+                    BlockPos tightMin = tight[0];
+                    BlockPos tightMax = tight[1];
+
+                    // A template should never ship loose items. Suppressed drops stop generators
+                    // creating them; this catches anything the world produced on its own, since
+                    // fillFromWorld captures every entity inside the box.
+                    int swept = 0;
+                    for (net.minecraft.world.entity.item.ItemEntity stray : world.getEntitiesOfClass(
+                            net.minecraft.world.entity.item.ItemEntity.class,
+                            net.minecraft.world.phys.AABB.encapsulatingFullBlocks(tightMin, tightMax))) {
+                        stray.discard();
+                        swept++;
+                    }
+                    if (swept > 0) {
+                        VillageCastles.LOGGER.warn("  swept {} stray item entities from {}/{}",
+                            swept, palette.id, size.name().toLowerCase());
+                    }
+                    VillageCastles.LOGGER.info("  {} {}: declared {}x{}x{} -> actual {}x{}x{}",
+                        palette.id, size.name().toLowerCase(),
+                        bounds.getWidth(), bounds.getHeight(), bounds.getDepth(),
+                        tightMax.getX() - tightMin.getX() + 1,
+                        tightMax.getY() - tightMin.getY() + 1,
+                        tightMax.getZ() - tightMin.getZ() + 1);
 
                     String structurePath = palette.id + "/castle_" + size.name().toLowerCase();
                     Path outputPath = NbtExporter.getStructureOutputPath(structurePath, runDir);
@@ -178,9 +133,7 @@ public class StructureExporter implements ServerTickEvents.EndTick {
                         continue;
                     }
 
-                    // Full bounds: stone foundation at local y=0, fence at local y=1.
-                    // Place at minY-1 so the fence lands at grass level.
-                    if (NbtExporter.exportRegion(world, bounds.min, bounds.max, outputPath)) {
+                    if (NbtExporter.exportRegion(world, tightMin, tightMax, outputPath)) {
                         exported++;
                         VillageCastles.LOGGER.info("  OK {}", structurePath);
                     } else {
@@ -199,6 +152,50 @@ public class StructureExporter implements ServerTickEvents.EndTick {
         // Stop the server after export
         VillageCastles.LOGGER.info("Stopping server...");
         server.halt(false);
+    }
+
+    /** Blank the build region, skipping cells that are already air. */
+    private static void clearToAir(ServerLevel world, BlockPos min, BlockPos max) {
+        net.minecraft.world.level.block.state.BlockState air =
+            net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int x = min.getX(); x <= max.getX(); x++) {
+            for (int y = min.getY(); y <= max.getY(); y++) {
+                for (int z = min.getZ(); z <= max.getZ(); z++) {
+                    if (world.getBlockState(cursor.set(x, y, z)).isAir()) continue;
+                    world.setBlock(cursor, air, StructureHelper.SET_FLAGS);
+                }
+            }
+        }
+    }
+
+    /**
+     * The smallest box containing every non-air block the generator placed.
+     *
+     * @return {min, max}, or null if the searched region is empty.
+     */
+    private static BlockPos[] tightBounds(ServerLevel world, BlockPos searchMin, BlockPos searchMax) {
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+        boolean any = false;
+
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int x = searchMin.getX(); x <= searchMax.getX(); x++) {
+            for (int y = searchMin.getY(); y <= searchMax.getY(); y++) {
+                for (int z = searchMin.getZ(); z <= searchMax.getZ(); z++) {
+                    if (world.getBlockState(cursor.set(x, y, z)).isAir()) continue;
+                    any = true;
+                    if (x < minX) minX = x;
+                    if (y < minY) minY = y;
+                    if (z < minZ) minZ = z;
+                    if (x > maxX) maxX = x;
+                    if (y > maxY) maxY = y;
+                    if (z > maxZ) maxZ = z;
+                }
+            }
+        }
+        if (!any) return null;
+        return new BlockPos[]{new BlockPos(minX, minY, minZ), new BlockPos(maxX, maxY, maxZ)};
     }
 
 }

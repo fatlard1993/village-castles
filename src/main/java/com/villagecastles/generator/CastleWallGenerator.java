@@ -66,23 +66,17 @@ public class CastleWallGenerator {
             int z = start.getZ() + (int) (dz * t);
 
             BlockPos basePos = new BlockPos(x, start.getY(), z);
-            buildWallSection(world, basePos, facing);
+            buildWallSection(world, basePos, facing, i);
         }
     }
 
     /**
      * Build a single wall section (vertical slice).
      */
-    private void buildWallSection(ServerLevel world, BlockPos base, Direction facing) {
+    private void buildWallSection(ServerLevel world, BlockPos base, Direction facing, int sectionIndex) {
         Direction perpendicular = facing.getClockWise();
 
-        // Foundation
-        for (int p = -WALL_HALF_WIDTH; p <= WALL_HALF_WIDTH; p++) {
-            BlockPos foundPos = base.relative(perpendicular, p).below(2);
-            for (int y = 0; y < 3; y++) {
-                world.setBlock(foundPos.above(y), Blocks.COBBLESTONE.defaultBlockState(), StructureHelper.SET_FLAGS);
-            }
-        }
+        // No foundation: CastleGroundsPiece underfills the footprint at placement time.
 
         // Main wall body
         for (int y = 0; y < getWallHeight(); y++) {
@@ -98,38 +92,29 @@ public class CastleWallGenerator {
                         ? palette.getPrimaryWallState()
                         : palette.getSecondaryWallState();
                 } else {
-                    wallBlock = palette.getRandomWallBlock(random);
+                    wallBlock = palette.getWallBlockAt(wallPos);
                 }
                 world.setBlock(wallPos, wallBlock, StructureHelper.SET_FLAGS);
             }
         }
 
-        // Walkway (interior side hollow)
-        for (int y = WALKWAY_HEIGHT; y < getWallHeight(); y++) {
-            // Clear walkway space (one side)
-            BlockPos walkwayPos = base.relative(perpendicular, WALL_HALF_WIDTH).above(y);
-            if (y < getWallHeight() - 1) {
-                world.setBlock(walkwayPos, Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
-            }
+        // The wall-walk is the top of the wall itself. An earlier revision carved a covered
+        // passage into the wall at WALKWAY_HEIGHT and left the courses above it solid, which
+        // gave the defenders a one-block-tall crawlspace and no way onto the parapet.
+        int wallTop = getWallHeight() - 1;
+
+        // Merlons on the outer edge, alternating. Parity comes from the section index, not from
+        // the section's world coordinates: summing absolute X and Z made the pattern depend on
+        // where in the world the castle generated, and Java's % leaves a negative sum negative,
+        // so the two halves of a wall that straddled an axis crenellated out of phase.
+        if (sectionIndex % 2 == 0) {
+            world.setBlock(base.relative(perpendicular, -WALL_HALF_WIDTH).above(wallTop + 1),
+                palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
         }
 
-        // Floor of walkway
-        world.setBlock(base.relative(perpendicular, WALL_HALF_WIDTH).above(WALKWAY_HEIGHT - 1),
-            palette.getFloorState(), StructureHelper.SET_FLAGS);
-
-        // Alternating pattern hash for crenellation and railing
-        int posHash = base.getX() + base.getZ();
-
-        // Railing on inner edge of walkway (every other block for crenellation look)
-        if (posHash % 2 == 0) {
-            world.setBlock(base.relative(perpendicular, WALL_HALF_WIDTH).above(WALKWAY_HEIGHT),
-                palette.getFenceState(), StructureHelper.SET_FLAGS);
-        }
-
-        // Crenellations on top
-        if (posHash % 2 == 0) {
-            world.setBlock(base.above(getWallHeight()), palette.getPrimaryWallState(), StructureHelper.SET_FLAGS);
-        }
+        // Continuous railing on the inner edge so the walk is not a fall hazard.
+        world.setBlock(base.relative(perpendicular, WALL_HALF_WIDTH).above(wallTop + 1),
+            palette.getFenceState(), StructureHelper.SET_FLAGS);
     }
 
     /**
@@ -155,7 +140,7 @@ public class CastleWallGenerator {
             int z = start.getZ() + (int) (dz * t);
 
             BlockPos basePos = new BlockPos(x, start.getY(), z);
-            buildWallSection(world, basePos, facing);
+            buildWallSection(world, basePos, facing, i);
 
             // Add arrow slit
             if (i > 0 && i < length && i % slitInterval == 0) {

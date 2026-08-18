@@ -28,10 +28,25 @@ import java.util.Set;
  */
 public class VillageBuilderIntegration {
 
+    /**
+     * Limit group shared by every castle size in every biome.
+     *
+     * <p>All fifteen castles count as one thing, so a village builds a castle or it does not: it
+     * cannot work its way up from small to medium to large. Village Builder never treats DEFENSE
+     * as satisfied by a building (it measures iron golems against population), so without a cap a
+     * village that keeps wanting defence keeps accepting castles.
+     */
+    private static final String CASTLE_LIMIT_GROUP = "villagecastles:castle";
+
+    /** One castle per village, whatever its size or biome. */
+    private static final int CASTLES_PER_VILLAGE = 1;
+
     private static boolean initialized = false;
 
     // Cached reflection references
     private static Method registerStructurePersistentMethod;
+    /** The limit-aware overload. Null against a Village Builder too old to have it. */
+    private static Method registerLimitedMethod;
     private static Constructor<?> materialReqConstructor;
     private static Object needDefense;
     private static Object needHousing;
@@ -66,6 +81,20 @@ public class VillageBuilderIntegration {
             registerStructurePersistentMethod = apiClass.getMethod("registerStructurePersistent",
                 Identifier.class, String.class, Set.class, List.class, Set.class, int.class);
 
+            // The same, plus (String limitGroup, int maxPerVillage). Optional: an older Village
+            // Builder simply has no per-village limits, and castles register unlimited as before
+            // rather than the integration failing outright.
+            try {
+                registerLimitedMethod = apiClass.getMethod("registerStructurePersistent",
+                    Identifier.class, String.class, Set.class, List.class, Set.class, int.class,
+                    String.class, int.class);
+            } catch (NoSuchMethodException e) {
+                VillageCastles.LOGGER.warn("Village Builder has no per-village structure limits; "
+                    + "a village may accept more than one castle. Update Village Builder to cap them.");
+            }
+
+            registerCastleSeeder(apiClass);
+
             int registered = registerStructures();
             if (registered > 0) {
                 VillageCastles.LOGGER.info("Registered {} castle structures with Village Builder", registered);
@@ -83,6 +112,46 @@ public class VillageBuilderIntegration {
     }
 
     /**
+     * Tell Village Builder how to spot a castle it did not build.
+     *
+     * <p>The per-village cap counts completed builds, so a village that <em>generated</em> with a
+     * castle starts at zero and would happily accept another. A seeder closes that: Village Builder
+     * asks once, when it first surveys a village, and folds the answer into the tally before the
+     * village's first plan is chosen.
+     *
+     * <p>Wired reflectively through a {@link java.lang.reflect.Proxy} so this class still compiles
+     * and runs against a Village Builder that has no seeder API.
+     */
+    private static void registerCastleSeeder(Class<?> apiClass) {
+        try {
+            Class<?> seederInterface = Class.forName(
+                "justfatlard.village_builder.api.VillageBuilderAPI$LimitGroupSeeder");
+            Method register = apiClass.getMethod("registerLimitGroupSeeder", String.class, seederInterface);
+
+            Object seeder = java.lang.reflect.Proxy.newProxyInstance(
+                seederInterface.getClassLoader(),
+                new Class<?>[]{seederInterface},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "countExisting" -> CastleCensus.countCastlesInVillage(
+                        (net.minecraft.server.level.ServerLevel) args[0],
+                        (net.minecraft.core.BlockPos) args[1]);
+                    case "equals" -> proxy == args[0];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "toString" -> CASTLE_LIMIT_GROUP + " seeder";
+                    default -> throw new UnsupportedOperationException(
+                        "Village Builder's LimitGroupSeeder gained an unexpected method: " + method.getName());
+                });
+
+            register.invoke(null, CASTLE_LIMIT_GROUP, seeder);
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            VillageCastles.LOGGER.warn("Village Builder cannot be told about pre-existing castles; "
+                + "a village that generated with one may still build another.");
+        } catch (Exception e) {
+            VillageCastles.LOGGER.warn("Failed to register castle seeder: {}", e.getMessage());
+        }
+    }
+
+    /**
      * Register a structure with Village Builder via reflection.
      * Uses registerStructurePersistent so registrations survive world reloads.
      */
@@ -94,6 +163,23 @@ public class VillageBuilderIntegration {
         Set<String> biomePreferences,
         int clearanceSize
     ) {
+        registerStructure(structureId, displayName, needs, materials, biomePreferences, clearanceSize, null, 0);
+    }
+
+    /**
+     * @param limitGroup     group this structure counts against, or null for no per-village limit.
+     * @param maxPerVillage  how many of that group a village may build; ignored when the group is null.
+     */
+    private static void registerStructure(
+        Identifier structureId,
+        String displayName,
+        Set<Object> needs,
+        Map<Item, Integer> materials,
+        Set<String> biomePreferences,
+        int clearanceSize,
+        String limitGroup,
+        int maxPerVillage
+    ) {
         if (registerStructurePersistentMethod == null) return;
 
         try {
@@ -103,8 +189,14 @@ public class VillageBuilderIntegration {
                 requirements.add(materialReqConstructor.newInstance(entry.getKey(), entry.getValue()));
             }
 
-            registerStructurePersistentMethod.invoke(null,
-                structureId, displayName, needs, requirements, biomePreferences, clearanceSize);
+            if (limitGroup != null && registerLimitedMethod != null) {
+                registerLimitedMethod.invoke(null,
+                    structureId, displayName, needs, requirements, biomePreferences, clearanceSize,
+                    limitGroup, maxPerVillage);
+            } else {
+                registerStructurePersistentMethod.invoke(null,
+                    structureId, displayName, needs, requirements, biomePreferences, clearanceSize);
+            }
         } catch (Exception e) {
             VillageCastles.LOGGER.warn("Failed to register structure {}: {}", displayName, e.getMessage());
         }
@@ -209,7 +301,9 @@ public class VillageBuilderIntegration {
                 needs,
                 materials,
                 Set.of(biome),
-                clearanceSize
+                clearanceSize,
+                CASTLE_LIMIT_GROUP,
+                CASTLES_PER_VILLAGE
             );
             count++;
         }

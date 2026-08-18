@@ -102,8 +102,8 @@ public class TowerGenerator {
         double innerSq = (radius - 1.5) * (radius - 1.5);
         int floorThreshSq = (radius - 1) * (radius - 1);
 
-        // Foundation
-        StructureHelper.buildSolidCylinder(world, center.below(2), radius + 1, 3, Blocks.COBBLESTONE.defaultBlockState());
+        // No foundation: CastleGroundsPiece underfills the footprint at placement time, so a
+        // baked cobblestone plinth only stamps a pad into the terrain the tower lands on.
 
         // Main tower walls
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos();
@@ -119,7 +119,7 @@ public class TowerGenerator {
                     mutable.set(cx + x, cy + y, cz + z);
 
                     if (onEdge) {
-                        world.setBlock(mutable, palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
+                        world.setBlock(mutable, palette.getWallBlockAt(mutable), StructureHelper.SET_FLAGS);
                     } else if (inside) {
                         world.setBlock(mutable, Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
                     }
@@ -148,12 +148,17 @@ public class TowerGenerator {
         }
 
         // Guard's supply chest on top floor, against the north wall
-        int topFloor = (height / 5) * 5; // highest floor divisible by 5
+        // Highest floor strictly inside the tower. (height / 5) * 5 lands ON height whenever the
+        // height is a multiple of 5, which put the guard's chest a course above the tower's own
+        // top: the roof was then built straight over it, and overwriting a loot chest resolves
+        // its table and spills the contents. Every baked item entity in the shipped templates
+        // (50 in plains/castle_large alone, saddles and horse armour included) came from here.
+        int topFloor = ((height - 1) / 5) * 5; // highest floor divisible by 5
         StructureHelper.placeChest(world, center.offset(0, topFloor + 1, -(radius - 2)),
             Direction.SOUTH, BuiltInLootTables.VILLAGE_WEAPONSMITH);
 
         // Crenellated top
-        StructureHelper.addCircularCrenellations(world, center, radius, height, palette.getPrimaryWallState());
+        StructureHelper.addCircularCrenellations(world, center, radius, center.getY() + height - 1, palette.getPrimaryWallState());
 
         // Biome-specific roof and flag pole
         int roofPeakY = buildCylindricalRoof(world, center, radius, height);
@@ -387,10 +392,7 @@ public class TowerGenerator {
         BlockPos corner1 = center.offset(-halfSize, 0, -halfSize);
         BlockPos corner2 = center.offset(halfSize, height, halfSize);
 
-        // Foundation
-        BlockPos foundCorner1 = corner1.offset(-1, -2, -1);
-        BlockPos foundCorner2 = corner2.offset(1, -height + 1, 1);
-        StructureHelper.fillBox(world, foundCorner1, foundCorner2.atY(center.getY() - 1), Blocks.COBBLESTONE.defaultBlockState());
+        // No foundation: see generateCylindricalTower.
 
         // Walls
         for (int y = 0; y < height; y++) {
@@ -400,7 +402,7 @@ public class TowerGenerator {
                     BlockPos pos = center.offset(x, y, z);
 
                     if (isEdge) {
-                        world.setBlock(pos, palette.getRandomWallBlock(random), StructureHelper.SET_FLAGS);
+                        world.setBlock(pos, palette.getWallBlockAt(pos), StructureHelper.SET_FLAGS);
                     } else {
                         world.setBlock(pos, Blocks.AIR.defaultBlockState(), StructureHelper.SET_FLAGS);
                     }
@@ -436,13 +438,18 @@ public class TowerGenerator {
         }
 
         // Guard's supply chest on top floor
-        int topFloor = (height / 5) * 5;
+        // Highest floor strictly inside the tower. (height / 5) * 5 lands ON height whenever the
+        // height is a multiple of 5, which put the guard's chest a course above the tower's own
+        // top: the roof was then built straight over it, and overwriting a loot chest resolves
+        // its table and spills the contents. Every baked item entity in the shipped templates
+        // (50 in plains/castle_large alone, saddles and horse armour included) came from here.
+        int topFloor = ((height - 1) / 5) * 5;
         StructureHelper.placeChest(world, center.above(topFloor + 1).relative(Direction.NORTH, halfSize - 2),
             Direction.EAST, BuiltInLootTables.VILLAGE_WEAPONSMITH);
 
         // Crenellations
         StructureHelper.addCrenellations(world, corner1.atY(center.getY() + height),
-            corner2.atY(center.getY() + height), center.getY() + height + 1, palette.getPrimaryWallState());
+            corner2.atY(center.getY() + height), center.getY() + height - 1, palette.getPrimaryWallState());
 
         // Biome-specific square tower top
         buildSquareTowerTop(world, center, halfSize, height);

@@ -1,6 +1,8 @@
 # Gradle
 .gradle/
-build/
+# Anchored: an unanchored "build/" also matches a build directory at any depth, which silently
+# swallowed src/main/java/com/villagecastles/generator/build/ and everything in it.
+/build/
 
 # IDE
 .idea/

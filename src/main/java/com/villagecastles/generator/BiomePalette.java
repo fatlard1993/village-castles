@@ -318,12 +318,34 @@ public enum BiomePalette {
     }
 
     /**
-     * Get a random wall block state for variety (weighted towards primary).
+     * Wall material for a position, varied in patches rather than per block.
+     *
+     * <p>Masonry weathers in blotches: a damp corner goes mossy, a stressed course cracks, and
+     * the patch is several blocks across. Rolling a fresh random per block instead produces
+     * uniform salt-and-pepper that no builder would lay and no weather would make, and it was
+     * the single loudest "this isn't vanilla" tell on the finished walls. Quantising the
+     * position to a 3-block cell before hashing keeps the same material mix while giving it a
+     * grain. Deterministic by position, so a re-export reproduces the same wall.
      */
-    public BlockState getRandomWallBlock(java.util.Random random) {
-        int roll = random.nextInt(10);
+    public BlockState getWallBlockAt(int x, int y, int z) {
+        int h = patchHash(Math.floorDiv(x, 3), Math.floorDiv(y, 3), Math.floorDiv(z, 3));
+        int roll = Math.floorMod(h, 10);
         if (roll < 6) return primaryWall.defaultBlockState();
         if (roll < 9) return secondaryWall.defaultBlockState();
         return accentWall.defaultBlockState();
+    }
+
+    /** {@link #getWallBlockAt(int, int, int)} for a position. */
+    public BlockState getWallBlockAt(net.minecraft.core.BlockPos pos) {
+        return getWallBlockAt(pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    /** Deterministic 3D integer hash: cheap avalanche, no allocation, stable across runs. */
+    private static int patchHash(int x, int y, int z) {
+        int h = x * 0x27D4EB2D + y * 0x165667B1 + z * 0x9E3779B1;
+        h ^= h >>> 15;
+        h *= 0x2C1B3C6D;
+        h ^= h >>> 12;
+        return h;
     }
 }
