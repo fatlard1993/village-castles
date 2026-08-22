@@ -72,9 +72,9 @@ This approach:
 
 The Java generators produce castle structures procedurally. They exist to create **fully furnished, lived-in starting points** for NBT structure files.
 
-1. Generate a variant with `/villagecastles generate <biome> [size]`
+1. Generate a variant with `/village-castles generate <biome> [size]`
 2. Polish by hand in creative: fix corners where algorithms show, adjust rooflines, add character
-3. Export as NBT with `/villagecastles export` or auto-export pipeline
+3. Export as NBT with `/village-castles export` or auto-export pipeline
 4. The mod ships the NBT files; generators are dev tools, not runtime code
 
 The hand-editing step is about structural character, not adding content. The content is already there: furnished rooms, loot chests, beds, workstations. The polish pass makes it feel *built* rather than *computed*.
@@ -113,7 +113,7 @@ Ruins place independently via structure sets as wilderness landmarks. Darker tha
 ### What Works
 - **Post-assembly attachment mixin** (`VillageCastleAttachmentMixin`): Injects at RETURN of `JigsawPlacement.lambda$addPieces$2`: the `Structure.GenerationStub` generator body, which fires once per structure after the full jigsaw expansion has added every village piece to the `StructurePiecesBuilder`. Detects village biome via pool element string, rolls for castle size (20% chance, 40/35/25 small/medium/large), computes the assembled village bounding box from `collector.getBoundingBox()`, finds a clear position at the village edge (edge + 5-block clearance, four edges tried in shuffled order, X/Z overlap check against the village box), and adds the castle as a `PoolElementStructurePiece` via `StructurePiecesBuilder.addPiece()`. NOTE: the lambda's captured int params are positional and unnamed: int #1 is the max depth *budget* (villages: 6), not the current recursion depth. A previous revision gated on `depth == 0` against that param, which silently disabled castle attachment entirely; the parameter semantics are documented in the mixin and must be re-verified against bytecode (`javap -c`) on every version bump.
 - **Castle generators**: All 5 biomes × 3 sizes produce complete, furnished structures. Desert-large has a pyramid variant. Snowy-small has an igloo variant. Biome palettes cover 21+ block types per biome.
-- **NBT export pipeline**: `/villagecastles exportall` or `./gradlew runExportStructures` generates and saves all 15 castle NBTs automatically. Both paths honor `.polished` markers.
+- **NBT export pipeline**: `/village-castles exportall` or `./gradlew runExportStructures` generates and saves all 15 castle NBTs automatically. Both paths honor `.polished` markers.
 - **15 castle NBTs exist** (3 sizes × 5 biomes). Raw generator output, unpolished.
 - **Commands**: generate, export, exportall, exportruins, ruins, showcase, place, wall, walls, capture, status, list, help. All functional.
 - **Village Builder integration**: Reflection-based, guarded, registers castle and wall segment variants with material costs.

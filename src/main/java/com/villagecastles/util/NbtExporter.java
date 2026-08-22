@@ -72,14 +72,14 @@ public class NbtExporter {
         // so this works whether the mod is running from its own server or from village-quests.
         Path dir = runDir.toAbsolutePath();
         while (dir != null) {
-            Path candidate = dir.resolve("src/main/resources/data/villagecastles/structure");
+            Path candidate = dir.resolve("src/main/resources/data/village-castles/structure");
             if (candidate.toFile().exists()) {
                 return candidate.resolve(structurePath + ".nbt");
             }
             // Also check sibling directories (e.g. running from village-quests/run/)
             Path parent = dir.getParent();
             if (parent != null) {
-                Path sibling = parent.resolve("village-castles/src/main/resources/data/villagecastles/structure");
+                Path sibling = parent.resolve("village-castles/src/main/resources/data/village-castles/structure");
                 if (sibling.toFile().exists()) {
                     return sibling.resolve(structurePath + ".nbt");
                 }
@@ -88,7 +88,7 @@ public class NbtExporter {
         }
         // Fallback: assume runDir is directly inside the project root
         return runDir.toAbsolutePath().getParent()
-            .resolve("src/main/resources/data/villagecastles/structure")
+            .resolve("src/main/resources/data/village-castles/structure")
             .resolve(structurePath + ".nbt");
     }
 

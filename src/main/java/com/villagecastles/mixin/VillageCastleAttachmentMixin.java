@@ -181,7 +181,7 @@ public class VillageCastleAttachmentMixin {
         if (random.nextInt(100) >= CASTLE_CHANCE_PERCENT) return;
 
         String size = pickCastleSize(random);
-        String structureId = "villagecastles:" + biome + "/castle_" + size;
+        String structureId = "village-castles:" + biome + "/castle_" + size;
         if (!StructureHelper.structureNbtExists(biome + "/castle_" + size)) {
             VillageCastles.LOGGER.warn("NBT missing: {}", structureId);
             return;
@@ -190,7 +190,7 @@ public class VillageCastleAttachmentMixin {
         Registry<StructureProcessorList> processorRegistry = context.registryAccess()
             .lookupOrThrow(Registries.PROCESSOR_LIST);
         Optional<Holder.Reference<StructureProcessorList>> processorOpt =
-            processorRegistry.get(Identifier.fromNamespaceAndPath("villagecastles", "castle_aging"));
+            processorRegistry.get(Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "castle_aging"));
 
         StructurePoolElement element = processorOpt.isPresent()
             ? StructurePoolElement.single(structureId, processorOpt.get()).apply(StructureTemplatePool.Projection.RIGID)

@@ -22,18 +22,18 @@ public final class CastleStructureRegistration {
 
     private CastleStructureRegistration() {}
 
-    /** The StructureType codec-holder, registered under "villagecastles:castle". */
+    /** The StructureType codec-holder, registered under "village-castles:castle". */
     public static StructureType<CastleStructure> CASTLE_STRUCTURE_TYPE;
 
     /**
-     * The StructurePieceType deserializer, registered under "villagecastles:castle_piece".
+     * The StructurePieceType deserializer, registered under "village-castles:castle_piece".
      * Used to reload CastlePiece instances from saved chunk NBT.
      */
     public static StructurePieceType CASTLE_PIECE_TYPE;
 
     /**
      * The StructurePieceType deserializer for {@link CastleGroundsPiece}, registered under
-     * "villagecastles:castle_grounds". Attached alongside every village-attached castle to
+     * "village-castles:castle_grounds". Attached alongside every village-attached castle to
      * underfill its footprint and seed its garrison.
      */
     public static StructurePieceType CASTLE_GROUNDS_PIECE_TYPE;
@@ -52,7 +52,7 @@ public final class CastleStructureRegistration {
         );
 
         // 2. Register the StructureType so JSON data files referencing
-        //    "type": "villagecastles:castle" can be deserialized.
+        //    "type": "village-castles:castle" can be deserialized.
         CASTLE_STRUCTURE_TYPE = Registry.register(
             BuiltInRegistries.STRUCTURE_TYPE,
             Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "castle"),
@@ -64,6 +64,6 @@ public final class CastleStructureRegistration {
         RegistryAttributeHolder.get(BuiltInRegistries.STRUCTURE_TYPE).addAttribute(RegistryAttribute.OPTIONAL);
         RegistryAttributeHolder.get(BuiltInRegistries.STRUCTURE_PIECE).addAttribute(RegistryAttribute.OPTIONAL);
 
-        VillageCastles.LOGGER.info("[villagecastles] Registered castle structure type and piece type");
+        VillageCastles.LOGGER.info("[village-castles] Registered castle structure type and piece type");
     }
 }

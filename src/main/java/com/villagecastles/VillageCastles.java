@@ -12,11 +12,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class VillageCastles implements ModInitializer {
-    public static final String MOD_ID = "villagecastles";
+    public static final String MOD_ID = "village-castles";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     /** Set via -Dvillagecastles.exportall=true to auto-export all structures on first tick. */
-    public static final boolean AUTO_EXPORT = Boolean.getBoolean("villagecastles.exportall");
+    public static final boolean AUTO_EXPORT = Boolean.getBoolean("village-castles.exportall");
 
     @Override
     public void onInitialize() {

@@ -358,7 +358,7 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "villagecastles:plains/castle_small",
+        "location": "village-castles:plains/castle_small",
         "processors": {
           "processors": []
         },

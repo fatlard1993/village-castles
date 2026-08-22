@@ -346,7 +346,7 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "villagecastles:snowy/castle_small",
+        "location": "village-castles:snowy/castle_small",
         "processors": {
           "processors": []
         },

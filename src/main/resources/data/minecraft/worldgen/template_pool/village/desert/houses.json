@@ -322,7 +322,7 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "villagecastles:desert/castle_small",
+        "location": "village-castles:desert/castle_small",
         "processors": {
           "processors": []
         },

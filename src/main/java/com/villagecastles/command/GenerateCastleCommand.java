@@ -37,12 +37,12 @@ import java.util.Arrays;
  * Command for generating castles in-game.
  *
  * Usage:
- *   /villagecastles generate <biome> [size]
- *   /villagecastles wall <biome> [segment]
- *   /villagecastles walls <biome>
- *   /villagecastles status
- *   /villagecastles list
- *   /villagecastles help
+ *   /village-castles generate <biome> [size]
+ *   /village-castles wall <biome> [segment]
+ *   /village-castles walls <biome>
+ *   /village-castles status
+ *   /village-castles list
+ *   /village-castles help
  */
 public class GenerateCastleCommand {
 
@@ -85,7 +85,7 @@ public class GenerateCastleCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(
-            Commands.literal("villagecastles")
+            Commands.literal("village-castles")
                 .requires(CommandSourceStack::isPlayer) // Player only
                 .then(Commands.literal("generate")
                     .requires(REQUIRES_OP)
@@ -202,7 +202,7 @@ public class GenerateCastleCommand {
                 )
         );
 
-        VillageCastles.LOGGER.info("Registered /villagecastles command");
+        VillageCastles.LOGGER.info("Registered /village-castles command");
     }
 
     private static int executeGenerate(CommandContext<CommandSourceStack> ctx, String sizeStr) {
@@ -211,7 +211,7 @@ public class GenerateCastleCommand {
 
         BiomePalette palette = BiomePalette.fromId(biomeStr);
         if (palette == null) {
-            source.sendFailure(Component.translatable("commands.villagecastles.error.unknown_biome", biomeStr));
+            source.sendFailure(Component.translatable("commands.village-castles.error.unknown_biome", biomeStr));
             return 0;
         }
 
@@ -219,7 +219,7 @@ public class GenerateCastleCommand {
         try {
             size = CastleGenerator.CastleSize.valueOf(sizeStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            source.sendFailure(Component.translatable("commands.villagecastles.error.unknown_size", sizeStr));
+            source.sendFailure(Component.translatable("commands.village-castles.error.unknown_size", sizeStr));
             return 0;
         }
 
@@ -228,7 +228,7 @@ public class GenerateCastleCommand {
 
         // Validate Y range -- castles need headroom and foundation
         if (playerPos.getY() < -50 || playerPos.getY() > 300) {
-            source.sendFailure(Component.translatable("commands.villagecastles.error.position_extreme", playerPos.getY()));
+            source.sendFailure(Component.translatable("commands.village-castles.error.position_extreme", playerPos.getY()));
             return 0;
         }
 
@@ -242,7 +242,7 @@ public class GenerateCastleCommand {
         }
         BlockPos generatePos = playerPos.relative(facing, size.diameter / 2 + 10);
 
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.generate.starting",
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.generate.starting",
             size.name().toLowerCase(), palette.displayName, generatePos.toShortString()), true);
 
         try {
@@ -262,17 +262,17 @@ public class GenerateCastleCommand {
             captureMin = bounds.min;
             captureMax = bounds.max;
 
-            source.sendSuccess(() -> Component.translatable("commands.villagecastles.generate.success",
+            source.sendSuccess(() -> Component.translatable("commands.village-castles.generate.success",
                 bounds.getWidth(), bounds.getHeight(), bounds.getDepth()), false);
 
-            source.sendSuccess(() -> Component.literal("§7Use /villagecastles capture to save this structure after editing"), false);
+            source.sendSuccess(() -> Component.literal("§7Use /village-castles capture to save this structure after editing"), false);
 
             return 1;
 
         } catch (Exception e) {
             VillageCastles.LOGGER.error("Failed to generate castle", e);
             String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            source.sendFailure(Component.translatable("commands.villagecastles.generate.failed", msg));
+            source.sendFailure(Component.translatable("commands.village-castles.generate.failed", msg));
             return 0;
         }
     }
@@ -308,7 +308,7 @@ public class GenerateCastleCommand {
 
         if (!Files.exists(nbtPath)) {
             source.sendFailure(Component.literal("NBT file not found: " + nbtPath));
-            source.sendFailure(Component.literal("Generate and capture first, or run /villagecastles export " + biomeStr + " " + sizeStr));
+            source.sendFailure(Component.literal("Generate and capture first, or run /village-castles export " + biomeStr + " " + sizeStr));
             return 0;
         }
 
@@ -354,7 +354,7 @@ public class GenerateCastleCommand {
 
         BiomePalette palette = BiomePalette.fromId(biomeStr);
         if (palette == null) {
-            source.sendFailure(Component.translatable("commands.villagecastles.error.unknown_biome", biomeStr));
+            source.sendFailure(Component.translatable("commands.village-castles.error.unknown_biome", biomeStr));
             return 0;
         }
 
@@ -362,7 +362,7 @@ public class GenerateCastleCommand {
         try {
             segmentType = VillageWallGenerator.SegmentType.valueOf(segmentStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            source.sendFailure(Component.translatable("commands.villagecastles.error.unknown_segment", segmentStr));
+            source.sendFailure(Component.translatable("commands.village-castles.error.unknown_segment", segmentStr));
             return 0;
         }
 
@@ -375,10 +375,10 @@ public class GenerateCastleCommand {
             VillageWallGenerator generator = new VillageWallGenerator(palette, new java.util.Random(seed));
             generator.generate(world, generatePos, Direction.NORTH, segmentType);
 
-            source.sendSuccess(() -> Component.translatable("commands.villagecastles.wall.success",
+            source.sendSuccess(() -> Component.translatable("commands.village-castles.wall.success",
                 segmentType.name().toLowerCase(), palette.id), false);
 
-            source.sendSuccess(() -> Component.translatable("commands.villagecastles.wall.save_hint",
+            source.sendSuccess(() -> Component.translatable("commands.village-castles.wall.save_hint",
                 palette.id, segmentType.name().toLowerCase()), false);
 
             return 1;
@@ -386,7 +386,7 @@ public class GenerateCastleCommand {
         } catch (Exception e) {
             VillageCastles.LOGGER.error("Failed to generate wall", e);
             String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            source.sendFailure(Component.translatable("commands.villagecastles.wall.failed", msg));
+            source.sendFailure(Component.translatable("commands.village-castles.wall.failed", msg));
             return 0;
         }
     }
@@ -397,7 +397,7 @@ public class GenerateCastleCommand {
 
         BiomePalette palette = BiomePalette.fromId(biomeStr);
         if (palette == null) {
-            source.sendFailure(Component.translatable("commands.villagecastles.error.unknown_biome", biomeStr));
+            source.sendFailure(Component.translatable("commands.village-castles.error.unknown_biome", biomeStr));
             return 0;
         }
 
@@ -417,13 +417,13 @@ public class GenerateCastleCommand {
                 offset += spacing;
             }
 
-            source.sendSuccess(() -> Component.translatable("commands.villagecastles.walls.success", palette.id), false);
+            source.sendSuccess(() -> Component.translatable("commands.village-castles.walls.success", palette.id), false);
             return 1;
 
         } catch (Exception e) {
             VillageCastles.LOGGER.error("Failed to generate wall showcase", e);
             String msg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-            source.sendFailure(Component.translatable("commands.villagecastles.walls.failed", msg));
+            source.sendFailure(Component.translatable("commands.village-castles.walls.failed", msg));
             return 0;
         }
     }
@@ -436,7 +436,7 @@ public class GenerateCastleCommand {
         CommandSourceStack source = ctx.getSource();
 
         if (lastGenerateCenter == null || lastBiome == null || lastSize == null) {
-            source.sendFailure(Component.literal("Nothing to capture. Generate a structure first with /villagecastles generate"));
+            source.sendFailure(Component.literal("Nothing to capture. Generate a structure first with /village-castles generate"));
             return 0;
         }
 
@@ -474,7 +474,7 @@ public class GenerateCastleCommand {
             // The batch exporter exports from bounds.min.Y = originalCenter.Y = generatePos.Y.
             // Worldgen places at surfaceH - 3, so local Y=3 = surfaceH (visual floor).
             // originY = player's feet - yOffset. Default yOffset=1 → block below feet.
-            // Use /villagecastles capture <biome> <size> <yOffset> to adjust.
+            // Use /village-castles capture <biome> <size> <yOffset> to adjust.
             BlockPos captureStandPos = BlockPos.containing(source.getPosition());
             int originY = captureStandPos.getY() - yOffset;
 
@@ -515,7 +515,7 @@ public class GenerateCastleCommand {
     /**
      * Capture world state at PLAYER POSITION using known bounds for biome/size.
      * Stand at the CENTER of the structure you edited, then run:
-     *   /villagecastles capture <biome> <size>
+     *   /village-castles capture <biome> <size>
      * This saves your hand-edited work without regenerating.
      */
     private static int executeCaptureAtPlayer(CommandContext<CommandSourceStack> ctx, int yOffset) {
@@ -594,7 +594,7 @@ public class GenerateCastleCommand {
 
         BiomePalette palette = BiomePalette.fromId(biomeStr);
         if (palette == null) {
-            source.sendFailure(Component.translatable("commands.villagecastles.error.unknown_biome", biomeStr));
+            source.sendFailure(Component.translatable("commands.village-castles.error.unknown_biome", biomeStr));
             return 0;
         }
 
@@ -602,7 +602,7 @@ public class GenerateCastleCommand {
         try {
             size = CastleGenerator.CastleSize.valueOf(sizeStr.toUpperCase());
         } catch (IllegalArgumentException e) {
-            source.sendFailure(Component.translatable("commands.villagecastles.error.unknown_size", sizeStr));
+            source.sendFailure(Component.translatable("commands.village-castles.error.unknown_size", sizeStr));
             return 0;
         }
 
@@ -613,7 +613,7 @@ public class GenerateCastleCommand {
 
         if (!force && NbtExporter.isPolished(outputPath)) {
             source.sendFailure(Component.literal("§c" + structurePath + " is marked as POLISHED (hand-edited)."));
-            source.sendFailure(Component.literal("§cUse '/villagecastles export " + biomeStr + " " + sizeStr + " force' to overwrite."));
+            source.sendFailure(Component.literal("§cUse '/village-castles export " + biomeStr + " " + sizeStr + " force' to overwrite."));
             return 0;
         }
 
@@ -804,7 +804,7 @@ public class GenerateCastleCommand {
 
         BiomePalette palette = BiomePalette.fromId(biomeStr);
         if (palette == null) {
-            source.sendFailure(Component.translatable("commands.villagecastles.error.unknown_biome", biomeStr));
+            source.sendFailure(Component.translatable("commands.village-castles.error.unknown_biome", biomeStr));
             return 0;
         }
 
@@ -911,7 +911,7 @@ public class GenerateCastleCommand {
     private static int executeStatus(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
 
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.status.header"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.status.header"), false);
 
         String[] biomes = {"plains", "desert", "savanna", "taiga", "snowy"};
         String[] sizes = {"small", "medium", "large"};
@@ -923,7 +923,7 @@ public class GenerateCastleCommand {
         for (String biome : biomes) {
             source.sendSuccess(() -> Component.literal(""), false);
             final String biomeName = biome.substring(0, 1).toUpperCase() + biome.substring(1);
-            source.sendSuccess(() -> Component.translatable("commands.villagecastles.status.biome_header", biomeName), false);
+            source.sendSuccess(() -> Component.translatable("commands.village-castles.status.biome_header", biomeName), false);
 
             // Castle variants
             for (String size : sizes) {
@@ -960,7 +960,7 @@ public class GenerateCastleCommand {
         final int totalMissing = missing;
         final int total = found + missing;
         source.sendSuccess(() -> Component.literal(""), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.status.summary",
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.status.summary",
             totalFound, total, totalMissing), false);
 
         return 1;
@@ -973,21 +973,21 @@ public class GenerateCastleCommand {
     private static int executeList(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
 
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.list.biomes_header"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.list.biomes_header"), false);
         for (BiomePalette palette : BiomePalette.values()) {
-            source.sendSuccess(() -> Component.translatable("commands.villagecastles.list.biome_entry",
+            source.sendSuccess(() -> Component.translatable("commands.village-castles.list.biome_entry",
                 palette.id, palette.displayName), false);
         }
 
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.list.sizes_header"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.list.sizes_header"), false);
         for (CastleGenerator.CastleSize size : CastleGenerator.CastleSize.values()) {
-            source.sendSuccess(() -> Component.translatable("commands.villagecastles.list.size_entry",
+            source.sendSuccess(() -> Component.translatable("commands.village-castles.list.size_entry",
                 size.name().toLowerCase(), size.diameter), false);
         }
 
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.list.segments_header"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.list.segments_header"), false);
         for (VillageWallGenerator.SegmentType type : VillageWallGenerator.SegmentType.values()) {
-            source.sendSuccess(() -> Component.translatable("commands.villagecastles.list.segment_entry",
+            source.sendSuccess(() -> Component.translatable("commands.village-castles.list.segment_entry",
                 type.name().toLowerCase()), false);
         }
 
@@ -997,41 +997,41 @@ public class GenerateCastleCommand {
     private static int executeHelp(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
 
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.header"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.header"), false);
         source.sendSuccess(() -> Component.literal(""), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.generate_cmd"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.generate_desc"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.generate_cmd"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.generate_desc"), false);
         source.sendSuccess(() -> Component.literal(""), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.wall_cmd"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.wall_desc"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.wall_segments"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.wall_cmd"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.wall_desc"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.wall_segments"), false);
         source.sendSuccess(() -> Component.literal(""), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.walls_cmd"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.walls_desc"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.walls_cmd"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.walls_desc"), false);
         source.sendSuccess(() -> Component.literal(""), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.ruins_cmd"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.ruins_desc"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.ruins_cmd"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.ruins_desc"), false);
         source.sendSuccess(() -> Component.literal(""), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.export_cmd"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.export_desc"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.export_cmd"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.export_desc"), false);
         source.sendSuccess(() -> Component.literal(""), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.exportruins_cmd"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.exportruins_desc"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.exportruins_cmd"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.exportruins_desc"), false);
         source.sendSuccess(() -> Component.literal(""), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.exportall_cmd"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.exportall_desc"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.exportall_cmd"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.exportall_desc"), false);
         source.sendSuccess(() -> Component.literal(""), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.status_cmd"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.status_desc"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.status_cmd"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.status_desc"), false);
         source.sendSuccess(() -> Component.literal(""), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.list_cmd"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.list_desc"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.list_cmd"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.list_desc"), false);
         source.sendSuccess(() -> Component.literal(""), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.workflow"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.workflow_1"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.workflow_2"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.workflow_3"), false);
-        source.sendSuccess(() -> Component.translatable("commands.villagecastles.help.workflow_4"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.workflow"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.workflow_1"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.workflow_2"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.workflow_3"), false);
+        source.sendSuccess(() -> Component.translatable("commands.village-castles.help.workflow_4"), false);
 
         return 1;
     }
@@ -1039,7 +1039,7 @@ public class GenerateCastleCommand {
     private static int executeBoundsShow(CommandContext<CommandSourceStack> ctx) {
         CommandSourceStack source = ctx.getSource();
         if (captureMin == null || captureMax == null) {
-            source.sendFailure(Component.literal("No capture region — run /villagecastles generate first."));
+            source.sendFailure(Component.literal("No capture region — run /village-castles generate first."));
             return 0;
         }
         int w = captureMax.getX() - captureMin.getX();
@@ -1047,7 +1047,7 @@ public class GenerateCastleCommand {
         int d = captureMax.getZ() - captureMin.getZ();
         source.sendSuccess(() -> Component.literal("§eLast capture region: " + w + "×" + h + "×" + d), false);
         source.sendSuccess(() -> Component.literal("  §7Min: " + captureMin.toShortString() + "  Max: " + captureMax.toShortString()), false);
-        source.sendSuccess(() -> Component.literal("§7Run /villagecastles capture from ground level to auto-derive tight bounds and anchor Y."), false);
+        source.sendSuccess(() -> Component.literal("§7Run /village-castles capture from ground level to auto-derive tight bounds and anchor Y."), false);
         return 1;
     }
 }

@@ -26,19 +26,19 @@ A Fabric mod that adds grand, biome-themed castle structures to villages.
 
 ## Commands
 
-- `/villagecastles generate <biome> [size]` - Generate a castle in front of the player
-- `/villagecastles wall <biome> [segment]` - Generate a single wall segment
-- `/villagecastles walls <biome>` - Generate all wall segment types in a row
-- `/villagecastles ruins <biome> [1|2]` - Generate a ruins variant
-- `/villagecastles export <biome> [size] [force]` - Generate + export single castle as NBT
-- `/villagecastles exportall` - Generate + export all 15 castle NBTs (skips polished)
-- `/villagecastles exportruins` - Generate + export all 10 ruins NBTs
-- `/villagecastles showcase` - Generate all 15 castle variants in a 5×3 grid
-- `/villagecastles place <biome> [size]` - Place an existing NBT at player position
-- `/villagecastles capture [biome size]` - Capture last-generated region as NBT
-- `/villagecastles status` - Show which NBT files exist
-- `/villagecastles list` - List biomes, sizes, and segment types
-- `/villagecastles help` - Display usage help
+- `/village-castles generate <biome> [size]` - Generate a castle in front of the player
+- `/village-castles wall <biome> [segment]` - Generate a single wall segment
+- `/village-castles walls <biome>` - Generate all wall segment types in a row
+- `/village-castles ruins <biome> [1|2]` - Generate a ruins variant
+- `/village-castles export <biome> [size] [force]` - Generate + export single castle as NBT
+- `/village-castles exportall` - Generate + export all 15 castle NBTs (skips polished)
+- `/village-castles exportruins` - Generate + export all 10 ruins NBTs
+- `/village-castles showcase` - Generate all 15 castle variants in a 5×3 grid
+- `/village-castles place <biome> [size]` - Place an existing NBT at player position
+- `/village-castles capture [biome size]` - Capture last-generated region as NBT
+- `/village-castles status` - Show which NBT files exist
+- `/village-castles list` - List biomes, sizes, and segment types
+- `/village-castles help` - Display usage help
 
 **Biomes**: `plains`, `desert`, `savanna`, `taiga`, `snowy`
 **Sizes**: `small`, `medium`, `large` (default: large)
@@ -48,10 +48,10 @@ A Fabric mod that adds grand, biome-themed castle structures to villages.
 
 The generators are tools for producing starting points that get hand-polished into NBT structure files.
 
-1. **Generate**: Use `/villagecastles generate` in creative mode
+1. **Generate**: Use `/village-castles generate` in creative mode
 2. **Polish**: Fix algorithmic corners, adjust proportions, add character
-3. **Export**: Use `/villagecastles export` or Structure Blocks to save as NBT
-4. **Polished marker**: Run `/villagecastles capture` to mark a file as hand-edited so `exportall` skips it
+3. **Export**: Use `/village-castles export` or Structure Blocks to save as NBT
+4. **Polished marker**: Run `/village-castles capture` to mark a file as hand-edited so `exportall` skips it
 
 See [VISION.md](VISION.md) for the full design philosophy and roadmap.
 
@@ -77,7 +77,7 @@ Install server-side alongside its declared dependencies (see `fabric.mod.json`).
 ### Castles (15 NBTs: all present, awaiting polish)
 
 ```
-src/main/resources/data/villagecastles/structure/
+src/main/resources/data/village-castles/structure/
 ├── plains/    castle_small.nbt  castle_medium.nbt  castle_large.nbt
 ├── desert/    castle_small.nbt  castle_medium.nbt  castle_large.nbt
 ├── savanna/   castle_small.nbt  castle_medium.nbt  castle_large.nbt
@@ -88,14 +88,14 @@ src/main/resources/data/villagecastles/structure/
 ### Ruins (0/10, pending export)
 
 ```
-src/main/resources/data/villagecastles/structure/
+src/main/resources/data/village-castles/structure/
 └── {biome}/   castle_ruins_1.nbt  castle_ruins_2.nbt   (× 5 biomes)
 ```
 
 ### Village Walls (0/25, pending export)
 
 ```
-src/main/resources/data/villagecastles/structure/village_walls/
+src/main/resources/data/village-castles/structure/village_walls/
 └── {biome}/   wall_straight.nbt  wall_corner.nbt  wall_gate.nbt
                wall_tower.nbt  wall_terminator.nbt   (× 5 biomes)
 ```
@@ -114,7 +114,7 @@ There is no JSON configuration file; edit the constants in `VillageCastleAttachm
 
 When [Village Builder](../village-builder) is also installed, castle pieces register into its expansion pools. Villages can grow fortifications over time. The integration is optional; both mods function independently.
 
-Castles register under one shared limit group (`villagecastles:castle`) with a maximum of one per
+Castles register under one shared limit group (`village-castles:castle`) with a maximum of one per
 village, so a village that builds a castle will not go on to build the other two sizes. This needs
 a Village Builder new enough to support per-village limits; against an older one the integration
 logs a warning and registers castles uncapped rather than failing.

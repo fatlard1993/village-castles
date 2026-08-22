@@ -355,7 +355,7 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "villagecastles:savanna/castle_small",
+        "location": "village-castles:savanna/castle_small",
         "processors": {
           "processors": []
         },

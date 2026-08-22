@@ -5294,8 +5294,8 @@ public class CastleGenerator {
 
         if (world.getBlockEntity(pos) instanceof JigsawBlockEntity jigsaw) {
             jigsaw.setPool(targetPool);
-            jigsaw.setName(Identifier.fromNamespaceAndPath("villagecastles", "wall_end"));
-            jigsaw.setTarget(Identifier.fromNamespaceAndPath("villagecastles", "wall_end"));
+            jigsaw.setName(Identifier.fromNamespaceAndPath("village-castles", "wall_end"));
+            jigsaw.setTarget(Identifier.fromNamespaceAndPath("village-castles", "wall_end"));
             jigsaw.setFinalState(JIGSAW_FINAL_AIR);
             jigsaw.setJoint(JigsawBlockEntity.JointType.ALIGNED);
             jigsaw.setChanged();

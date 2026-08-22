@@ -15,7 +15,7 @@ import java.util.Optional;
 /**
  * A standalone castle structure that places a biome-specific castle_small NBT template.
  *
- * <p>Registered as {@code "villagecastles:castle"} in BuiltInRegistries.STRUCTURE_TYPE.
+ * <p>Registered as {@code "village-castles:castle"} in BuiltInRegistries.STRUCTURE_TYPE.
  * The JSON data files provide the biome list and structure-set placement config.
  */
 public class CastleStructure extends Structure {

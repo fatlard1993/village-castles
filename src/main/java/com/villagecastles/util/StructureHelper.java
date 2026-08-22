@@ -288,7 +288,7 @@ public class StructureHelper {
      * Works from any classloader context.
      */
     public static boolean structureNbtExists(String structurePath) {
-        String resourcePath = "/data/villagecastles/structure/" + structurePath + ".nbt";
+        String resourcePath = "/data/village-castles/structure/" + structurePath + ".nbt";
         try (java.io.InputStream is = StructureHelper.class.getResourceAsStream(resourcePath)) {
             return is != null;
         } catch (Exception e) {

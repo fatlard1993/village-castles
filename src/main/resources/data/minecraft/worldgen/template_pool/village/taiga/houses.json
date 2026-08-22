@@ -263,7 +263,7 @@
     {
       "element": {
         "element_type": "minecraft:single_pool_element",
-        "location": "villagecastles:taiga/castle_small",
+        "location": "village-castles:taiga/castle_small",
         "processors": {
           "processors": []
         },

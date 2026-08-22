@@ -36,7 +36,7 @@ public class VillageBuilderIntegration {
      * as satisfied by a building (it measures iron golems against population), so without a cap a
      * village that keeps wanting defence keeps accepting castles.
      */
-    private static final String CASTLE_LIMIT_GROUP = "villagecastles:castle";
+    private static final String CASTLE_LIMIT_GROUP = "village-castles:castle";
 
     /** One castle per village, whatever its size or biome. */
     private static final int CASTLES_PER_VILLAGE = 1;
@@ -100,7 +100,7 @@ public class VillageBuilderIntegration {
                 VillageCastles.LOGGER.info("Registered {} castle structures with Village Builder", registered);
             } else {
                 VillageCastles.LOGGER.info("No NBT files found yet — Village Builder will have nothing to build. "
-                    + "Use /villagecastles status to check.");
+                    + "Use /village-castles status to check.");
             }
         } catch (ClassNotFoundException e) {
             VillageCastles.LOGGER.warn("Village Builder API class not found: {}", e.getMessage());
@@ -296,7 +296,7 @@ public class VillageBuilderIntegration {
                 : Set.of(needDefense);
 
             registerStructure(
-                Identifier.fromNamespaceAndPath("villagecastles", castle[0]),
+                Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, castle[0]),
                 castle[1],
                 needs,
                 materials,
@@ -333,7 +333,7 @@ public class VillageBuilderIntegration {
                 int clearanceSize = segment.equals("wall_straight") ? 5 : 8;
 
                 registerStructure(
-                    Identifier.fromNamespaceAndPath("villagecastles", path),
+                    Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, path),
                     displayName + " (" + capitalize(segDisplay) + ")",
                     Set.of(needDefense),
                     materials,
