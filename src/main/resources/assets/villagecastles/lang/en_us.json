@@ -9,35 +9,28 @@
   "structure.villagecastles.savanna_ruins": "Savanna Ruins",
   "structure.villagecastles.taiga_ruins": "Nordic Ruins",
   "structure.villagecastles.snowy_ruins": "Frozen Ruins",
-
   "commands.villagecastles.error.unknown_biome": "Unknown biome: %s. Valid options: plains, desert, savanna, taiga, snowy",
   "commands.villagecastles.error.unknown_size": "Unknown size: %s. Valid options: small, medium, large",
   "commands.villagecastles.error.unknown_segment": "Unknown segment type: %s. Valid: straight, corner, gate, tower, terminator",
   "commands.villagecastles.error.position_extreme": "Position too extreme (Y=%s). Move to a reasonable altitude.",
-
   "commands.villagecastles.generate.starting": "Generating %s %s at %s...",
   "commands.villagecastles.generate.success": "Castle generated! Size: %sx%sx%s",
   "commands.villagecastles.generate.save_hint": "Save as NBT -> data/villagecastles/structure/%s/castle_%s.nbt",
   "commands.villagecastles.generate.failed": "Failed to generate castle: %s",
-
   "commands.villagecastles.wall.success": "Generated %s wall segment (%s)",
   "commands.villagecastles.wall.save_hint": "Save as NBT -> data/villagecastles/structure/village_walls/%s/wall_%s.nbt",
   "commands.villagecastles.wall.failed": "Failed to generate wall: %s",
-
   "commands.villagecastles.walls.success": "Generated wall showcase for %s",
   "commands.villagecastles.walls.failed": "Failed to generate wall showcase: %s",
-
   "commands.villagecastles.status.header": "=== Village Castles: NBT Status ===",
   "commands.villagecastles.status.biome_header": "--- %s ---",
   "commands.villagecastles.status.summary": "Structures: %s/%s found (%s missing)",
-
   "commands.villagecastles.list.biomes_header": "=== Available Castle Biomes ===",
   "commands.villagecastles.list.biome_entry": "  %s - %s",
   "commands.villagecastles.list.sizes_header": "=== Castle Sizes ===",
   "commands.villagecastles.list.size_entry": "  %s (~%s blocks)",
   "commands.villagecastles.list.segments_header": "=== Wall Segment Types ===",
   "commands.villagecastles.list.segment_entry": "  %s",
-
   "commands.villagecastles.help.header": "=== Village Castles Commands ===",
   "commands.villagecastles.help.generate_cmd": "/villagecastles generate <biome> [size]",
   "commands.villagecastles.help.generate_desc": "  Generate a full castle (small/medium/large)",
