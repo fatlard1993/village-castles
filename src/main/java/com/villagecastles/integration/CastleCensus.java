@@ -52,7 +52,7 @@ public final class CastleCensus {
         for (int dx = -SEARCH_CHUNK_RADIUS; dx <= SEARCH_CHUNK_RADIUS; dx++) {
             for (int dz = -SEARCH_CHUNK_RADIUS; dz <= SEARCH_CHUNK_RADIUS; dz++) {
                 ChunkPos chunk = new ChunkPos(origin.x() + dx, origin.z() + dz);
-                for (StructureStart start : world.structureManager().startsForStructure(chunk, s -> true)) {
+                for (StructureStart start : world.structureManager().startsForStructure(chunk.x(), chunk.z(), s -> true)) {
                     if (!visited.add(start)) continue;
                     castles += countCastlePieces(start);
                 }
