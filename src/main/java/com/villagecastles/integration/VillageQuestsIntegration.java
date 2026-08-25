@@ -180,10 +180,10 @@ public class VillageQuestsIntegration {
         // Farmer: provisioning the garrison
         registerBiomeAwareFetchQuest("farmer", 16, 5, 0.15,
             new Object[][] {
-                {"plains", Items.BREAD, "The soldiers eat more than my fields can handle. Bread for the barracks."},
-                {"desert", Items.MELON_SLICE, "Melons are all we grow here. The garrison eats through them fast."},
-                {"taiga", Items.POTATO, "Potatoes. Only thing the frost doesn't kill. The garrison needs more."},
-                {"savanna", Items.DRIED_KELP, "Dried kelp keeps. The garrison needs rations that last."}
+                {"plains", Items.BREAD, "The watch eats more than my fields can handle. Bread for the tower, if you can spare it."},
+                {"desert", Items.MELON_SLICE, "Melons are all we grow here. The watch gets through them faster than I can cut them."},
+                {"taiga", Items.POTATO, "Potatoes. Only thing the frost doesn't kill. The watch needs more."},
+                {"savanna", Items.DRIED_KELP, "Dried kelp keeps. The watch needs food that will sit in a pack."}
             });
 
         registerFetchQuest("farmer",
@@ -206,7 +206,7 @@ public class VillageQuestsIntegration {
 
         registerFetchQuest("cleric",
             Items.GLISTERING_MELON_SLICE, 4, 5, 0.10,
-            "The garrison took wounds in the last skirmish. I need glistering melon for healing potions.");
+            "Some of the watch came back hurt from the last trouble. I need glistering melon for healing potions.");
 
         // Librarian: castle lore and records
         registerFetchQuest("librarian",
@@ -360,7 +360,7 @@ public class VillageQuestsIntegration {
 
         // Weaponsmith: talks about defense
         registerDialogue("weaponsmith", "vc_smith_guard",
-            Component.literal("Is the garrison well-armed?"), 0, 200,
+            Component.literal("Is the watch well-armed?"), 0, 200,
             Component.literal("Well enough. I keep the grindstone going. But I'd sleep better with more iron in the armory."));
 
         registerDialogue("weaponsmith", "vc_smith_raids",
@@ -388,8 +388,8 @@ public class VillageQuestsIntegration {
 
         // Farmer: garrison life
         registerDialogue("farmer", "vc_farmer_feed",
-            Component.literal("Is it hard feeding the whole garrison?"), 10, 200,
-            Component.literal("Feeding this many people wasn't the plan. Soldiers, guards, the smith, the horses... but they keep us safe, so I keep planting."));
+            Component.literal("Is it hard feeding the whole watch?"), 10, 200,
+            Component.literal("Feeding this many people wasn't the plan. The watch, the smith, the horses... but they keep us safe, so I keep planting."));
 
         // Grief dialogue: surfaces when a castle villager has recently died
         registerDialogue("mason", "vc_grief_mason",
@@ -401,7 +401,7 @@ public class VillageQuestsIntegration {
             Component.literal("Nobody's taken it. The tools are still where they left them."));
 
         registerDialogue("farmer", "vc_grief_farmer",
-            Component.literal("The garrison feels smaller today."), 0, 200,
+            Component.literal("The watch feels thinner today."), 0, 200,
             Component.literal("One less mouth to feed. That's the wrong way to think about it. But I thought it."));
 
         // Armorer: talks about equipment
