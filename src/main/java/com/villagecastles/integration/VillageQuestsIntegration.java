@@ -34,6 +34,7 @@ public class VillageQuestsIntegration {
     private static Method registerUniversalQuestMethod;
     private static Method registerProfessionDialogueMethod;
     private static Method registerDialogueHandlerMethod;
+    private static Method registerExchangeMethod; // null on older village-quests
     private static Constructor<?> fetchQuestConstructor;
     private static Constructor<?> dialogueOptionConstructor;
 
@@ -77,6 +78,16 @@ public class VillageQuestsIntegration {
             Class<?> dialogueOptionClass = Class.forName("justfatlard.village_quests.api.DialogueRegistry$DialogueOption");
             dialogueOptionConstructor = dialogueOptionClass.getConstructor(
                 String.class, Component.class, int.class, int.class);
+
+            // Exchange API (newer village-quests). Absent on older versions;
+            // dialogue then degrades to the one-shot question/answer form
+            // instead of aborting the whole integration.
+            try {
+                registerExchangeMethod = dialogueRegistryClass.getMethod("registerExchange",
+                    String.class, String.class, String.class, int.class, int.class, java.util.Map.class);
+            } catch (NoSuchMethodException older) {
+                VillageCastles.LOGGER.info("Village Quests without exchange API; castle dialogue stays one-shot");
+            }
 
             registerCastleQuests();
             registerCastleDialogue();
@@ -142,7 +153,7 @@ public class VillageQuestsIntegration {
                 {"plains", Items.STONE_BRICKS, "The eastern wall section is crumbling. Need stone bricks to shore it up."},
                 {"desert", Items.SANDSTONE, "The sandstone is flaking off the east wall. Sand does that. Need more."},
                 {"taiga", Items.SPRUCE_PLANKS, "The spruce beams are splitting in the cold. Need planks to reinforce."},
-                {"snowy", Items.PACKED_ICE, "Ice walls need packed ice to patch. Sounds strange. Works."},
+                {"snowy", Items.COBBLESTONE, "Frost heave cracks the cobble every winter. Need stone to patch before the thaw."},
                 {"savanna", Items.MUD_BRICKS, "The mud bricks crack in the dry heat. Need fresh ones."}
             });
 
@@ -349,47 +360,81 @@ public class VillageQuestsIntegration {
     // ---------------------------------------------------------------
 
     private static void registerCastleDialogue() throws Exception {
-        // Mason dialogue: talks about the walls
-        registerDialogue("mason", "vc_mason_walls",
-            Component.literal("How are the castle walls holding up?"), 0, 200,
-            Component.literal("Better than before you started helping. The eastern section is solid now, but the north tower foundation worries me. Settling soil."));
+        // Each exchange: the player's question, the villager's answer, then the
+        // player's follow-up moves and the villager's closes. The villager
+        // speaks last on every branch; the walkAway label is the player's exit.
 
-        registerDialogue("mason", "vc_mason_ruins",
-            Component.literal("Have you seen the ruins in the wilderness?"), 20, 200,
-            Component.literal("Aye. Same stonework as ours. Whoever built this place built those too. Makes you wonder what happened to them."));
+        registerExchange("mason", "vc_mason_walls",
+            "How are the castle walls holding up?", 0, 200,
+            node("Better than before you started helping. The eastern section is solid now, but the north tower foundation worries me. Settling soil.",
+                "Good to hear about the east.",
+                option("What's wrong with the foundation?",
+                    "Water. It finds the one weak course in a hundred. The old builders knew a trick for it. We don't. So I check it every morning and hope loudly.",
+                    "Keep checking.")));
 
-        // Weaponsmith: talks about defense
-        registerDialogue("weaponsmith", "vc_smith_guard",
-            Component.literal("Is the watch well-armed?"), 0, 200,
-            Component.literal("Well enough. I keep the grindstone going. But I'd sleep better with more iron in the armory."));
+        registerExchange("mason", "vc_mason_ruins",
+            "Have you seen the ruins in the wilderness?", 20, 200,
+            node("Aye. Same stonework as ours. Whoever built this place built those too. Makes you wonder what happened to them.",
+                "Makes you wonder.",
+                option("What do you think happened?",
+                    "Nothing quick. Quick leaves burn marks and broken gates. That place was just left. Packed up or walked out. Tidy endings scare me more than messy ones.",
+                    "The tidier the worse. Right.")));
 
-        registerDialogue("weaponsmith", "vc_smith_raids",
-            Component.literal("Has the castle ever been attacked?"), 30, 200,
-            Component.literal("Once. Pillagers came from the east. The walls held. That's the thing about stone — it doesn't care how angry you are."));
+        registerExchange("weaponsmith", "vc_smith_guard",
+            "Is the watch well-armed?", 0, 200,
+            node("Well enough. I keep the grindstone going. But I'd sleep better with more iron in the armory.",
+                "Sleep well anyway.",
+                option("How much more iron?",
+                    "Twenty ingots would settle my nerves. Forty would let me sleep through a thunderstorm. I haven't slept through a thunderstorm since I took this post.",
+                    "I'll keep an eye out for iron.")));
 
-        // Librarian: castle history
-        registerDialogue("librarian", "vc_lib_history",
-            Component.literal("What do you know about this castle's history?"), 10, 200,
-            Component.literal("Records don't go back far enough. Somebody built this place, though — the stonework's too good for us. Military, maybe. The ruins nearby look the same."));
+        registerExchange("weaponsmith", "vc_smith_raids",
+            "Has the castle ever been attacked?", 30, 200,
+            node("Once. Pillagers came from the east. The walls held. That's the thing about stone — it doesn't care how angry you are.",
+                "Stone doesn't care. Ha.",
+                option("Were you here for it?",
+                    "On the wall, second night. You learn what you're made of up there. Turns out I'm made of the same thing as everyone: fear, and a reason to stay anyway.",
+                    "Glad the walls held.")));
 
-        registerDialogue("librarian", "vc_lib_ruins",
-            Component.literal("Tell me about the ruins nearby."), 40, 200,
-            Component.literal("The old fortress? Dangerous. Full of undead. But the stonework matches ours. Same builders, different fate. I'd love to get a closer look, but... no."));
+        registerExchange("librarian", "vc_lib_history",
+            "What do you know about this castle's history?", 10, 200,
+            node("Records don't go back far enough. Somebody built this place, though — the stonework's too good for us. Military, maybe. The ruins nearby look the same.",
+                "Thanks, keeper.",
+                option("Military? Built against what?",
+                    "No record says. But count the arrow slits on the south face, then look what direction they aim. Somebody expected trouble from the water. There is no water.",
+                    "No water. Hm.")));
 
-        // Cleric: talks about the fallen
-        registerDialogue("cleric", "vc_cleric_zombie",
-            Component.literal("Are there really zombie villagers in the ruins?"), 20, 200,
-            Component.literal("They used to live here. When the old fortress fell, not everyone got out. They're still in there, wandering. A golden apple and a splash of weakness... we could bring them back."));
+        registerExchange("librarian", "vc_lib_ruins",
+            "Tell me about the ruins nearby.", 40, 200,
+            node("The old fortress? Dangerous. Full of undead. But the stonework matches ours. Same builders, different fate. I'd love to get a closer look, but... no.",
+                "Best from a distance, then.",
+                option("I could escort you sometime.",
+                    "*stares* You're serious. I'd need a week to prepare. Two. And you'd have to promise not to rush me past the inscriptions. Everyone rushes me past the inscriptions.",
+                    "No rushing. Promised.")));
 
-        // Fletcher: tower watch
-        registerDialogue("fletcher", "vc_fletcher_tower",
-            Component.literal("How's the view from the towers?"), 0, 200,
-            Component.literal("On a clear day you can see the old ruins from up there. The guards watch the horizon. Arrows carry further from height, too."));
+        registerExchange("cleric", "vc_cleric_zombie",
+            "Are there really zombie villagers in the ruins?", 20, 200,
+            node("They used to live here. When the old fortress fell, not everyone got out. They're still in there, wandering. A golden apple and a splash of weakness... we could bring them back.",
+                "Maybe someday.",
+                option("Would you come along, if I went?",
+                    "To the ruins? I've asked myself that for years. If you're truly going, bring me back the names from the door lintels. I can do the rest from here. The apples are the easy part.",
+                    "Names from the lintels.")));
 
-        // Farmer: garrison life
-        registerDialogue("farmer", "vc_farmer_feed",
-            Component.literal("Is it hard feeding the whole watch?"), 10, 200,
-            Component.literal("Feeding this many people wasn't the plan. The watch, the smith, the horses... but they keep us safe, so I keep planting."));
+        registerExchange("fletcher", "vc_fletcher_tower",
+            "How's the view from the towers?", 0, 200,
+            node("On a clear day you can see the old ruins from up there. The guards watch the horizon. Arrows carry further from height, too.",
+                "Keep watching.",
+                option("What does the horizon look like lately?",
+                    "Quiet. Too quiet, the young ones say. But I've watched that line for years. Quiet is what winning looks like. Nobody believes me because it's boring.",
+                    "Here's to boring.")));
+
+        registerExchange("farmer", "vc_farmer_feed",
+            "Is it hard feeding the whole watch?", 10, 200,
+            node("Feeding this many people wasn't the plan. The watch, the smith, the horses... but they keep us safe, so I keep planting.",
+                "Keep planting.",
+                option("How do you manage it?",
+                    "Rotation, prayer, and the watch eats what's grown, not what they'd like. The horses complain less than the guards. Take from that what you will.",
+                    "The horses have manners.")));
 
         // Grief dialogue: surfaces when a castle villager has recently died
         registerDialogue("mason", "vc_grief_mason",
@@ -405,9 +450,43 @@ public class VillageQuestsIntegration {
             Component.literal("One less mouth to feed. That's the wrong way to think about it. But I thought it."));
 
         // Armorer: talks about equipment
-        registerDialogue("armorer", "vc_armorer_watch",
-            Component.literal("Do the tower guards have good armor?"), 0, 200,
-            Component.literal("Good enough for arrows. Not enough for a full siege. I keep the blast furnace running day and night, but iron doesn't grow on trees."));
+        registerExchange("armorer", "vc_armorer_watch",
+            "Do the tower guards have good armor?", 0, 200,
+            node("Good enough for arrows. Not enough for a full siege. I keep the blast furnace running day and night, but iron doesn't grow on trees.",
+                "Iron doesn't grow. Right.",
+                option("What would a full siege need?",
+                    "Plate for thirty, shields for the wall line, and a second furnace. Or no siege. I'm pouring my hopes into the last one.",
+                    "Option three. Agreed.")));
+    }
+
+    /** Reply-tree node for the exchange API: villager line, closing button, follow-up options. */
+    @SafeVarargs
+    private static java.util.Map<String, Object> node(String text, String walkAway, java.util.Map<String, Object>... options) {
+        java.util.Map<String, Object> n = new java.util.HashMap<>();
+        n.put("text", text);
+        if (walkAway != null) n.put("walkAway", walkAway);
+        if (options.length > 0) n.put("options", new ArrayList<>(java.util.Arrays.asList(options)));
+        return n;
+    }
+
+    /** A player follow-up: its button label plus the node it leads to. */
+    @SafeVarargs
+    private static java.util.Map<String, Object> option(String label, String text, String walkAway, java.util.Map<String, Object>... options) {
+        java.util.Map<String, Object> n = node(text, walkAway, options);
+        n.put("label", label);
+        return n;
+    }
+
+    private static void registerExchange(String profession, String optionId, String question,
+                                          int minRep, int maxRep, java.util.Map<String, Object> tree) throws Exception {
+        if (registerExchangeMethod == null) {
+            // Older village-quests: fall back to the one-shot form, keeping the answer.
+            registerDialogue(profession, optionId, Component.literal(question), minRep, maxRep,
+                Component.literal(String.valueOf(tree.get("text"))));
+            return;
+        }
+
+        registerExchangeMethod.invoke(null, profession, optionId, question, minRep, maxRep, tree);
     }
 
     private static void registerDialogue(String profession, String optionId,

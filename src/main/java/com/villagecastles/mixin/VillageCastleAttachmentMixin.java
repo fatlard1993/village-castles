@@ -3,6 +3,7 @@ package com.villagecastles.mixin;
 import com.villagecastles.VillageCastles;
 import com.villagecastles.util.StructureHelper;
 import com.villagecastles.worldgen.CastleGroundsPiece;
+import com.villagecastles.worldgen.VillagerCastlePiece;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.Registries;
@@ -107,17 +108,6 @@ public class VillageCastleAttachmentMixin {
     private static final int CLEARANCE = 2;
 
     /**
-     * The direction the entrance faces in unrotated template space. Every castle generator
-     * builds its main gatehouse on the south wall
-     * ({@code gateGenerator.generate(world, southGatePos, Direction.SOUTH)} in
-     * CastleGenerator, for MEDIUM and LARGE, and a south fence-gate entrance for SMALL), and
-     * StructureExporter cuts the doorway by scanning inward from the template's max Z. A
-     * voxel sweep of all 15 exported NBTs agrees: the +Z wall plane has at least as many
-     * openings as any other on every template, and strictly more on 10 of 15.
-     */
-    private static final Direction TEMPLATE_ENTRANCE = Direction.SOUTH;
-
-    /**
      * Site score at or below which a side is taken immediately. The score is the height
      * spread across the footprint plus {@link #WATER_PENALTY} per sample standing in water
      * deeper than {@link #MAX_WATER_DEPTH}, so it reads in blocks-of-ugliness.
@@ -180,21 +170,13 @@ public class VillageCastleAttachmentMixin {
         // the point: a castle is only a landmark if most of the map does not have one.
         if (random.nextInt(100) >= CASTLE_CHANCE_PERCENT) return;
 
-        String size = pickCastleSize(random);
-        String structureId = "village-castles:" + biome + "/castle_" + size;
-        if (!StructureHelper.structureNbtExists(biome + "/castle_" + size)) {
-            VillageCastles.LOGGER.warn("NBT missing: {}", structureId);
-            return;
-        }
-
-        Registry<StructureProcessorList> processorRegistry = context.registryAccess()
-            .lookupOrThrow(Registries.PROCESSOR_LIST);
-        Optional<Holder.Reference<StructureProcessorList>> processorOpt =
-            processorRegistry.get(Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "castle_aging"));
-
-        StructurePoolElement element = processorOpt.isPresent()
-            ? StructurePoolElement.single(structureId, processorOpt.get()).apply(StructureTemplatePool.Projection.RIGID)
-            : StructurePoolElement.single(structureId).apply(StructureTemplatePool.Projection.RIGID);
+        // Procedural sizes: the same 40/35/25 rarity roll the NBT era used, but the castle is
+        // now drawn by the villager designer at placement time - no template, no aging pass
+        // (these are new-built), no polish debt.
+        com.villagecastles.generator.villager.VillagerCastleDesigner.Size size =
+            com.villagecastles.generator.villager.VillagerCastleDesigner.Size.byId(
+                pickCastleSize(random));
+        long castleSeed = random.nextLong();
 
         // The ASSEMBLED village bounding box: every street/house/farm piece the jigsaw
         // expansion added to the collector. At @At("RETURN") this is complete. Using the
@@ -220,15 +202,14 @@ public class VillageCastleAttachmentMixin {
 
         for (Direction side : sides) {
             Placement placement = planPlacement(
-                element, structureTemplateManager, chunkGenerator, heightLimitView, context,
+                size, chunkGenerator, heightLimitView, context,
                 villageBox, centerX, centerZ, side);
             if (placement == null) continue;
 
             VillageCastles.LOGGER.debug("Castle site candidate {} score={} (terrain spread {}, wet samples {})",
                 side, placement.score(), placement.terrainDelta(), placement.wetSamples());
             if (placement.score() <= GOOD_SITE_SCORE) {
-                place(collector, structureTemplateManager, element, liquidSettings,
-                    placement, biome, size, villageBox, processorOpt.isPresent());
+                place(collector, context, placement, biome, size, villageBox, castleSeed);
                 return;
             }
             // Too lumpy or too wet for a clean sit-down, but remember the best reject: a castle
@@ -241,8 +222,7 @@ public class VillageCastleAttachmentMixin {
         }
 
         if (fallback != null && fallback.score() <= WORST_ACCEPTABLE_SCORE) {
-            place(collector, structureTemplateManager, element, liquidSettings,
-                fallback, biome, size, villageBox, processorOpt.isPresent());
+            place(collector, context, fallback, biome, size, villageBox, castleSeed);
             return;
         }
 
@@ -260,7 +240,7 @@ public class VillageCastleAttachmentMixin {
      * {@code score} is the footprint height spread plus {@link #WATER_PENALTY} per sample
      * standing in deep water; lower is better.
      */
-    private record Placement(Direction side, Rotation rotation, BlockPos anchor, BoundingBox box,
+    private record Placement(Direction side, BlockPos center, BoundingBox box,
                              int terrainDelta, int wetSamples) {
         int score() {
             return terrainDelta + wetSamples * WATER_PENALTY;
@@ -282,8 +262,7 @@ public class VillageCastleAttachmentMixin {
      * class of bug.
      */
     private static Placement planPlacement(
-            StructurePoolElement element,
-            StructureTemplateManager structureTemplateManager,
+            com.villagecastles.generator.villager.VillagerCastleDesigner.Size size,
             ChunkGenerator chunkGenerator,
             LevelHeightAccessor heightLimitView,
             Structure.GenerationContext context,
@@ -291,12 +270,10 @@ public class VillageCastleAttachmentMixin {
             int centerX, int centerZ,
             Direction side) {
 
-        // Turn the castle so its gatehouse looks back at the village it belongs to.
-        Rotation rotation = rotationSoEntranceFaces(side.getOpposite());
-
-        BoundingBox probe = element.getBoundingBox(structureTemplateManager, BlockPos.ZERO, rotation);
-        int width = probe.getXSpan();
-        int depth = probe.getZSpan();
+        // A procedural castle is a square of the size's declared clearance; the designer turns
+        // the build toward the entrance itself, so no rotation ever touches block states.
+        int width = size.clearance;
+        int depth = size.clearance;
 
         int minX;
         int minZ;
@@ -343,9 +320,11 @@ public class VillageCastleAttachmentMixin {
         }
 
         // Sit on the HIGHEST ground under the footprint so no part of the castle is buried;
-        // CastleGroundsPiece fills the gap down to the ground on the low side.
-        BlockPos anchor = new BlockPos(minX - probe.minX(), highest - probe.minY(), minZ - probe.minZ());
-        BoundingBox box = element.getBoundingBox(structureTemplateManager, anchor, rotation);
+        // CastleGroundsPiece fills the gap down to the ground on the low side. The center is
+        // the designer's anchor; the box is the footprint it will draw within.
+        BlockPos center = new BlockPos(minX + width / 2, highest - 1, minZ + depth / 2);
+        BoundingBox box = new BoundingBox(minX, highest - 8, minZ,
+            minX + width - 1, highest + 30, minZ + depth - 1);
 
         // X/Z-only overlap guard. With a positive CLEARANCE this cannot trip, but a template
         // whose box does not match its declared size would otherwise plough through houses.
@@ -356,53 +335,43 @@ public class VillageCastleAttachmentMixin {
             return null;
         }
 
-        return new Placement(side, rotation, anchor, box, highest - lowest, wetSamples);
+        return new Placement(side, center, box, highest - lowest, wetSamples);
     }
 
     private static void place(
             StructurePiecesBuilder collector,
-            StructureTemplateManager structureTemplateManager,
-            StructurePoolElement element,
-            LiquidSettings liquidSettings,
+            Structure.GenerationContext context,
             Placement placement,
-            String biome, String size,
+            String biome,
+            com.villagecastles.generator.villager.VillagerCastleDesigner.Size size,
             BoundingBox villageBox,
-            boolean aging) {
+            long castleSeed) {
 
-        PoolElementStructurePiece castlePiece = new PoolElementStructurePiece(
-            structureTemplateManager,
-            element,
-            placement.anchor(),
-            1,
-            placement.rotation(),
-            placement.box(),
-            liquidSettings
-        );
+        // The gatehouse looks back at the village it belongs to.
+        Direction entrance = placement.side().getOpposite();
+        var site = new com.villagecastles.generator.villager.VillagerCastleDesigner.Site(
+            placement.center(), size, entrance);
+
+        // The terrain the designer conforms to, sampled through the chunk generator and carried
+        // on the piece - the same discipline the ancient castles use.
+        com.villagecastles.generator.ancient.HeightSampler sampler =
+            com.villagecastles.generator.ancient.HeightSampler.worldgen(context);
+        com.villagecastles.generator.ancient.HeightField field =
+            com.villagecastles.generator.ancient.LandformSurvey.sampleField(sampler,
+                new com.villagecastles.generator.ancient.LandformSurvey.Site(
+                    com.villagecastles.generator.ancient.Landform.HILLTOP,
+                    placement.center(), size.clearance / 2, entrance));
+
+        VillagerCastlePiece castlePiece = new VillagerCastlePiece(site, biome, field, castleSeed);
         collector.addPiece(castlePiece);
 
         // Added AFTER the castle so its postProcess runs after the castle's blocks are down in
         // each chunk: StructureStart.placeInChunk walks PiecesContainer.pieces() in list order.
-        collector.addPiece(new CastleGroundsPiece(placement.box(), biome));
+        collector.addPiece(new CastleGroundsPiece(castlePiece.getBoundingBox(), biome));
 
-        VillageCastles.LOGGER.info("Attached {} {} castle at {} facing {} (village box {}, site score {}, aging: {})",
-            size, biome, placement.anchor().toShortString(), placement.side().getOpposite(),
-            villageBox, placement.score(), aging ? "yes" : "no");
-    }
-
-    /**
-     * The rotation that makes the template's entrance point at {@code target}.
-     *
-     * <p>{@code Rotation.CLOCKWISE_90.rotate(d)} is {@code d.getClockWise()},
-     * {@code CLOCKWISE_180} is {@code d.getOpposite()} and {@code COUNTERCLOCKWISE_90} is
-     * {@code d.getCounterClockWise()} (26.3-snapshot-8 bytecode), so this is just a search
-     * over the four rotations for the one that maps {@link #TEMPLATE_ENTRANCE} onto the
-     * direction we want.
-     */
-    private static Rotation rotationSoEntranceFaces(Direction target) {
-        for (Rotation rotation : Rotation.values()) {
-            if (rotation.rotate(TEMPLATE_ENTRANCE) == target) return rotation;
-        }
-        return Rotation.NONE;
+        VillageCastles.LOGGER.info("Attached {} {} villager castle at {} facing {} (village box {}, site score {})",
+            size.id(), biome, placement.center().toShortString(), entrance,
+            villageBox, placement.score());
     }
 
     private static String detectVillageBiome(PoolElementStructurePiece firstPiece) {

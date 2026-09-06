@@ -10,10 +10,8 @@ import net.minecraft.world.level.levelgen.structure.StructureType;
 import net.minecraft.world.level.levelgen.structure.pieces.StructurePieceType;
 
 /**
- * Registers the CastleStructure type and CastlePiece type into Minecraft's
- * built-in (synchronous) registries.
- *
- * <p>The Structure instance and StructureSet instance are provided via JSON data files
+ * Registers the castle structure and piece types into Minecraft's built-in (synchronous)
+ * registries. The Structure and StructureSet instances come from JSON data files
  * (dynamic/datapack registries): not registered here.
  *
  * <p>Call {@link #register()} from {@link VillageCastles#onInitialize()}.
@@ -22,15 +20,6 @@ public final class CastleStructureRegistration {
 
     private CastleStructureRegistration() {}
 
-    /** The StructureType codec-holder, registered under "village-castles:castle". */
-    public static StructureType<CastleStructure> CASTLE_STRUCTURE_TYPE;
-
-    /**
-     * The StructurePieceType deserializer, registered under "village-castles:castle_piece".
-     * Used to reload CastlePiece instances from saved chunk NBT.
-     */
-    public static StructurePieceType CASTLE_PIECE_TYPE;
-
     /**
      * The StructurePieceType deserializer for {@link CastleGroundsPiece}, registered under
      * "village-castles:castle_grounds". Attached alongside every village-attached castle to
@@ -38,25 +27,38 @@ public final class CastleStructureRegistration {
      */
     public static StructurePieceType CASTLE_GROUNDS_PIECE_TYPE;
 
-    public static void register() {
-        CASTLE_PIECE_TYPE = Registry.register(
-            BuiltInRegistries.STRUCTURE_PIECE,
-            Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "castle_piece"),
-            (context, tag) -> new CastlePiece(context.structureTemplateManager(), tag)
-        );
+    /** The StructureType for procedurally generated ancient castles, "village-castles:ancient_castle". */
+    public static StructureType<AncientCastleStructure> ANCIENT_CASTLE_STRUCTURE_TYPE;
 
+    /** The StructurePieceType deserializer for {@link AncientCastlePiece}. */
+    public static StructurePieceType ANCIENT_CASTLE_PIECE_TYPE;
+
+    /** The StructurePieceType deserializer for {@link VillagerCastlePiece}. */
+    public static StructurePieceType VILLAGER_CASTLE_PIECE_TYPE;
+
+    public static void register() {
         CASTLE_GROUNDS_PIECE_TYPE = Registry.register(
             BuiltInRegistries.STRUCTURE_PIECE,
             Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "castle_grounds"),
             (context, tag) -> new CastleGroundsPiece(tag)
         );
 
-        // 2. Register the StructureType so JSON data files referencing
-        //    "type": "village-castles:castle" can be deserialized.
-        CASTLE_STRUCTURE_TYPE = Registry.register(
+        ANCIENT_CASTLE_PIECE_TYPE = Registry.register(
+            BuiltInRegistries.STRUCTURE_PIECE,
+            Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "ancient_castle_piece"),
+            (context, tag) -> new AncientCastlePiece(tag)
+        );
+
+        VILLAGER_CASTLE_PIECE_TYPE = Registry.register(
+            BuiltInRegistries.STRUCTURE_PIECE,
+            Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "villager_castle_piece"),
+            (context, tag) -> new VillagerCastlePiece(tag)
+        );
+
+        ANCIENT_CASTLE_STRUCTURE_TYPE = Registry.register(
             BuiltInRegistries.STRUCTURE_TYPE,
-            Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "castle"),
-            () -> CastleStructure.CODEC
+            Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "ancient_castle"),
+            () -> AncientCastleStructure.CODEC
         );
 
         // Mark both registries as OPTIONAL so clients without village-castles installed

@@ -136,11 +136,12 @@ public enum BiomePalette {
 
     SNOWY(
         "snowy",
-        "Ice Keep",
-        // Primary building materials
-        Blocks.PACKED_ICE,
-        Blocks.BLUE_ICE,
+        "Winter Fastness",
+        // Primary building materials: stone against the cold, never ice - ice walls read as a
+        // gimmick, and a keep the garrison could melt is no keep.
+        Blocks.COBBLESTONE,
         Blocks.STONE_BRICKS,
+        Blocks.POLISHED_ANDESITE,
         // Wood types
         Blocks.SPRUCE_PLANKS,
         Blocks.SPRUCE_LOG,
@@ -151,12 +152,12 @@ public enum BiomePalette {
         Blocks.SPRUCE_DOOR,
         Blocks.SPRUCE_TRAPDOOR,
         // Roof and accent
-        Blocks.SNOW_BLOCK,
+        Blocks.SPRUCE_PLANKS,
         Blocks.STONE_BRICK_STAIRS,
         Blocks.STONE_BRICK_SLAB,
         Blocks.STONE_BRICK_WALL,
         // Floor
-        Blocks.PACKED_ICE,
+        Blocks.SPRUCE_PLANKS,
         // Decoration
         Blocks.IRON_BARS,
         Blocks.SOUL_LANTERN,
@@ -289,11 +290,10 @@ public enum BiomePalette {
      * Block to underfill a castle's footprint with when it lands over a drop.
      *
      * <p>Normally the palette's primary wall material, so the skirt reads as that castle's own
-     * foundation. SNOWY is the exception: its primary is packed ice, which is translucent and
-     * slippery and makes a terrible plinth, so it falls back to its stone accent.
+     * foundation.
      */
     public BlockState getFoundationState() {
-        return (this == SNOWY ? accentWall : primaryWall).defaultBlockState();
+        return primaryWall.defaultBlockState();
     }
 
     /**
