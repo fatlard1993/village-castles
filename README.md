@@ -90,7 +90,13 @@ cleric may send you out to it for a bone. Also wired reflectively; either mod ru
 
 ## Screenshots
 
-`screenshots/ancient/` holds a gallery of the seven ancient landform types.
+![An eyrie: a lone black tower on a jagged peak, beside the snow line](screenshots/ancient/eyrie.png)
+![A plateau citadel, walled along the rim it stands on](screenshots/ancient/plateau-citadel.png)
+![A hold built against and into a cliff face](screenshots/ancient/cliff-hold.png)
+![Watch forts standing over a plains village](screenshots/villager/plains-forts.png)
+
+`screenshots/ancient/` holds the rest of the gallery: one for each of the seven ancient landform
+types, and `screenshots/villager/` the keeps and seats a village builds for itself.
 
 ## Development
 
