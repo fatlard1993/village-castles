@@ -11,8 +11,8 @@ template. Two lineages share one architectural grammar:
   beacon eyrie. One civilization's deepslate-and-slate masonry everywhere, dressed in a regional
   accent stone (tuff, cut sandstone, mud brick, mossy stone brick, calcite), weathered by a
   per-site condition roll: ruined 50% / crumbling 35% / weathered-but-standing 15%. The rarer,
-  more intact finds carry the best loot and the heaviest skeleton garrison; ruins offer
-  archaeology digs instead.
+  more intact finds carry the best loot and the heaviest undead garrison (skeletons; strays in the
+  cold, husks in the desert); ruins offer archaeology digs instead.
 - **Villager castles** are what villagers raised in imitation of the ruins they found: the same
   grammar - keeps with corner pilasters and string courses, merlon-and-slab coping, gatehouse
   arches - spoken in the biome's own timber and stone, new-built, furnished, torch-lit, and
@@ -35,15 +35,21 @@ hole is helical, following the walk rather than opening the floor out into somet
 
 ## Commands
 
-- `/village-castles ancient <landform> [condition] [seed]` - raise an ancient castle at your
+All run by a player. `ancient`, `ancientscan` and `villager` need operator permission (level 2);
+`list` and `help` are open to everyone.
+
+- `/village-castles ancient <landform> [condition [seed]]` - raise an ancient castle at your
   position through the real worldgen pipeline; the same seed reproduces the same castle
 - `/village-castles ancientscan` - run the landform classifier where you stand and print every
   metric plus the verdict (the threshold-tuning instrument)
-- `/village-castles villager <size> [biome] [seed]` - raise a villager castle at your position
+- `/village-castles villager <size> [biome [seed]]` - raise a villager castle at your position
+  (biome defaults to the one you stand in)
 - `/village-castles list` - the vocabulary (landforms, conditions, sizes, biomes)
+- `/village-castles help` - the syntax above
 
 **Landforms**: `plateau`, `hilltop`, `cliff_face`, `island`, `headland`, `ridge`, `eyrie`
-**Conditions**: `ruined`, `crumbling`, `weathered` (default: rolled from the seed)
+**Conditions**: `ruined`, `crumbling`, `weathered` (default: rolled from the seed); `pristine`, the
+villager castles' undecayed state, is also accepted
 **Sizes**: `small`, `medium`, `large` · **Biomes**: `plains`, `desert`, `savanna`, `taiga`, `snowy`
 
 ## How it generates
@@ -71,6 +77,16 @@ Village Builder places the resulting plan. All three share one limit group
 village that *generated* with a castle is never offered another. The integration is wired
 reflectively - either mod runs alone; an older Village Builder logs one warning and offers no
 castles.
+
+## Village Quests integration
+
+When [Village Quests](../village-quests) is installed, a village that has a castle talks about it,
+and only such a village: masons, fletchers, farmers, librarians and toolsmiths (and occasionally
+anyone) ask for small errands for the keep - stone for the wall in the local material, arrows,
+bread, a book, iron for the gate, torches - and several professions have a question about the
+wall, the keep, the golem or the one raid, offered some of the time. Where an ancient castle can
+be located from the village, the cleric, mason and librarian can speak of it, and a trusted
+cleric may send you out to it for a bone. Also wired reflectively; either mod runs alone.
 
 ## Screenshots
 

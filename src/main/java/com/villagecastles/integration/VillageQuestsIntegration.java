@@ -2,41 +2,98 @@ package com.villagecastles.integration;
 
 import com.villagecastles.VillageCastles;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.world.item.Items;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.HolderSet;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.npc.villager.Villager;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
+import net.minecraft.world.level.levelgen.structure.Structure;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Optional integration with the Village Quests mod.
- * Registers castle-themed quests and dialogue that make villages with castles
- * feel like fortified settlements with garrisons, armories, and history.
+ * What a village with a castle has to say about it, through Village Quests.
  *
- * Uses reflection to avoid compile-time dependency on village-quests.
+ * <p>Gated on the castle being there. The first version of this registered its
+ * quests and questions for every mason and fletcher in the world, so a village
+ * with no wall had a mason asking for stone to shore up the wall, and four in
+ * five villages have no wall. Every offer here first asks the census whether
+ * this village generated with a keep; the questions about the wall itself only
+ * come up when the player is standing near it, and the questions about the old
+ * places only in a village that actually has one within a morning's walk.
  *
- * Quest design philosophy:
- * - Quests should feel like they BELONG in a castle village
- * - They reference walls, towers, guards, garrisons, ruins
- * - They give professions castle-specific roles (mason repairs walls, fletcher stocks towers)
- * - The cleric quest ties directly to zombie villager spawners in ruins
+ * <p>Vanilla nouns. There is no garrison, no watch, no recruits: the villagers
+ * who sleep in the keep are villagers, the thing that walks the wall is the
+ * iron golem, the one attack anyone remembers was a raid, and what stirs in the
+ * ancient ruins is skeletons and whatever keeps them coming. The castle is a
+ * building the village has, not a faction the village is.
+ *
+ * <p>Reflection throughout, so this mod loads without Village Quests. The
+ * verbatim-ask hook on fetch quests is optional; without it the errand still
+ * works, in the host's generic words.
  */
 public class VillageQuestsIntegration {
 
     private static boolean initialized = false;
 
-    // Reflection references
-    private static Method registerProfessionQuestMethod;
-    private static Method registerUniversalQuestMethod;
-    private static Method registerProfessionDialogueMethod;
-    private static Method registerDialogueHandlerMethod;
-    private static Method registerExchangeMethod; // null on older village-quests
-    private static Constructor<?> fetchQuestConstructor;
-    private static Constructor<?> dialogueOptionConstructor;
+    private static Class<?> questGeneratorClass;
+    private static Class<?> dialogueProviderClass;
+    private static Class<?> richHandlerClass;
+    private static Method registerProfessionQuest;
+    private static Method registerUniversalQuest;
+    private static Method registerProfessionDialogue;
+    private static Method registerRichHandler;
+    private static Method replyOf;
+    private static Method replyOption;
+    private static Method replyWalkAway;
+    private static Method withAsk;
+    private static Constructor<?> fetchQuest;
+    private static Constructor<?> dialogueOption;
+
+    private static final ResourceKey<Structure> ANCIENT_CASTLE = ResourceKey.create(Registries.STRUCTURE,
+        Identifier.fromNamespaceAndPath(VillageCastles.MOD_ID, "ancient_castle"));
+
+    /** How far from the castle's footprint still counts as standing by it. */
+    private static final int NEAR_CASTLE_BLOCKS = 20;
+
+    /** How far out, in chunks, a village looks for an old place to talk about. */
+    private static final int RUINS_SEARCH_CHUNKS = 32;
+
+    /**
+     * The same reach as the search is asked for it. The locate search counts in the structure
+     * set's placement cells, 48 chunks each for the ancient castle, not in chunks: asked for 32 it
+     * looked some fifteen hundred chunks out. One cell covers the reach; anything it finds
+     * further off than the reach is not near enough to talk about.
+     */
+    private static final int RUINS_SEARCH_CELLS = 1;
+
+    /** A castle question comes up sometimes. One that is always on the list is a menu, not a remark. */
+    private static final double QUESTION_CHANCE = 0.35;
+
+    private static final long CASTLE_CACHE_TICKS = 24000L;
+
+    private record Sighting(long tick, BoundingBox box) {}
+
+    private static final Map<UUID, Sighting> CASTLES = new ConcurrentHashMap<>();
+    private static final Map<Long, Optional<BlockPos>> RUINS = new ConcurrentHashMap<>();
 
     public static void init() {
         if (initialized) return;
@@ -47,474 +104,358 @@ public class VillageQuestsIntegration {
             return;
         }
 
-        VillageCastles.LOGGER.info("Village Quests detected, registering castle quests...");
-
         try {
-            // QuestRegistry API
-            Class<?> questRegistryClass = Class.forName("justfatlard.village_quests.api.QuestRegistry");
-            Class<?> questGeneratorClass = Class.forName("justfatlard.village_quests.api.QuestRegistry$QuestGenerator");
-            registerProfessionQuestMethod = questRegistryClass.getMethod(
-                "registerProfessionQuest", String.class, questGeneratorClass);
-            registerUniversalQuestMethod = questRegistryClass.getMethod(
-                "registerUniversalQuest", questGeneratorClass);
+            Class<?> questRegistry = Class.forName("justfatlard.village_quests.api.QuestRegistry");
+            questGeneratorClass = Class.forName("justfatlard.village_quests.api.QuestRegistry$QuestGenerator");
+            registerProfessionQuest = questRegistry.getMethod("registerProfessionQuest", String.class, questGeneratorClass);
+            registerUniversalQuest = questRegistry.getMethod("registerUniversalQuest", questGeneratorClass);
 
-            // FetchItemQuest constructor
             Class<?> fetchQuestClass = Class.forName("justfatlard.village_quests.quest.FetchItemQuest");
-            fetchQuestConstructor = fetchQuestClass.getConstructor(
-                String.class, UUID.class,
-                net.minecraft.world.item.Item.class, int.class,
-                int.class, String.class);
-
-            // DialogueRegistry API
-            Class<?> dialogueRegistryClass = Class.forName("justfatlard.village_quests.api.DialogueRegistry");
-            Class<?> dialogueProviderClass = Class.forName("justfatlard.village_quests.api.DialogueRegistry$DialogueProvider");
-            Class<?> dialogueHandlerClass = Class.forName("justfatlard.village_quests.api.DialogueRegistry$DialogueHandler");
-            registerProfessionDialogueMethod = dialogueRegistryClass.getMethod(
-                "registerProfessionDialogue", String.class, dialogueProviderClass);
-            registerDialogueHandlerMethod = dialogueRegistryClass.getMethod(
-                "registerDialogueHandler", String.class, dialogueHandlerClass);
-
-            // DialogueOption constructor
-            Class<?> dialogueOptionClass = Class.forName("justfatlard.village_quests.api.DialogueRegistry$DialogueOption");
-            dialogueOptionConstructor = dialogueOptionClass.getConstructor(
-                String.class, Component.class, int.class, int.class);
-
-            // Exchange API (newer village-quests). Absent on older versions;
-            // dialogue then degrades to the one-shot question/answer form
-            // instead of aborting the whole integration.
+            fetchQuest = fetchQuestClass.getConstructor(String.class, UUID.class, Item.class, int.class, int.class);
             try {
-                registerExchangeMethod = dialogueRegistryClass.getMethod("registerExchange",
-                    String.class, String.class, String.class, int.class, int.class, java.util.Map.class);
+                withAsk = fetchQuestClass.getMethod("withAsk", String.class);
             } catch (NoSuchMethodException older) {
-                VillageCastles.LOGGER.info("Village Quests without exchange API; castle dialogue stays one-shot");
+                VillageCastles.LOGGER.info("Village Quests without verbatim asks; castle errands use the generic wording");
             }
 
-            registerCastleQuests();
-            registerCastleDialogue();
+            Class<?> dialogueRegistry = Class.forName("justfatlard.village_quests.api.DialogueRegistry");
+            dialogueProviderClass = Class.forName("justfatlard.village_quests.api.DialogueRegistry$DialogueProvider");
+            richHandlerClass = Class.forName("justfatlard.village_quests.api.DialogueRegistry$RichDialogueHandler");
+            Class<?> replyClass = Class.forName("justfatlard.village_quests.api.DialogueRegistry$Reply");
+            registerProfessionDialogue = dialogueRegistry.getMethod("registerProfessionDialogue", String.class, dialogueProviderClass);
+            registerRichHandler = dialogueRegistry.getMethod("registerRichDialogueHandler", String.class, richHandlerClass);
+            replyOf = replyClass.getMethod("of", String.class);
+            replyOption = replyClass.getMethod("option", String.class, richHandlerClass);
+            replyWalkAway = replyClass.getMethod("walkAway", String.class);
+            dialogueOption = Class.forName("justfatlard.village_quests.api.DialogueRegistry$DialogueOption")
+                .getConstructor(String.class, Component.class, int.class, int.class);
 
-            VillageCastles.LOGGER.info("Registered castle quests and dialogue with Village Quests");
-
-        } catch (ClassNotFoundException e) {
-            VillageCastles.LOGGER.warn("Village Quests API class not found: {}", e.getMessage());
-        } catch (NoSuchMethodException e) {
-            VillageCastles.LOGGER.warn("Village Quests API method not found (version mismatch?): {}", e.getMessage());
+            registerQuests();
+            registerDialogue();
+            VillageCastles.LOGGER.info("Registered castle errands and questions with Village Quests");
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            VillageCastles.LOGGER.warn("Village Quests API not as expected (version mismatch?): {}", e.getMessage());
         } catch (Exception e) {
             VillageCastles.LOGGER.error("Failed to register with Village Quests: {}", e.getMessage());
         }
     }
 
-
     // ---------------------------------------------------------------
-    // Biome & Weather Helpers
+    // Where things are
     // ---------------------------------------------------------------
 
-    private static String classifyBiome(net.minecraft.world.entity.npc.villager.Villager villager) {
-        if (!(villager.level() instanceof net.minecraft.server.level.ServerLevel sw)) return "plains";
-        String path = sw.getBiome(villager.blockPosition()).unwrapKey()
+    /** The castle in this villager's village, or null. Asked once a day per villager. */
+    private static BoundingBox castleOf(Villager villager) {
+        if (!(villager.level() instanceof ServerLevel world)) return null;
+
+        long now = world.getGameTime();
+        Sighting seen = CASTLES.get(villager.getUUID());
+        if (seen != null && now - seen.tick() < CASTLE_CACHE_TICKS) return seen.box();
+
+        BoundingBox box = CastleCensus.nearestCastleBox(world, villager.blockPosition());
+        CASTLES.put(villager.getUUID(), new Sighting(now, box));
+        return box;
+    }
+
+    private static boolean inCastleVillage(Villager villager) {
+        return castleOf(villager) != null;
+    }
+
+    private static boolean nearCastle(Villager villager) {
+        BoundingBox box = castleOf(villager);
+        return box != null && box.inflatedBy(NEAR_CASTLE_BLOCKS).isInside(villager.blockPosition());
+    }
+
+    /**
+     * The nearest ancient castle to this village, or null. The search is the
+     * one behind the locate command, so it runs once per region and is only
+     * asked after every cheaper gate has passed.
+     */
+    private static BlockPos ruinsNear(Villager villager) {
+        if (!(villager.level() instanceof ServerLevel world)) return null;
+
+        BlockPos pos = villager.blockPosition();
+        long region = ((long) (pos.getX() >> 7) << 32) ^ ((pos.getZ() >> 7) & 0xffffffffL);
+        return RUINS.computeIfAbsent(region, key -> {
+            Optional<Holder.Reference<Structure>> holder = world.registryAccess()
+                .lookup(Registries.STRUCTURE)
+                .flatMap(registry -> registry.get(ANCIENT_CASTLE));
+            if (holder.isEmpty()) return Optional.empty();
+
+            BlockPos found = world.findNearestMapStructure(HolderSet.direct(holder.get()), pos, RUINS_SEARCH_CELLS, false);
+            int reach = RUINS_SEARCH_CHUNKS * 16;
+            if (found != null && found.distSqr(new BlockPos(pos.getX(), found.getY(), pos.getZ())) > (double) reach * reach) found = null;
+            return Optional.ofNullable(found);
+        }).orElse(null);
+    }
+
+    private static String directionTo(BlockPos from, BlockPos to) {
+        int dx = to.getX() - from.getX();
+        int dz = to.getZ() - from.getZ();
+        if (Math.abs(dx) > Math.abs(dz)) return dx > 0 ? "east" : "west";
+        return dz > 0 ? "south" : "north";
+    }
+
+    private static String biomeOf(Villager villager) {
+        if (!(villager.level() instanceof ServerLevel world)) return "plains";
+        String path = world.getBiome(villager.blockPosition()).unwrapKey()
             .map(k -> k.identifier().getPath()).orElse("");
         if (path.contains("desert")) return "desert";
-        if (path.contains("taiga")) return path.contains("snowy") ? "snowy" : "taiga";
         if (path.contains("snowy") || path.contains("ice") || path.contains("frozen")) return "snowy";
+        if (path.contains("taiga")) return "taiga";
         if (path.contains("savanna")) return "savanna";
-        if (path.contains("jungle") || path.contains("bamboo")) return "jungle";
-        if (path.contains("swamp") || path.contains("mangrove")) return "swamp";
         return "plains";
     }
 
-    private static String getWeatherFlavor(net.minecraft.world.entity.npc.villager.Villager villager) {
-        if (!(villager.level() instanceof net.minecraft.server.level.ServerLevel sw)) return null;
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
-        if (rng.nextDouble() > 0.35) return null; // 35% chance to fire
-        long time = sw.getServer().getTickCount() % 24000;
-        if (sw.isThundering()) {
-            String[] s = {"Storm weakened the north wall. ", "Lightning cracked the tower mortar. "};
-            return s[rng.nextInt(s.length)];
-        }
-        if (sw.isRaining()) {
-            String[] s = {"Water's getting into the armory. ", "Moat overflow near the east gate. "};
-            return s[rng.nextInt(s.length)];
-        }
-        if (time >= 13000) {
-            String[] s = {"Guards doubled. Still not enough. ", "Something scratching at the portcullis. "};
-            return s[rng.nextInt(s.length)];
-        }
-        if (time < 2000) return "Morning inspection. Found cracks in the foundation. ";
-        return null;
+    // ---------------------------------------------------------------
+    // Errands
+    // ---------------------------------------------------------------
+
+    @FunctionalInterface
+    private interface Errand {
+        Object offer(Villager villager, String villagerName, int reputation, Random random) throws Exception;
+    }
+
+    private static void registerQuests() throws Exception {
+        // The wall, in whatever the wall is made of here.
+        profession("mason", 0.10, 4, (villager, name, reputation, random) -> {
+            if (!inCastleVillage(villager)) return null;
+            return switch (biomeOf(villager)) {
+                case "desert" -> fetch(name, villager, Items.SANDSTONE, 8, 4,
+                    "Wind's taken the top course off the wall by the gate. Sandstone. Eight, and I'll dress it myself.");
+                case "taiga" -> fetch(name, villager, Items.SPRUCE_PLANKS, 8, 4,
+                    "The wall by the gate split where the frost got into it. Spruce planks, eight, to sister the beams.");
+                case "snowy" -> fetch(name, villager, Items.COBBLESTONE, 8, 4,
+                    "Ice heaved the wall by the gate again. Cobblestone. Eight, before it goes further.");
+                case "savanna" -> fetch(name, villager, Items.MUD_BRICKS, 8, 4,
+                    "The wall by the gate cracked in the heat. Mud bricks. Eight, and I'll pack them wet.");
+                default -> fetch(name, villager, Items.STONE_BRICKS, 8, 4,
+                    "The wall's down a course by the gate. Stone bricks. Eight would see it right.");
+            };
+        });
+
+        profession("fletcher", 0.08, 4, (villager, name, reputation, random) -> {
+            if (!inCastleVillage(villager)) return null;
+            return fetch(name, villager, Items.ARROW, 12, 4,
+                "Nobody's stood on that wall with a bow in a year, and the night somebody has to, there won't be an arrow up there. A dozen.");
+        });
+
+        profession("farmer", 0.08, 4, (villager, name, reputation, random) -> {
+            if (!inCastleVillage(villager)) return null;
+            return fetch(name, villager, Items.BREAD, 8, 4,
+                "More of us sleep in the keep now than in my house, and they all come down hungry. Bread. Eight loaves.");
+        });
+
+        profession("librarian", 0.08, 5, (villager, name, reputation, random) -> {
+            if (!inCastleVillage(villager)) return null;
+            return fetch(name, villager, Items.BOOK, 1, 5,
+                "Whoever built the keep is going to be nobody's grandfather soon. I want it written down while somebody still remembers. A book. I've the ink.");
+        });
+
+        profession("toolsmith", 0.08, 4, (villager, name, reputation, random) -> {
+            if (!inCastleVillage(villager)) return null;
+            return fetch(name, villager, Items.IRON_INGOT, 3, 4,
+                "The gate's hinges are rust and hope. Three ingots and I'll forge new ones.");
+        });
+
+        // The old place. Rare, late, and only where there is one.
+        profession("cleric", 0.06, 20, (villager, name, reputation, random) -> {
+            if (!inCastleVillage(villager)) return null;
+            BlockPos ruins = ruinsNear(villager);
+            if (ruins == null) return null;
+            String direction = directionTo(villager.blockPosition(), ruins);
+            return fetch(name, villager, Items.BONE, 1, 6,
+                "There's a place out to the " + direction + " the old ones built. Something still walks in it at night, and it isn't ours. "
+                    + "If you go, bring me a bone from it. I want to know what they were.");
+        });
+
+        // Anyone in a castle village.
+        universal(0.06, 3, (villager, name, reputation, random) -> {
+            if (!inCastleVillage(villager)) return null;
+            return fetch(name, villager, Items.TORCH, 8, 3,
+                "It's black inside the keep after dark, and dark is how things get in. Torches. Eight.");
+        });
+    }
+
+    private static Object fetch(String villagerName, Villager villager, Item item, int count, int reputationShift, String ask) throws Exception {
+        Object quest = fetchQuest.newInstance(villagerName, villager.getUUID(), item, count, reputationShift);
+        if (withAsk != null) withAsk.invoke(quest, ask);
+        return quest;
+    }
+
+    private static void profession(String profession, double chance, int minReputation, Errand errand) throws Exception {
+        registerProfessionQuest.invoke(null, profession, generator(chance, minReputation, errand));
+    }
+
+    private static void universal(double chance, int minReputation, Errand errand) throws Exception {
+        registerUniversalQuest.invoke(null, generator(chance, minReputation, errand));
+    }
+
+    private static Object generator(double chance, int minReputation, Errand errand) {
+        return Proxy.newProxyInstance(questGeneratorClass.getClassLoader(), new Class<?>[]{questGeneratorClass},
+            (proxy, method, args) -> {
+                if (!"generate".equals(method.getName())) return null;
+                int reputation = (Integer) args[2];
+                Random random = (Random) args[3];
+                if (reputation < minReputation || random.nextDouble() >= chance) return null;
+                return errand.offer((Villager) args[0], (String) args[1], reputation, random);
+            });
     }
 
     // ---------------------------------------------------------------
-    // Quest Registration
+    // Questions
     // ---------------------------------------------------------------
 
-    private static void registerCastleQuests() throws Exception {
-        // Mason: wall repair and fortification
-        registerBiomeAwareFetchQuest("mason", 32, 6, 0.15,
-            new Object[][] {
-                {"plains", Items.STONE_BRICKS, "The eastern wall section is crumbling. Need stone bricks to shore it up."},
-                {"desert", Items.SANDSTONE, "The sandstone is flaking off the east wall. Sand does that. Need more."},
-                {"taiga", Items.SPRUCE_PLANKS, "The spruce beams are splitting in the cold. Need planks to reinforce."},
-                {"snowy", Items.COBBLESTONE, "Frost heave cracks the cobble every winter. Need stone to patch before the thaw."},
-                {"savanna", Items.MUD_BRICKS, "The mud bricks crack in the dry heat. Need fresh ones."}
-            });
+    private enum Where { CASTLE_VILLAGE, NEAR_CASTLE, RUINS_NEAR }
 
-        registerFetchQuest("mason",
-            Items.COBBLESTONE, 48, 5, 0.12,
-            "Foundation's settling under the tower. Cobblestone for repairs, if you've got any.");
+    /** A villager's line, the player's exit from it, and the moves that keep it going. */
+    private record Node(String text, String walkAway, List<Branch> branches) {}
 
-        // Weaponsmith: arming the garrison
-        registerFetchQuest("weaponsmith",
-            Items.IRON_SWORD, 2, 7, 0.10,
-            "Two of my swords broke during training drills. The night watch can't patrol unarmed.");
+    private record Branch(String label, Node node) {}
 
-        registerFetchQuest("weaponsmith",
-            Items.IRON_INGOT, 6, 6, 0.12,
-            "I'm forging new pikes for the gatehouse. Iron ingots — as many as you can get.");
+    private record Topic(String id, int minReputation, Where where, String question, Node tree) {}
 
-        // Armorer: outfitting the watch
-        registerFetchQuest("armorer",
-            Items.IRON_CHESTPLATE, 1, 8, 0.08,
-            "New recruits need proper armor. Even one chestplate would help.");
+    private static Node close(String text, String walkAway) {
+        return new Node(text, walkAway, List.of());
+    }
 
-        registerFetchQuest("armorer",
-            Items.LEATHER, 8, 5, 0.12,
-            "The tower guards need new bracers. Leather — enough for the whole watch rotation.");
+    private static Node node(String text, String walkAway, Branch... branches) {
+        return new Node(text, walkAway, List.of(branches));
+    }
 
-        // Fletcher: stocking the towers
-        registerFetchQuest("fletcher",
-            Items.ARROW, 64, 5, 0.15,
-            "Tower guards are running low. A full stack should last the week.");
+    private static Branch then(String label, Node node) {
+        return new Branch(label, node);
+    }
 
-        registerFetchQuest("fletcher",
-            Items.FEATHER, 16, 4, 0.12,
-            "Got plenty of shafts and tips, but feathers... the chickens aren't cooperating.");
+    private static void registerDialogue() throws Exception {
+        topics("mason", List.of(
+            new Topic("vc_walls", 0, Where.NEAR_CASTLE, "How's the wall holding?",
+                node("Holding. That's not the same as sound. There's a course by the gate I don't like, and I check it every morning and hope loudly.",
+                    "Sounds like you've got it in hand.",
+                    then("What's wrong with it?",
+                        close("Water. It finds the one weak stone in a hundred and works at it all winter. Whoever built the old places knew a trick for that. We don't.",
+                            "Keep checking.")))),
+            new Topic("vc_mason_ruins", 20, Where.RUINS_NEAR, "The old place out there. Same stone as ours?",
+                node("Same corners. Same string course under every floor. Ours is a drawing of theirs, done from memory, by people who never went inside.",
+                    "A good drawing, then.",
+                    then("Why not go inside?",
+                        close("Because the ones who built it are gone and the ones who guard it aren't. I lay stone. I don't argue with what's under it.",
+                            "Nor would I."))))));
 
-        // Farmer: provisioning the garrison
-        registerBiomeAwareFetchQuest("farmer", 16, 5, 0.15,
-            new Object[][] {
-                {"plains", Items.BREAD, "The watch eats more than my fields can handle. Bread for the tower, if you can spare it."},
-                {"desert", Items.MELON_SLICE, "Melons are all we grow here. The watch gets through them faster than I can cut them."},
-                {"taiga", Items.POTATO, "Potatoes. Only thing the frost doesn't kill. The watch needs more."},
-                {"savanna", Items.DRIED_KELP, "Dried kelp keeps. The watch needs food that will sit in a pack."}
-            });
+        topics("fletcher", List.of(
+            new Topic("vc_wall_walk", 0, Where.NEAR_CASTLE, "What can you see from up there?",
+                node("Everything, on a clear day. The fields, the road, the golem doing its rounds. Mostly nothing happens up there. I've come to like nothing.",
+                    "Enjoy the view.",
+                    then("And on a bad night?",
+                        close("The one raid we had, I saw them coming across the east field before the bell went. That's what the wall's for. Not the stone. The seeing.",
+                            "Here's to nothing."))))));
 
-        registerFetchQuest("farmer",
-            Items.HAY_BLOCK, 4, 4, 0.10,
-            "The stables need feed. Four hay bales and the horses eat through winter.");
+        topics("farmer", List.of(
+            new Topic("vc_feeding", 0, Where.CASTLE_VILLAGE, "Is the keep a lot of extra mouths?",
+                node("It is. Nobody asked me before they moved in, either. But the golem walks the wall and the door's iron, and I've stopped sleeping with one ear open. So I plant more.",
+                    "Plant on, then.",
+                    then("Do they help with the fields?",
+                        close("The ones who sleep up there? They're us. Same people, thicker walls. They help the way anyone does, which is when asked twice.",
+                            "Fair enough."))))));
 
-        // Toolsmith: maintaining the castle
-        registerFetchQuest("toolsmith",
-            Items.IRON_INGOT, 8, 6, 0.10,
-            "The portcullis mechanism is worn through. I need iron to forge replacement gears.");
+        topics("armorer", List.of(
+            new Topic("vc_golem", 0, Where.CASTLE_VILLAGE, "Does the golem ever go inside the keep?",
+                node("Never. It walks the wall and stands at the gate and never once goes through it. I've stopped taking that personally.",
+                    "It knows its post.",
+                    then("Does it know what the keep is for?",
+                        close("It knows the gate. Stand at the gate long enough and it comes and stands with you. That's as much as I know about it.",
+                            "Good company, then."))))));
 
-        registerFetchQuest("toolsmith",
-            Items.IRON_AXE, 2, 5, 0.08,
-            "The woodcutters broke their axes reinforcing the palisade. Two replacements, sharp ones.");
+        topics("weaponsmith", List.of(
+            new Topic("vc_raid", 10, Where.CASTLE_VILLAGE, "Has the wall ever been tested?",
+                node("Once. Pillagers, from the east, at dusk. The bell went, we got inside, the golem did the rest. The wall did nothing but stand there, which is all I ever asked of it.",
+                    "Good wall.",
+                    then("Were you frightened?",
+                        close("I was up on the wall with a sword I'd made myself, thinking about every flaw in it. That's the honest answer.",
+                            "Good sword, then."))))));
 
-        // Cleric: the ruins connection
-        registerFetchQuest("cleric",
-            Items.GOLDEN_APPLE, 1, 10, 0.06,
-            "Travelers found a zombie villager in the old ruins. They were one of ours, once. A golden apple might bring them back.");
+        topics("librarian", List.of(
+            new Topic("vc_history", 10, Where.CASTLE_VILLAGE, "Who built the keep?",
+                node("We did. That's the short answer and the one on the sign. The long answer is we built it looking at theirs. The old ones out in the wild. Same corners, same string course under each floor. Ours is smaller and has beds in it.",
+                    "Makes sense.",
+                    then("Why copy theirs?",
+                        close("Because theirs is still standing and whoever built it isn't. That seemed like the part to copy.",
+                            "Can't argue with that.")))),
+            new Topic("vc_lib_ruins", 20, Where.RUINS_NEAR, "The old place out there. What is it?",
+                node("Older than anything here. Deepslate all the way up, slate on what's left of the roofs, and nobody who built it left a name on it. I've been twice, in daylight, and not past the gate.",
+                    "Best from a distance.",
+                    then("What's past the gate?",
+                        close("Bones that walk. And under them, whatever they were left to guard. I'd like the names off the lintels, if you ever go. I'll do the rest from here.",
+                            "Names off the lintels."))))));
 
-        registerFetchQuest("cleric",
-            Items.GLISTERING_MELON_SLICE, 4, 5, 0.10,
-            "Some of the watch came back hurt from the last trouble. I need glistering melon for healing potions.");
-
-        // Librarian: castle lore and records
-        registerFetchQuest("librarian",
-            Items.BOOK, 3, 5, 0.12,
-            "I'm writing down the castle's history — who built it, who held it. Need blank books.");
-
-        registerFetchQuest("librarian",
-            Items.WRITABLE_BOOK, 1, 6, 0.08,
-            "The old charter's fading. I need a book and quill to copy it before it's gone.");
-
-        // Universal: any villager in a castle village might ask
-        registerBiomeAwareFetchQuestUniversal(32, 4, 0.08,
-            new Object[][] {
-                {"snowy", Items.SOUL_TORCH, "Lanterns freeze. Need soul torches for the watchtowers."},
-                {"plains", Items.TORCH, "Castle corridors are pitch black at night. Torches — as many as you've got."}
-            });
-
-        registerFetchQuestUniversal(
-            Items.COBBLESTONE, 16, 3, 0.06,
-            "Wall collapsed near the well. Could you bring cobblestone? Anybody could do it, but...");
+        topics("cleric", List.of(
+            new Topic("vc_ruins_dead", 20, Where.RUINS_NEAR, "The ones out at the old place. Do they bother you?",
+                node("They're not dead. That's what bothers me. Something keeps them walking, down in the dark under it, and it's been keeping them since before this village had a well.",
+                    "I'll leave them be.",
+                    then("Could it be stopped?",
+                        close("Break what keeps them, and they stop. I know that much and no more. If you find it, don't bring it back here.",
+                            "I won't."))))));
     }
 
     /**
-     * Register a profession-specific fetch quest via reflection.
-     * @param chance Probability (0-1) that this quest is offered when generating
+     * One profession's questions. Of the ones that fit where the player is
+     * standing, at most one is offered, and only some of the time, so a castle
+     * comes up in conversation the way a building does rather than as a menu of
+     * things to ask about it.
      */
-    private static void registerFetchQuest(String profession, net.minecraft.world.item.Item item,
-                                            int count, int reputationShift, double chance,
-                                            String description) throws Exception {
-        Object generator = java.lang.reflect.Proxy.newProxyInstance(
-            VillageQuestsIntegration.class.getClassLoader(),
-            new Class<?>[]{ Class.forName("justfatlard.village_quests.api.QuestRegistry$QuestGenerator") },
-            (proxy, method, args) -> {
-                if (!"generate".equals(method.getName())) return null;
-                java.util.Random random = (java.util.Random) args[3];
-                if (random.nextDouble() >= chance) return null;
-                String villagerName = (String) args[1];
-                net.minecraft.world.entity.npc.villager.Villager villager =
-                    (net.minecraft.world.entity.npc.villager.Villager) args[0];
-                String desc = description;
-                String weather = getWeatherFlavor(villager);
-                if (weather != null) desc = weather + desc;
-                return fetchQuestConstructor.newInstance(
-                    villagerName, villager.getUUID(), item, count, reputationShift, desc);
-            }
-        );
-
-        registerProfessionQuestMethod.invoke(null, profession, generator);
-    }
-
-    private static void registerFetchQuestUniversal(net.minecraft.world.item.Item item,
-                                                     int count, int reputationShift, double chance,
-                                                     String description) throws Exception {
-        Object generator = java.lang.reflect.Proxy.newProxyInstance(
-            VillageQuestsIntegration.class.getClassLoader(),
-            new Class<?>[]{ Class.forName("justfatlard.village_quests.api.QuestRegistry$QuestGenerator") },
-            (proxy, method, args) -> {
-                if (!"generate".equals(method.getName())) return null;
-                java.util.Random random = (java.util.Random) args[3];
-                if (random.nextDouble() >= chance) return null;
-                String villagerName = (String) args[1];
-                net.minecraft.world.entity.npc.villager.Villager villager =
-                    (net.minecraft.world.entity.npc.villager.Villager) args[0];
-                return fetchQuestConstructor.newInstance(
-                    villagerName, villager.getUUID(), item, count, reputationShift, description);
-            }
-        );
-
-        registerUniversalQuestMethod.invoke(null, generator);
-    }
-
-
-    /**
-     * Register a biome-aware profession fetch quest. Picks item/description based on village biome.
-     * variants: Object[][] where each row is {biomeString, Item, description}. "plains" is default.
-     */
-    private static void registerBiomeAwareFetchQuest(String profession, int count, int repShift,
-                                                      double chance, Object[][] variants) throws Exception {
-        Object generator = java.lang.reflect.Proxy.newProxyInstance(
-            VillageQuestsIntegration.class.getClassLoader(),
-            new Class<?>[]{ Class.forName("justfatlard.village_quests.api.QuestRegistry$QuestGenerator") },
-            (proxy, method, args) -> {
-                if (!"generate".equals(method.getName())) return null;
-                java.util.Random random = (java.util.Random) args[3];
-                if (random.nextDouble() >= chance) return null;
-                net.minecraft.world.entity.npc.villager.Villager villager =
-                    (net.minecraft.world.entity.npc.villager.Villager) args[0];
-                String villagerName = (String) args[1];
-                String biome = classifyBiome(villager);
-                // Find matching biome variant, fall back to plains
-                net.minecraft.world.item.Item item = Items.STONE_BRICKS;
-                String desc = "";
-                for (Object[] v : variants) {
-                    if (biome.equals(v[0]) || "plains".equals(v[0])) {
-                        item = (net.minecraft.world.item.Item) v[1];
-                        desc = (String) v[2];
-                        if (biome.equals(v[0])) break; // exact match wins
-                    }
-                }
-                String weather = getWeatherFlavor(villager);
-                if (weather != null) desc = weather + desc;
-                return fetchQuestConstructor.newInstance(villagerName, villager.getUUID(), item, count, repShift, desc);
-            }
-        );
-        registerProfessionQuestMethod.invoke(null, profession, generator);
-    }
-
-    private static void registerBiomeAwareFetchQuestUniversal(int count, int repShift,
-                                                                double chance, Object[][] variants) throws Exception {
-        Object generator = java.lang.reflect.Proxy.newProxyInstance(
-            VillageQuestsIntegration.class.getClassLoader(),
-            new Class<?>[]{ Class.forName("justfatlard.village_quests.api.QuestRegistry$QuestGenerator") },
-            (proxy, method, args) -> {
-                if (!"generate".equals(method.getName())) return null;
-                java.util.Random random = (java.util.Random) args[3];
-                if (random.nextDouble() >= chance) return null;
-                net.minecraft.world.entity.npc.villager.Villager villager =
-                    (net.minecraft.world.entity.npc.villager.Villager) args[0];
-                String villagerName = (String) args[1];
-                String biome = classifyBiome(villager);
-                net.minecraft.world.item.Item item = Items.TORCH;
-                String desc = "";
-                for (Object[] v : variants) {
-                    if (biome.equals(v[0]) || "plains".equals(v[0])) {
-                        item = (net.minecraft.world.item.Item) v[1];
-                        desc = (String) v[2];
-                        if (biome.equals(v[0])) break;
-                    }
-                }
-                String weather = getWeatherFlavor(villager);
-                if (weather != null) desc = weather + desc;
-                return fetchQuestConstructor.newInstance(villagerName, villager.getUUID(), item, count, repShift, desc);
-            }
-        );
-        registerUniversalQuestMethod.invoke(null, generator);
-    }
-
-    // ---------------------------------------------------------------
-    // Dialogue Registration
-    // ---------------------------------------------------------------
-
-    private static void registerCastleDialogue() throws Exception {
-        // Each exchange: the player's question, the villager's answer, then the
-        // player's follow-up moves and the villager's closes. The villager
-        // speaks last on every branch; the walkAway label is the player's exit.
-
-        registerExchange("mason", "vc_mason_walls",
-            "How are the castle walls holding up?", 0, 200,
-            node("Better than before you started helping. The eastern section is solid now, but the north tower foundation worries me. Settling soil.",
-                "Good to hear about the east.",
-                option("What's wrong with the foundation?",
-                    "Water. It finds the one weak course in a hundred. The old builders knew a trick for it. We don't. So I check it every morning and hope loudly.",
-                    "Keep checking.")));
-
-        registerExchange("mason", "vc_mason_ruins",
-            "Have you seen the ruins in the wilderness?", 20, 200,
-            node("Aye. Same stonework as ours. Whoever built this place built those too. Makes you wonder what happened to them.",
-                "Makes you wonder.",
-                option("What do you think happened?",
-                    "Nothing quick. Quick leaves burn marks and broken gates. That place was just left. Packed up or walked out. Tidy endings scare me more than messy ones.",
-                    "The tidier the worse. Right.")));
-
-        registerExchange("weaponsmith", "vc_smith_guard",
-            "Is the watch well-armed?", 0, 200,
-            node("Well enough. I keep the grindstone going. But I'd sleep better with more iron in the armory.",
-                "Sleep well anyway.",
-                option("How much more iron?",
-                    "Twenty ingots would settle my nerves. Forty would let me sleep through a thunderstorm. I haven't slept through a thunderstorm since I took this post.",
-                    "I'll keep an eye out for iron.")));
-
-        registerExchange("weaponsmith", "vc_smith_raids",
-            "Has the castle ever been attacked?", 30, 200,
-            node("Once. Pillagers came from the east. The walls held. That's the thing about stone — it doesn't care how angry you are.",
-                "Stone doesn't care. Ha.",
-                option("Were you here for it?",
-                    "On the wall, second night. You learn what you're made of up there. Turns out I'm made of the same thing as everyone: fear, and a reason to stay anyway.",
-                    "Glad the walls held.")));
-
-        registerExchange("librarian", "vc_lib_history",
-            "What do you know about this castle's history?", 10, 200,
-            node("Records don't go back far enough. Somebody built this place, though — the stonework's too good for us. Military, maybe. The ruins nearby look the same.",
-                "Thanks, keeper.",
-                option("Military? Built against what?",
-                    "No record says. But count the arrow slits on the south face, then look what direction they aim. Somebody expected trouble from the water. There is no water.",
-                    "No water. Hm.")));
-
-        registerExchange("librarian", "vc_lib_ruins",
-            "Tell me about the ruins nearby.", 40, 200,
-            node("The old fortress? Dangerous. Full of undead. But the stonework matches ours. Same builders, different fate. I'd love to get a closer look, but... no.",
-                "Best from a distance, then.",
-                option("I could escort you sometime.",
-                    "*stares* You're serious. I'd need a week to prepare. Two. And you'd have to promise not to rush me past the inscriptions. Everyone rushes me past the inscriptions.",
-                    "No rushing. Promised.")));
-
-        registerExchange("cleric", "vc_cleric_zombie",
-            "Are there really zombie villagers in the ruins?", 20, 200,
-            node("They used to live here. When the old fortress fell, not everyone got out. They're still in there, wandering. A golden apple and a splash of weakness... we could bring them back.",
-                "Maybe someday.",
-                option("Would you come along, if I went?",
-                    "To the ruins? I've asked myself that for years. If you're truly going, bring me back the names from the door lintels. I can do the rest from here. The apples are the easy part.",
-                    "Names from the lintels.")));
-
-        registerExchange("fletcher", "vc_fletcher_tower",
-            "How's the view from the towers?", 0, 200,
-            node("On a clear day you can see the old ruins from up there. The guards watch the horizon. Arrows carry further from height, too.",
-                "Keep watching.",
-                option("What does the horizon look like lately?",
-                    "Quiet. Too quiet, the young ones say. But I've watched that line for years. Quiet is what winning looks like. Nobody believes me because it's boring.",
-                    "Here's to boring.")));
-
-        registerExchange("farmer", "vc_farmer_feed",
-            "Is it hard feeding the whole watch?", 10, 200,
-            node("Feeding this many people wasn't the plan. The watch, the smith, the horses... but they keep us safe, so I keep planting.",
-                "Keep planting.",
-                option("How do you manage it?",
-                    "Rotation, prayer, and the watch eats what's grown, not what they'd like. The horses complain less than the guards. Take from that what you will.",
-                    "The horses have manners.")));
-
-        // Grief dialogue: surfaces when a castle villager has recently died
-        registerDialogue("mason", "vc_grief_mason",
-            Component.literal("The watchtower is unmanned tonight."), 0, 200,
-            Component.literal("Nobody wanted the shift. Not after what happened."));
-
-        registerDialogue("weaponsmith", "vc_grief_smith",
-            Component.literal("Their post is empty."), 0, 200,
-            Component.literal("Nobody's taken it. The tools are still where they left them."));
-
-        registerDialogue("farmer", "vc_grief_farmer",
-            Component.literal("The watch feels thinner today."), 0, 200,
-            Component.literal("One less mouth to feed. That's the wrong way to think about it. But I thought it."));
-
-        // Armorer: talks about equipment
-        registerExchange("armorer", "vc_armorer_watch",
-            "Do the tower guards have good armor?", 0, 200,
-            node("Good enough for arrows. Not enough for a full siege. I keep the blast furnace running day and night, but iron doesn't grow on trees.",
-                "Iron doesn't grow. Right.",
-                option("What would a full siege need?",
-                    "Plate for thirty, shields for the wall line, and a second furnace. Or no siege. I'm pouring my hopes into the last one.",
-                    "Option three. Agreed.")));
-    }
-
-    /** Reply-tree node for the exchange API: villager line, closing button, follow-up options. */
-    @SafeVarargs
-    private static java.util.Map<String, Object> node(String text, String walkAway, java.util.Map<String, Object>... options) {
-        java.util.Map<String, Object> n = new java.util.HashMap<>();
-        n.put("text", text);
-        if (walkAway != null) n.put("walkAway", walkAway);
-        if (options.length > 0) n.put("options", new ArrayList<>(java.util.Arrays.asList(options)));
-        return n;
-    }
-
-    /** A player follow-up: its button label plus the node it leads to. */
-    @SafeVarargs
-    private static java.util.Map<String, Object> option(String label, String text, String walkAway, java.util.Map<String, Object>... options) {
-        java.util.Map<String, Object> n = node(text, walkAway, options);
-        n.put("label", label);
-        return n;
-    }
-
-    private static void registerExchange(String profession, String optionId, String question,
-                                          int minRep, int maxRep, java.util.Map<String, Object> tree) throws Exception {
-        if (registerExchangeMethod == null) {
-            // Older village-quests: fall back to the one-shot form, keeping the answer.
-            registerDialogue(profession, optionId, Component.literal(question), minRep, maxRep,
-                Component.literal(String.valueOf(tree.get("text"))));
-            return;
+    private static void topics(String profession, List<Topic> topics) throws Exception {
+        for (Topic topic : topics) {
+            registerRichHandler.invoke(null, topic.id(), handler((villager, player, id) -> reply(topic.tree())));
         }
 
-        registerExchangeMethod.invoke(null, profession, optionId, question, minRep, maxRep, tree);
-    }
-
-    private static void registerDialogue(String profession, String optionId,
-                                          Component displayText, int minRep, int maxRep,
-                                          Component response) throws Exception {
-        // Create DialogueProvider proxy
-        Object provider = java.lang.reflect.Proxy.newProxyInstance(
-            VillageQuestsIntegration.class.getClassLoader(),
-            new Class<?>[]{ Class.forName("justfatlard.village_quests.api.DialogueRegistry$DialogueProvider") },
+        Object provider = Proxy.newProxyInstance(dialogueProviderClass.getClassLoader(), new Class<?>[]{dialogueProviderClass},
             (proxy, method, args) -> {
                 if (!"getOptions".equals(method.getName())) return new ArrayList<>();
-                List<Object> options = new ArrayList<>();
-                options.add(dialogueOptionConstructor.newInstance(optionId, displayText, minRep, maxRep));
-                return options;
-            }
-        );
+                Villager villager = (Villager) args[0];
+                int reputation = (Integer) args[2];
+                ThreadLocalRandom rng = ThreadLocalRandom.current();
+                List<Object> offered = new ArrayList<>();
+                if (rng.nextDouble() >= QUESTION_CHANCE || !inCastleVillage(villager)) return offered;
 
-        // Create DialogueHandler proxy
-        Object handler = java.lang.reflect.Proxy.newProxyInstance(
-            VillageQuestsIntegration.class.getClassLoader(),
-            new Class<?>[]{ Class.forName("justfatlard.village_quests.api.DialogueRegistry$DialogueHandler") },
+                List<Topic> fitting = new ArrayList<>();
+                for (Topic topic : topics) {
+                    if (reputation < topic.minReputation()) continue;
+                    boolean fits = switch (topic.where()) {
+                        case CASTLE_VILLAGE -> true;
+                        case NEAR_CASTLE -> nearCastle(villager);
+                        case RUINS_NEAR -> ruinsNear(villager) != null;
+                    };
+                    if (fits) fitting.add(topic);
+                }
+                if (fitting.isEmpty()) return offered;
+
+                Topic topic = fitting.get(rng.nextInt(fitting.size()));
+                offered.add(dialogueOption.newInstance(topic.id(), Component.literal(topic.question()), topic.minReputation(), Integer.MAX_VALUE));
+                return offered;
+            });
+        registerProfessionDialogue.invoke(null, profession, provider);
+    }
+
+    @FunctionalInterface
+    private interface Answer {
+        Object reply(Villager villager, ServerPlayer player, String optionId) throws Exception;
+    }
+
+    private static Object handler(Answer answer) {
+        return Proxy.newProxyInstance(richHandlerClass.getClassLoader(), new Class<?>[]{richHandlerClass},
             (proxy, method, args) -> {
                 if (!"handle".equals(method.getName())) return null;
-                return response;
-            }
-        );
+                return answer.reply((Villager) args[0], (ServerPlayer) args[1], (String) args[2]);
+            });
+    }
 
-        registerProfessionDialogueMethod.invoke(null, profession, provider);
-        registerDialogueHandlerMethod.invoke(null, optionId, handler);
+    /** A tree node as a Village Quests reply: the line, its exit, and a handler per follow-up. */
+    private static Object reply(Node node) throws Exception {
+        Object reply = replyOf.invoke(null, node.text());
+        if (node.walkAway() != null) replyWalkAway.invoke(reply, node.walkAway());
+        for (Branch branch : node.branches()) {
+            replyOption.invoke(reply, branch.label(), handler((villager, player, id) -> reply(branch.node())));
+        }
+        return reply;
     }
 }

@@ -4,6 +4,7 @@ import com.villagecastles.worldgen.CastleGroundsPiece;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.levelgen.structure.BoundingBox;
 import net.minecraft.world.level.levelgen.structure.StructurePiece;
 import net.minecraft.world.level.levelgen.structure.StructureStart;
 
@@ -59,6 +60,39 @@ public final class CastleCensus {
             }
         }
         return castles;
+    }
+
+    /**
+     * The footprint of the castle nearest this position, or null when the village around it has
+     * none. Same search as the count; the box is what lets a conversation know whether the player
+     * is standing in the keep's shadow or across the village from it.
+     */
+    public static BoundingBox nearestCastleBox(ServerLevel world, BlockPos pos) {
+        Set<StructureStart> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        ChunkPos origin = new ChunkPos(
+            net.minecraft.core.SectionPos.blockToSectionCoord(pos.getX()),
+            net.minecraft.core.SectionPos.blockToSectionCoord(pos.getZ()));
+        BoundingBox nearest = null;
+        double nearestDist = Double.MAX_VALUE;
+
+        for (int dx = -SEARCH_CHUNK_RADIUS; dx <= SEARCH_CHUNK_RADIUS; dx++) {
+            for (int dz = -SEARCH_CHUNK_RADIUS; dz <= SEARCH_CHUNK_RADIUS; dz++) {
+                ChunkPos chunk = new ChunkPos(origin.x() + dx, origin.z() + dz);
+                for (StructureStart start : world.structureManager().startsForStructure(chunk.x(), chunk.z(), s -> true)) {
+                    if (!visited.add(start)) continue;
+                    for (StructurePiece piece : start.getPieces()) {
+                        if (!(piece instanceof CastleGroundsPiece)) continue;
+                        BoundingBox box = piece.getBoundingBox();
+                        double dist = box.getCenter().distSqr(pos);
+                        if (dist < nearestDist) {
+                            nearestDist = dist;
+                            nearest = box;
+                        }
+                    }
+                }
+            }
+        }
+        return nearest;
     }
 
     private static int countCastlePieces(StructureStart start) {
