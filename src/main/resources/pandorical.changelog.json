@@ -1,0 +1,11 @@
+{
+  "overview": [
+    "Castles, every one generated in place rather than pasted from a template: ancient ruins standing where the land calls for them, and villager-built keeps and walls on the edge of about one village in five."
+  ],
+  "versions": {
+    "1.0.0": [
+      "Seven kinds of ancient castle chosen by the shape of the ground and weathered by a condition roll, the most intact holding the best loot and the heaviest undead, the ruins offering digs instead. Villager castles are new-built in the biome's own timber and stone, furnished, lit and lived in.",
+      "Masons and fletchers only talk about the wall where there is one, stairs cut their own headroom as they climb, and with Village Builder installed a growing village can raise a castle itself."
+    ]
+  }
+}

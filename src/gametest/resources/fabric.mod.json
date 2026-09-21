@@ -1,0 +1,18 @@
+{
+	"schemaVersion": 1,
+	"id": "village-castles-gametest",
+	"version": "1.0.0",
+	"name": "Village Castles smoke test",
+	"description": "Loads the mod, joins a world, and fails if anything on the way threw.",
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"com.villagecastles.gametest.SmokeTest"
+		]
+	},
+	"depends": {
+		"village-castles": "*",
+		"fabric-client-gametest-api-v1": "*"
+	}
+}
