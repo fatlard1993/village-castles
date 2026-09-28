@@ -3,6 +3,9 @@
     "Castles, every one generated in place rather than pasted from a template: ancient ruins standing where the land calls for them, and villager-built keeps and walls on the edge of about one village in five."
   ],
   "versions": {
+    "1.0.1": [
+      "A mod menu icon of a broken wall on open ground, not a plain tower."
+    ],
     "1.0.0": [
       "Seven kinds of ancient castle, chosen by the shape of the ground and weathered by a roll.",
       "The most intact hold the best loot and the heaviest undead. The ruins offer digs instead.",
