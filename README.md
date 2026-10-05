@@ -39,10 +39,12 @@ When [Village Quests](https://github.com/fatlard1993/village-quests) is installe
 
 ## Screenshots
 
-![An eyrie: a lone black tower on a jagged peak, beside the snow line](screenshots/ancient/eyrie.png)
+![An ancient hillfort in a forest by the sea: a black keep standing over its ringwall](screenshots/ancient/hillfort-forest.png)
+![A savanna village's castle seat on the riverbank: keep, towers and courtyard](screenshots/villager/savanna-seat.png)
 ![A plateau citadel, walled along the rim it stands on](screenshots/ancient/plateau-citadel.png)
-![A hold built against and into a cliff face](screenshots/ancient/cliff-hold.png)
-![Watch forts standing over a plains village](screenshots/villager/plains-forts.png)
+![A snowy village's keep: a stone tower under a timber crown among the spruce](screenshots/villager/snowy-keep.png)
+![A desert village's fort: a roofed keep inside its round sandstone wall](screenshots/villager/desert-fort.png)
+![An ancient hillfort gone to ruin on its crag above the snow](screenshots/ancient/hillfort.png)
 
 `screenshots/ancient/` holds the rest of the gallery: one for each of the seven ancient landform types, and `screenshots/villager/` the keeps and seats a village builds for itself.
 
