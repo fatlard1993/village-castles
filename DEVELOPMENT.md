@@ -34,7 +34,6 @@ every chunk computes identically.
   and spawns the villagers at bed heads.
 - Keep spiral stairs cut a helical two-block stairwell above each tread so they climb through the
   six-block floors.
-- `Condition.minChests/maxChests` are declared but not read anywhere.
 
 ## Integrations
 
