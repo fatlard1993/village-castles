@@ -31,5 +31,12 @@
   "suggests": {
     "village-builder": "*",
     "village-quests-justfatlard": "*"
+  },
+  "custom": {
+    "modmenu": {
+      "links": {
+        "modmenu.donate": "https://github.com/sponsors/fatlard1993"
+      }
+    }
   }
 }
