@@ -1,0 +1,30 @@
+{
+  "demo": {
+    "name": "Village Castles",
+    "icon": "minecraft:stone_bricks",
+    "about": [
+      "Grand castles that stand at the edge of villages, built from the stone and wood of the biome they are in.",
+      "This one is a medium castle of the plains. Walk its walls, climb its towers and see what is kept inside."
+    ]
+  },
+  "pvp_preset": 1,
+  "needs": ["village-castles"],
+  "preset": {
+    "name": "Village Castles",
+    "icon": "minecraft:stone_bricks",
+    "pvp": false,
+    "game_mode": "adventure",
+    "source": "saved",
+    "saved": "castle-demo",
+    "entry_kit": [
+      {"slot": 0, "item": {"id": "minecraft:spyglass", "count": 1}},
+      {"slot": 1, "item": {"id": "minecraft:torch", "count": 32}},
+      {"slot": 2, "item": {"id": "minecraft:bread", "count": 8}}
+    ],
+    "respawn_kit": "entry",
+    "goal": "time",
+    "mobs": "off",
+    "life": 15,
+    "weather": "clear"
+  }
+}
