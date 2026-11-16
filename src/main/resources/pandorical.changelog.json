@@ -3,6 +3,10 @@
     "Castles, every one generated in place rather than pasted from a template: ancient ruins standing where the land calls for them, and villager-built keeps and walls on the edge of about one village in five."
   ],
   "versions": {
+    "1.0.6": [
+      "Each chunk of a castle walks only its own share of the castle, and a castle is let go of once every chunk under it has generated.",
+      "Looking for castle ground works out each spot's terrain once, not once for its surface and again for its floor."
+    ],
     "1.0.5": [
       "A demo to play in PvP Dimensions' onboarding, on ground with the structure already standing."
     ],
