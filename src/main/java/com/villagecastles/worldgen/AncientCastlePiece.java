@@ -34,9 +34,8 @@ import java.util.Map;
  * {@link Plan} from serialized state - seed, site, condition, tint, and the terrain field sampled
  * at site selection - and each chunk writes the subset that lands inside it.
  *
- * <p>The plan cache is volatile because chunk workers run in parallel: two threads racing here
- * waste a build, which is harmless, but a half-filled plan published early would silently drop
- * blocks.
+ * <p>Chunk workers run in parallel, so the plan is drawn once under {@link PlanByChunk}'s lock: a
+ * half-split plan published early would silently drop blocks.
  */
 public class AncientCastlePiece extends StructurePiece {
 
@@ -70,7 +69,7 @@ public class AncientCastlePiece extends StructurePiece {
     private final Direction facing;
     private final HeightField field;
 
-    private volatile Plan plan;
+    private final PlanByChunk plan = new PlanByChunk(this::getBoundingBox, this::draw);
 
     public AncientCastlePiece(LandformSurvey.Site site, Condition condition, String tint,
                               HeightField field, long shapeSeed) {
@@ -131,22 +130,17 @@ public class AncientCastlePiece extends StructurePiece {
                             ChunkGenerator generator, RandomSource random, BoundingBox chunkBox,
                             ChunkPos chunkPos, BlockPos pivot) {
         try {
-            place(level, plan(), chunkBox, shapeSeed, random);
+            place(level, plan.take(chunkPos), chunkBox, shapeSeed, random);
         } catch (Exception e) {
             // One bad chunk of a castle beats aborting the chunk's whole decoration pass.
             VillageCastles.LOGGER.error("Ancient castle placement failed at {}", chunkPos, e);
         }
     }
 
-    private Plan plan() {
-        Plan cached = plan;
-        if (cached == null) {
-            cached = AncientCastleDesigner.draw(
-                new LandformSurvey.Site(landform, origin, radius, facing),
-                condition, field, tint, shapeSeed);
-            plan = cached;
-        }
-        return cached;
+    private Plan draw() {
+        return AncientCastleDesigner.draw(
+            new LandformSurvey.Site(landform, origin, radius, facing),
+            condition, field, tint, shapeSeed);
     }
 
     /**

@@ -44,7 +44,7 @@ public class VillagerCastlePiece extends StructurePiece {
     private final Direction entrance;
     private final HeightField field;
 
-    private volatile Plan plan;
+    private final PlanByChunk plan = new PlanByChunk(this::getBoundingBox, this::draw);
 
     public VillagerCastlePiece(VillagerCastleDesigner.Site site, String biomeId,
                                HeightField field, long seed) {
@@ -101,19 +101,14 @@ public class VillagerCastlePiece extends StructurePiece {
                             ChunkGenerator generator, RandomSource random, BoundingBox chunkBox,
                             ChunkPos chunkPos, BlockPos pivot) {
         try {
-            AncientCastlePiece.place(level, plan(), chunkBox, seed, random);
+            AncientCastlePiece.place(level, plan.take(chunkPos), chunkBox, seed, random);
         } catch (Exception e) {
             VillageCastles.LOGGER.error("Villager castle placement failed at {}", chunkPos, e);
         }
     }
 
-    private Plan plan() {
-        Plan cached = plan;
-        if (cached == null) {
-            cached = VillagerCastleDesigner.draw(
-                new VillagerCastleDesigner.Site(origin, size, entrance), field, biomeId, seed);
-            plan = cached;
-        }
-        return cached;
+    private Plan draw() {
+        return VillagerCastleDesigner.draw(
+            new VillagerCastleDesigner.Site(origin, size, entrance), field, biomeId, seed);
     }
 }
