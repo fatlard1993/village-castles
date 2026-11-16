@@ -24,7 +24,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.chunk.ChunkGenerator;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.WorldgenRandom;
 import net.minecraft.world.level.levelgen.structure.pools.DimensionPadding;
 import net.minecraft.world.level.levelgen.structure.structures.JigsawStructure;
@@ -299,6 +298,9 @@ public class VillageCastleAttachmentMixin {
         // Terrain survey over the whole footprint, not just the anchor corner. A single
         // corner sample is what lets a castle hang off a cliff: the corner is on grass and
         // the far side is over open air.
+        com.villagecastles.generator.ancient.HeightSampler sampler =
+            com.villagecastles.generator.ancient.HeightSampler.worldgen(
+                chunkGenerator, heightLimitView, context.randomState());
         int lowest = Integer.MAX_VALUE;
         int highest = Integer.MIN_VALUE;
         int wetSamples = 0;
@@ -306,10 +308,8 @@ public class VillageCastleAttachmentMixin {
             for (int j = 0; j < TERRAIN_SAMPLES; j++) {
                 int sx = minX + (width - 1) * i / (TERRAIN_SAMPLES - 1);
                 int sz = minZ + (depth - 1) * j / (TERRAIN_SAMPLES - 1);
-                int surface = chunkGenerator.getFirstOccupiedHeight(
-                    sx, sz, Heightmap.Types.WORLD_SURFACE_WG, heightLimitView, context.randomState());
-                int seabed = chunkGenerator.getFirstOccupiedHeight(
-                    sx, sz, Heightmap.Types.OCEAN_FLOOR_WG, heightLimitView, context.randomState());
+                int surface = sampler.surface(sx, sz);
+                int seabed = sampler.floor(sx, sz);
                 // Standing water deeper than a puddle: the underfill pass would have to build a
                 // pier here. Counted rather than fatal, so a lakeside village still gets a
                 // castle on its driest side.
